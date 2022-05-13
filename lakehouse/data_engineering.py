@@ -1,6 +1,10 @@
+from .logging import log_info
+
+
 def load_data():
-    print("Loading data!")
+    log_info("Loading data!")
 
 
 def write_data():
-    print("Writing data!")
+    log_info("Writing data!")
+
