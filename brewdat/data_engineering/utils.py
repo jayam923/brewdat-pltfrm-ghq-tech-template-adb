@@ -523,6 +523,7 @@ class BrewDatFramework:
                     raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
 
                 cls._write_table_using_overwrite_table(
+                    spark=spark,
                     df=df,
                     location=location,
                     partition_columns=partition_columns,
@@ -536,6 +537,7 @@ class BrewDatFramework:
                     raise ValueError("Attempted to overwrite a partition with an empty dataset. Operation aborted.")
 
                 cls._write_table_using_overwrite_partition(
+                    spark=spark,
                     df=df,
                     location=location,
                     partition_columns=partition_columns,
@@ -543,6 +545,7 @@ class BrewDatFramework:
                 )
             elif load_type == cls.LoadType.APPEND_ALL:
                 cls._write_table_using_append_all(
+                    spark=spark,
                     df=df,
                     location=location,
                     partition_columns=partition_columns,
@@ -553,6 +556,7 @@ class BrewDatFramework:
                     raise ValueError("No key column was given")
 
                 cls._write_table_using_append_new(
+                    spark=spark,
                     df=df,
                     location=location,
                     key_columns=key_columns,
@@ -563,6 +567,7 @@ class BrewDatFramework:
                     raise ValueError("No key column was given")
 
                 cls._write_table_using_upsert(
+                    spark=spark,
                     df=df,
                     location=location,
                     key_columns=key_columns,
@@ -649,6 +654,7 @@ class BrewDatFramework:
     @classmethod
     def _write_table_using_overwrite_table(
         cls,
+        spark: SparkSession,
         df: DataFrame,
         location: str,
         partition_columns: List[str] = [],
@@ -711,6 +717,7 @@ class BrewDatFramework:
     @classmethod
     def _write_table_using_overwrite_partition(
         cls,
+        spark: SparkSession,
         df: DataFrame,
         location: str,
         partition_columns: List[str] = [],
@@ -785,6 +792,7 @@ class BrewDatFramework:
     @classmethod
     def _write_table_using_append_all(
         cls,
+        spark: SparkSession,
         df: DataFrame,
         location: str,
         partition_columns: List[str] = [],
@@ -847,6 +855,7 @@ class BrewDatFramework:
     @classmethod
     def _write_table_using_append_new(
         cls,
+        spark: SparkSession,
         df: DataFrame,
         location: str,
         key_columns: List[str] = [],
@@ -914,6 +923,7 @@ class BrewDatFramework:
     @classmethod
     def _write_table_using_upsert(
         cls,
+        spark: SparkSession,
         df: DataFrame,
         location: str,
         key_columns: List[str] = [],
