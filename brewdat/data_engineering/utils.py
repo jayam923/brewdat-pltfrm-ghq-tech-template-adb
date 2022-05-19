@@ -1,5 +1,5 @@
 # Databricks notebook source
-class Framework:
+class BrewDatFramework:
     """Reusable functions for all BrewDat projects.
 
     Methods
