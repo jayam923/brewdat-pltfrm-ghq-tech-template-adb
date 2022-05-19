@@ -1,7 +1,7 @@
 # Databricks notebook source
 import sys
 
-sys.path.append("/Workspace/Repos/brewdat_framework/v0.0.1")
+sys.path.append("/Workspace/Repos/brewdat_framework/[version]")
 
 # COMMAND ----------
 
@@ -15,13 +15,16 @@ print(f"watermark_end_datetime: {watermark_end_datetime}")
 
 # COMMAND ----------
 
-def check_workspace_env():
-    return 'dev'
+# MAGIC %fs
+# MAGIC ls abfss://gold@brewdatpltfrmslvgldd.dfs.core.windows.net/data/ghq/tech
+
+# COMMAND ----------
+
 
 from brewdat.data_engineering.utils import BrewDatFramework
 
-BrewDatFramework.LAKEHOUSE_LANDING_ROOT
-#abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/
+BrewDatFramework.LAKEHOUSE_BRONZE_ROOT
+#abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data
 #abfss://raw@brewdatbeesrawbrzd.dfs.core.windows.net'
 
 # COMMAND ----------
@@ -30,6 +33,10 @@ df = BrewDatFramework.read_raw_dataframe(
     file_format=BrewDatFramework.RawFileFormat.CSV,
     location=f"{BrewDatFramework.LAKEHOUSE_LANDING_ROOT}/ghq/tech/adventureworks/adventureworkslt/saleslt/customer2/"
 )
+
+
+#abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data
+#abfss://bronze@brewdatpltfrmrawbrzd.dfs.core.windows.net/data
 
 # COMMAND ----------
 

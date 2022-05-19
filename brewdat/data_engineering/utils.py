@@ -33,6 +33,7 @@ class BrewDatFramework:
     import pyspark.sql.functions as F
     import re
     import sys
+    import os
     import traceback
     from datetime import datetime
     from delta.tables import DeltaTable
@@ -46,11 +47,10 @@ class BrewDatFramework:
     ########################################
 
     # TODO: move these somewhere else
-    ENV = check_workspace_env()
-    LAKEHOUSE_LANDING_ROOT = f"abfss://raw@brewdatbeesrawbrz{ENV[0]}.dfs.core.windows.net" 
-    LAKEHOUSE_BRONZE_ROOT = f"abfss://bronze@brewdatbeesrawbrz{ENV[0]}.dfs.core.windows.net"
-    LAKEHOUSE_SILVER_ROOT = f"abfss://silver@brewdatbeesslvgld{ENV[0]}.dfs.core.windows.net"
-    LAKEHOUSE_GOLD_ROOT = f"abfss://gold@brewdatbeesslvgld{ENV[0]}.dfs.core.windows.net"
+    LAKEHOUSE_LANDING_ROOT = os.getenv("LAKEHOUSE_LANDING_ROOT")
+    LAKEHOUSE_BRONZE_ROOT = os.getenv("LAKEHOUSE_BRONZE_ROOT")
+    LAKEHOUSE_SILVER_ROOT = os.getenv("LAKEHOUSE_SILVER_ROOT")
+    LAKEHOUSE_GOLD_ROOT = os.getenv("LAKEHOUSE_GOLD_ROOT")
 
 
     @unique
