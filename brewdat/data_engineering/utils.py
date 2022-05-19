@@ -1,4 +1,3 @@
-# Databricks notebook source
 class BrewDatFramework:
     """Reusable functions for all BrewDat projects.
 
