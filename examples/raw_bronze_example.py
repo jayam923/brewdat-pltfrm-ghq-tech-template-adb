@@ -85,4 +85,4 @@ print(results)
 
 # COMMAND ----------
 
-BrewDatFramework.exit_with_object(results)
+BrewDatFramework.exit_with_object(dbutils, results)

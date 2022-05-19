@@ -614,7 +614,7 @@ class BrewDatFramework:
 
 
     @classmethod
-    def exit_with_object(cls, results: ReturnObject):
+    def exit_with_object(cls, dbutils, results: ReturnObject):
         """Finish execution returning an object to the notebook's caller.
         Used to return the results of a write operation to the orchestrator.
         Parameters
