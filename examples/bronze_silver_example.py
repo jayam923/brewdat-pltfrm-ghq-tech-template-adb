@@ -18,27 +18,20 @@ print(f"watermark_end_datetime: {watermark_end_datetime}")
 
 # COMMAND ----------
 
-df = BrewDatFramework.read_raw_dataframe(
-    spark,
-    file_format=BrewDatFramework.RawFileFormat.CSV,
-    location=f"{BrewDatFramework.LAKEHOUSE_LANDING_ROOT}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/customer2/"
-)
-
-# COMMAND ----------
-
-df = BrewDatFramework.clean_column_names(df)
-
-# COMMAND ----------
-
 try:
     from pyspark.sql import functions as F
 
     df = (
-        df
-        .filter(F.date_format(F.col("ModifiedDate"), 'yyyyMMdd').between(
-            F.date_format(F.lit(watermark_start_datetime), "yyyyMMdd"),
-            F.date_format(F.lit(watermark_end_datetime), "yyyyMMdd"),
-        ))
+      spark.sql(f"""
+        SELECT
+            *
+        FROM brz_ghq_tech_adventureworks.saleslt_customer2
+        WHERE 1 = 1
+        AND reference_year BETWEEN DATE_FORMAT('{watermark_start_datetime}', 'yyyy') AND DATE_FORMAT('{watermark_end_datetime}', 'yyyy') 
+        AND reference_month BETWEEN DATE_FORMAT('{watermark_start_datetime}', 'yyyyMM') AND DATE_FORMAT('{watermark_end_datetime}', 'yyyyMM')
+        AND reference_day BETWEEN DATE_FORMAT('{watermark_start_datetime}', 'yyyyMMdd') AND DATE_FORMAT('{watermark_end_datetime}', 'yyyyMMdd')
+      """)
+        .withColumn("ModifiedDate", F.to_timestamp("ModifiedDate"))
     )
 
 except:
@@ -46,28 +39,34 @@ except:
 
 # COMMAND ----------
 
+key_columns = ["CustomerID"]
+
+df = BrewDatFramework.deduplicate_records(
+    df=df,
+    key_columns=key_columns,
+    watermark_column="ModifiedDate",
+)
+
+# COMMAND ----------
+
 df = BrewDatFramework.create_or_replace_audit_columns(df)
 
 # COMMAND ----------
 
-df = df.withColumn("reference_year", F.date_format("ModifiedDate", "yyyy"))
-df = df.withColumn("reference_month", F.date_format("ModifiedDate", "yyyyMM"))
-df = df.withColumn("reference_day", F.date_format("ModifiedDate", "yyyyMMdd"))
+zone="ghq"
+business_domain="tech"
+source_system="adventureworks"
 
-# COMMAND ----------
-
-zone = "ghq"
-business_domain = "tech"
-source_system = "adventureworks"
-table_name = "saleslt_customer2"
 schema_name = f"brz_{zone}_{business_domain}_{source_system}"
-partition_columns=["reference_year", "reference_month", "reference_day"]
+table_name = "saleslt_customer2"
 
-location = BrewDatFramework.generate_bronze_table_location(
-    source_zone=zone,
+partition_columns=[]
+
+location = BrewDatFramework.generate_silver_table_location(
     source_business_domain=business_domain,
+    source_zone=zone,
     source_system_name=source_system,
-    source_dataset=table_name,
+    table_name=table_name,
 )
 
 results = BrewDatFramework.write_delta_table(
@@ -76,7 +75,8 @@ results = BrewDatFramework.write_delta_table(
     location=location,
     schema_name=schema_name,
     table_name=table_name,
-    load_type=BrewDatFramework.LoadType.APPEND_ALL,
+    load_type=BrewDatFramework.LoadType.UPSERT,
+    key_columns=key_columns,
     partition_columns=partition_columns,
     schema_evolution_mode=BrewDatFramework.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )

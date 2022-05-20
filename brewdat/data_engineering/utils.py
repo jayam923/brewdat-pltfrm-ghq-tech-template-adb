@@ -603,6 +603,7 @@ class BrewDatFramework:
             )
 
         except Exception as e:
+            raise e
             return cls._build_return_object(
                 status=cls.RunStatus.FAILED,
                 target_object=f"{schema_name}.{table_name}",
