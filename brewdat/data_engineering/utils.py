@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import sys
 import traceback
@@ -16,6 +17,13 @@ from pyspark.sql.window import Window
 
 class BrewDatLibrary:
     """Reusable functions for all BrewDat projects.
+
+    Attributes
+    ----------
+    spark : SparkSession
+        A Spark session.
+    dbutils : object
+        A Databricks utils object.
 
     Methods
     -------
@@ -98,10 +106,13 @@ class BrewDatLibrary:
     # Public methods #
     ##################
 
-    @classmethod
+    def __init__(self, spark: SparkSession, dbutils: object):
+        self.spark = spark
+        self.dbutils = dbutils
+
+
     def read_raw_dataframe(
-        cls,
-        spark: SparkSession,
+        self,
         file_format: RawFileFormat,
         location: str,
     ) -> DataFrame:
@@ -121,7 +132,7 @@ class BrewDatLibrary:
         """
         try:
             df = (
-                spark.read
+                self.spark.read
                 .format(file_format.lower())
                 .option("header", True)
                 .option("escape", "\"")
@@ -130,7 +141,8 @@ class BrewDatLibrary:
             )
 
             # Cast everything to string
-            if file_format != cls.RawFileFormat.CSV:
+            # TODO: make sure we can handle nested types (array, struct)
+            if file_format != self.RawFileFormat.CSV:
                 non_string_columns = [col for col, dtype in df.dtypes if dtype != "string"]
                 for column in non_string_columns:
                     df = df.withColumn(column, F.col(column).cast("string"))
@@ -138,12 +150,11 @@ class BrewDatLibrary:
             return df
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def clean_column_names(
-        cls,
+        self,
         df: DataFrame,
         except_for: List[str] = [],
     ) -> DataFrame:
@@ -178,11 +189,11 @@ class BrewDatLibrary:
             return df
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def create_or_replace_business_key_column(
+        self,
         df: DataFrame,
         business_key_column_name: str,
         key_columns: List[str],
@@ -222,11 +233,10 @@ class BrewDatLibrary:
             return df
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
-    def create_or_replace_audit_columns(cls, df: DataFrame) -> DataFrame:
+    def create_or_replace_audit_columns(self, df: DataFrame) -> DataFrame:
         """Create or replace BrewDat audit columns in the given DataFrame.
 
         The following audit columns are created/replaced:
@@ -256,12 +266,11 @@ class BrewDatLibrary:
             return df
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def deduplicate_records(
-        cls,
+        self,
         df: DataFrame,
         key_columns: List[str],
         watermark_column: str,
@@ -299,12 +308,11 @@ class BrewDatLibrary:
             )
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def drop_empty_columns(
-        cls,
+        self,
         df: DataFrame,
         except_for: List[str] = [],
     ) -> DataFrame:
@@ -334,29 +342,28 @@ class BrewDatLibrary:
             return df
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def generate_bronze_table_location(
-        cls,
+        self,
         target_zone: str,
         target_business_domain: str,
         target_system_name: str,
-        target_dataset: str,
+        table_name: str,
     ) -> str:
         """Build the standard location for a Bronze table.
 
         Parameters
         ----------
         target_zone : str
-            Zone of the source dataset.
+            Zone of the target dataset.
         target_business_domain : str
-            Business domain of the source dataset.
+            Business domain of the target dataset.
         target_system_name : str
             Name of the source system.
-        target_dataset : str
-            Name of the source dataset.
+        table_name : str
+            Name of the target table in the metastore.
 
         Returns
         -------
@@ -365,20 +372,19 @@ class BrewDatLibrary:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [target_zone, target_business_domain, target_system_name, target_dataset]
+            params_list = [target_zone, target_business_domain, target_system_name, table_name]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
             lakehouse_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
-            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{target_dataset}".lower()
+            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{table_name}".lower()
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def generate_silver_table_location(
-        cls,
+        self,
         target_zone: str,
         target_business_domain: str,
         target_system_name: str,
@@ -389,9 +395,9 @@ class BrewDatLibrary:
         Parameters
         ----------
         target_zone : str
-            Zone of the source system.
+            Zone of the target dataset.
         target_business_domain : str
-            Business domain of the source system.
+            Business domain of the target dataset.
         target_system_name : str
             Name of the source system.
         table_name : str
@@ -412,16 +418,15 @@ class BrewDatLibrary:
             return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{table_name}".lower()
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def generate_gold_table_location(
-        cls,
+        self,
         target_zone: str,
         target_business_domain: str,
         project: str,
-        schema_name: str,
+        database_name: str,
         table_name: str,
     ) -> str:
         """Build the standard location for a Gold table.
@@ -429,13 +434,13 @@ class BrewDatLibrary:
         Parameters
         ----------
         target_zone : str
-            Zone of the resulting dataset.
+            Zone of the target dataset.
         target_business_domain : str
-            Business domain of the resulting dataset.
+            Business domain of the target dataset.
         project : str
-            Project of the resulting dataset.
-        schema_name : str
-            Name of the target schema/database for the table in the metastore.
+            Project of the target dataset.
+        database_name : str
+            Name of the target database for the table in the metastore.
         table_name : str
             Name of the target table in the metastore.
 
@@ -446,21 +451,19 @@ class BrewDatLibrary:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [target_zone, target_business_domain, project, schema_name, table_name]
+            params_list = [target_zone, target_business_domain, project, database_name, table_name]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
             lakehouse_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
-            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{project}/{schema_name}/{table_name}".lower()
+            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
 
         except:
-            cls.exit_with_last_exception()
+            self.exit_with_last_exception()
 
 
-    @classmethod
     def write_delta_table(
-        cls,
-        spark: SparkSession,
+        self,
         df: DataFrame,
         location: str,
         schema_name: str,
@@ -483,7 +486,7 @@ class BrewDatLibrary:
             Schema is created if it does not exist.
         table_name : str
             Name of the table in the metastore.
-        load_type : Framework.LoadType
+        load_type : BrewDatLibrary.LoadType
             Specifies the way in which the table should be loaded.
             OVERWRITE_TABLE: the entire table is rewritten in every execution.
                 Avoid whenever possible, as this is not good for large tables.
@@ -503,7 +506,7 @@ class BrewDatLibrary:
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
         partition_columns : List[str], default=[]
             The names of the columns used to partition the table.
-        schema_evolution_mode : Framework.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
                 This is the default Spark behavior when no option is given.
@@ -530,70 +533,65 @@ class BrewDatLibrary:
             num_records_read = df.count()
 
             # Table must exist if we are merging data
-            if load_type != cls.LoadType.APPEND_ALL and not DeltaTable.isDeltaTable(spark, location):
+            if load_type != self.LoadType.APPEND_ALL and not DeltaTable.isDeltaTable(self.spark, location):
                 print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
-                load_type = cls.LoadType.APPEND_ALL
+                load_type = self.LoadType.APPEND_ALL
 
             # Use optimized writes to create less small files
-            spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
+            self.spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
 
             # Set load_type options
-            if load_type == cls.LoadType.OVERWRITE_TABLE:
+            if load_type == self.LoadType.OVERWRITE_TABLE:
                 if num_records_read == 0:
                     raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
 
-                cls._write_table_using_overwrite_table(
-                    spark=spark,
+                self._write_table_using_overwrite_table(
                     df=df,
                     location=location,
                     partition_columns=partition_columns,
                     schema_evolution_mode=schema_evolution_mode,
                 )
-            elif load_type == cls.LoadType.OVERWRITE_PARTITION:
+            elif load_type == self.LoadType.OVERWRITE_PARTITION:
                 if not partition_columns:
                     raise ValueError("No partition column was given")
 
                 if num_records_read == 0:
                     raise ValueError("Attempted to overwrite a partition with an empty dataset. Operation aborted.")
 
-                cls._write_table_using_overwrite_partition(
-                    spark=spark,
+                self._write_table_using_overwrite_partition(
                     df=df,
                     location=location,
                     partition_columns=partition_columns,
                     schema_evolution_mode=schema_evolution_mode,
                 )
-            elif load_type == cls.LoadType.APPEND_ALL:
-                cls._write_table_using_append_all(
-                    spark=spark,
+            elif load_type == self.LoadType.APPEND_ALL:
+                self._write_table_using_append_all(
                     df=df,
                     location=location,
                     partition_columns=partition_columns,
                     schema_evolution_mode=schema_evolution_mode,
                 )
-            elif load_type == cls.LoadType.APPEND_NEW:
+            elif load_type == self.LoadType.APPEND_NEW:
                 if not key_columns:
                     raise ValueError("No key column was given")
 
-                cls._write_table_using_append_new(
-                    spark=spark,
+                self._write_table_using_append_new(
                     df=df,
                     location=location,
                     key_columns=key_columns,
                     schema_evolution_mode=schema_evolution_mode,
                 )
-            elif load_type == cls.LoadType.UPSERT:
+            elif load_type == self.LoadType.UPSERT:
                 if not key_columns:
                     raise ValueError("No key column was given")
 
-                cls._write_table_using_upsert(
-                    spark=spark,
+                self._write_table_using_upsert(
                     df=df,
                     location=location,
                     key_columns=key_columns,
                     schema_evolution_mode=schema_evolution_mode,
                 )
-            elif load_type == cls.LoadType.TYPE_2_SCD:
+            elif load_type == self.LoadType.TYPE_2_SCD:
                 if not key_columns:
                     raise ValueError("No key column was given")
 
@@ -602,8 +600,8 @@ class BrewDatLibrary:
                 raise NotImplementedError
 
             # Find out how many records we have just written
-            num_version_written = spark.conf.get("spark.databricks.delta.lastCommitVersionInSession")
-            delta_table = DeltaTable.forPath(spark, location)
+            num_version_written = self.spark.conf.get("spark.databricks.delta.lastCommitVersionInSession")
+            delta_table = DeltaTable.forPath(self.spark, location)
             history_df = (
                 delta_table.history()
                 .filter(f"version = {num_version_written}")
@@ -612,19 +610,19 @@ class BrewDatLibrary:
             num_records_loaded = history_df.first()[0]
 
             # Create the Hive database and table
-            spark.sql(f"CREATE DATABASE IF NOT EXISTS {schema_name};")
-            spark.sql(f"CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} USING DELTA LOCATION '{location}';")
+            self.spark.sql(f"CREATE DATABASE IF NOT EXISTS {schema_name};")
+            self.spark.sql(f"CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} USING DELTA LOCATION '{location}';")
 
-            return cls._build_return_object(
-                status=cls.RunStatus.SUCCEEDED,
+            return self._build_return_object(
+                status=self.RunStatus.SUCCEEDED,
                 target_object=f"{schema_name}.{table_name}",
                 num_records_read=num_records_read,
                 num_records_loaded=num_records_loaded,
             )
 
         except Exception as e:
-            return cls._build_return_object(
-                status=cls.RunStatus.FAILED,
+            return self._build_return_object(
+                status=self.RunStatus.FAILED,
                 target_object=f"{schema_name}.{table_name}",
                 num_records_read=num_records_read,
                 num_records_loaded=num_records_loaded,
@@ -633,8 +631,7 @@ class BrewDatLibrary:
             )
 
 
-    @classmethod
-    def exit_with_object(cls, dbutils, results: ReturnObject):
+    def exit_with_object(self, results: ReturnObject):
         """Finish execution returning an object to the notebook's caller.
 
         Used to return the results of a write operation to the orchestrator.
@@ -644,30 +641,29 @@ class BrewDatLibrary:
         results : ReturnObject
             Object containing the results of a write operation.
         """
-        dbutils.notebook.exit(json.dumps(results))
+        self.dbutils.notebook.exit(json.dumps(results))
 
 
-    @classmethod
-    def exit_with_last_exception(cls):
+    def exit_with_last_exception(self):
         """Handle the last unhandled exception, returning an object to the notebook's caller.
 
-            The most recent exception is obtained from sys.exc_info().
+        The most recent exception is obtained from sys.exc_info().
 
-            Examples
-            --------
-            try:
-                # some code
-            except:
-                Framework.exit_with_last_exception()
+        Examples
+        --------
+        try:
+            # some code
+        except:
+            BrewDatLibrary.exit_with_last_exception()
         """
         exc_type, exc_value, _ = sys.exc_info()
-        results = cls._build_return_object(
-            status=cls.RunStatus.FAILED,
+        results = self._build_return_object(
+            status=self.RunStatus.FAILED,
             target_object=None,
             error_message=f"{exc_type.__name__}: {exc_value}",
             error_details=traceback.format_exc(),
         )
-        cls.exit_with_object(results)
+        self.exit_with_object(results)
 
 
 
@@ -675,10 +671,8 @@ class BrewDatLibrary:
     # Private methods #
     ###################
 
-    @classmethod
     def _write_table_using_overwrite_table(
-        cls,
-        spark: SparkSession,
+        self,
         df: DataFrame,
         location: str,
         partition_columns: List[str] = [],
@@ -694,7 +688,7 @@ class BrewDatLibrary:
             Absolute Delta Lake path for the physical location of this delta table.
         partition_columns : List[str], default=[]
             The names of the columns used to partition the table.
-        schema_evolution_mode : Framework.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
                 This is the default Spark behavior when no option is given.
@@ -719,18 +713,18 @@ class BrewDatLibrary:
             df_writer = df_writer.partitionBy(partition_columns)
 
         # Set schema_evolution_mode options
-        if schema_evolution_mode == cls.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
             df_writer = df_writer.option("mergeSchema", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-            if DeltaTable.isDeltaTable(spark, location):
-                table_columns = DeltaTable.forPath(spark, location).columns
+        elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+            if DeltaTable.isDeltaTable(self.spark, location):
+                table_columns = DeltaTable.forPath(self.spark, location).columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
             df_writer = df_writer.option("overwriteSchema", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
             raise NotImplementedError
         else:
             raise NotImplementedError
@@ -739,10 +733,8 @@ class BrewDatLibrary:
         df_writer.save(location)
 
 
-    @classmethod
     def _write_table_using_overwrite_partition(
-        cls,
-        spark: SparkSession,
+        self,
         df: DataFrame,
         location: str,
         partition_columns: List[str] = [],
@@ -758,7 +750,7 @@ class BrewDatLibrary:
             Absolute Delta Lake path for the physical location of this delta table.
         partition_columns : List[str], default=[]
             The names of the columns used to partition the table.
-        schema_evolution_mode : Framework.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
                 This is the default Spark behavior when no option is given.
@@ -795,18 +787,18 @@ class BrewDatLibrary:
             df_writer = df_writer.partitionBy(partition_columns)
 
         # Set schema_evolution_mode options
-        if schema_evolution_mode == cls.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
             df_writer = df_writer.option("mergeSchema", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-            if DeltaTable.isDeltaTable(spark, location):
-                table_columns = DeltaTable.forPath(spark, location).columns
+        elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+            if DeltaTable.isDeltaTable(self.spark, location):
+                table_columns = DeltaTable.forPath(self.spark, location).columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
             df_writer = df_writer.option("overwriteSchema", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
             raise NotImplementedError
         else:
             raise NotImplementedError
@@ -815,10 +807,8 @@ class BrewDatLibrary:
         df_writer.save(location)
 
 
-    @classmethod
     def _write_table_using_append_all(
-        cls,
-        spark: SparkSession,
+        self,
         df: DataFrame,
         location: str,
         partition_columns: List[str] = [],
@@ -834,7 +824,7 @@ class BrewDatLibrary:
             Absolute Delta Lake path for the physical location of this delta table.
         partition_columns : List[str], default=[]
             The names of the columns used to partition the table.
-        schema_evolution_mode : Framework.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
                 This is the default Spark behavior when no option is given.
@@ -859,18 +849,18 @@ class BrewDatLibrary:
             df_writer = df_writer.partitionBy(partition_columns)
 
         # Set schema_evolution_mode options
-        if schema_evolution_mode == cls.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
             df_writer = df_writer.option("mergeSchema", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-            if DeltaTable.isDeltaTable(spark, location):
-                table_columns = DeltaTable.forPath(spark, location).columns
+        elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+            if DeltaTable.isDeltaTable(self.spark, location):
+                table_columns = DeltaTable.forPath(self.spark, location).columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
             df_writer = df_writer.option("overwriteSchema", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
             raise NotImplementedError
         else:
             raise NotImplementedError
@@ -881,8 +871,7 @@ class BrewDatLibrary:
 
     @classmethod
     def _write_table_using_append_new(
-        cls,
-        spark: SparkSession,
+        self,
         df: DataFrame,
         location: str,
         key_columns: List[str] = [],
@@ -899,7 +888,7 @@ class BrewDatLibrary:
         key_columns : List[str], default=[]
             The names of the columns used to uniquely identify each record the table.
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
-        schema_evolution_mode : Framework.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
                 This is the default Spark behavior when no option is given.
@@ -914,19 +903,19 @@ class BrewDatLibrary:
                 For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         # Set schema_evolution_mode options
-        if schema_evolution_mode == cls.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.ADD_NEW_COLUMNS:
-            original_auto_merge = spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
-            spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-            if DeltaTable.isDeltaTable(spark, location):
-                table_columns = DeltaTable.forPath(spark, location).columns
+        elif schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+            original_auto_merge = self.spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
+            self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
+        elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+            if DeltaTable.isDeltaTable(self.spark, location):
+                table_columns = DeltaTable.forPath(self.spark, location).columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
             raise ValueError("OVERWRITE_SCHEMA is not supported in APPEND_NEW load type")
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
             raise NotImplementedError
         else:
             raise NotImplementedError
@@ -936,7 +925,7 @@ class BrewDatLibrary:
         merge_condition = " AND ".join(merge_condition_parts)
 
         # Write to the delta table
-        delta_table = DeltaTable.forPath(spark, location)
+        delta_table = DeltaTable.forPath(self.spark, location)
         (
             delta_table.alias("target")
             .merge(df.alias("source"), merge_condition)
@@ -945,13 +934,11 @@ class BrewDatLibrary:
         )
 
         # Reset spark.conf
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
+        self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
 
 
-    @classmethod
     def _write_table_using_upsert(
-        cls,
-        spark: SparkSession,
+        self,
         df: DataFrame,
         location: str,
         key_columns: List[str] = [],
@@ -968,7 +955,7 @@ class BrewDatLibrary:
         key_columns : List[str], default=[]
             The names of the columns used to uniquely identify each record the table.
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
-        schema_evolution_mode : Framework.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
                 This is the default Spark behavior when no option is given.
@@ -983,19 +970,19 @@ class BrewDatLibrary:
                 For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         # Set schema_evolution_mode options
-        if schema_evolution_mode == cls.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.ADD_NEW_COLUMNS:
-            original_auto_merge = spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
-            spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-            if DeltaTable.isDeltaTable(spark, location):
-                table_columns = DeltaTable.forPath(spark, location).columns
+        elif schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+            original_auto_merge = self.spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
+            self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
+        elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+            if DeltaTable.isDeltaTable(self.spark, location):
+                table_columns = DeltaTable.forPath(self.spark, location).columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
             raise ValueError("OVERWRITE_SCHEMA is not supported in UPSERT load type")
-        elif schema_evolution_mode == cls.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        elif schema_evolution_mode == self.SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
             raise NotImplementedError
         else:
             raise NotImplementedError
@@ -1005,7 +992,7 @@ class BrewDatLibrary:
         merge_condition = " AND ".join(merge_condition_parts)
 
         # Write to the delta table
-        delta_table = DeltaTable.forPath(spark, location)
+        delta_table = DeltaTable.forPath(self.spark, location)
         (
             delta_table.alias("target")
             .merge(df.alias("source"), merge_condition)
@@ -1015,12 +1002,11 @@ class BrewDatLibrary:
         )
 
         # Reset spark.conf
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
+        self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
 
 
-    @classmethod
     def _build_return_object(
-        cls,
+        self,
         status: RunStatus,
         target_object: str,
         num_records_read: int = 0,
@@ -1032,7 +1018,7 @@ class BrewDatLibrary:
 
         Parameters
         ----------
-        status : Framework.RunStatus
+        status : BrewDatLibrary.RunStatus
             Resulting status for this write operation.
         target_object : str
             Target object that we intended to write to.
