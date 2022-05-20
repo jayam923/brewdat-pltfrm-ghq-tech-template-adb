@@ -1,19 +1,22 @@
 import json
-import pyspark.sql.functions as F
 import re
 import sys
-import os
 import traceback
+
+import pyspark.sql.functions as F
+
 from datetime import datetime
-from delta.tables import DeltaTable
 from enum import Enum, unique
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.window import Window
 from typing import List, TypedDict
 
+from delta.tables import DeltaTable
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.window import Window
 
-class BrewDatFramework:
+
+class BrewDatLibrary:
     """Reusable functions for all BrewDat projects.
+
     Methods
     -------
     read_raw_dataframe -> DataFrame
@@ -42,16 +45,10 @@ class BrewDatFramework:
         Handle the last unhandled exception, returning an object to the notebook's caller.
     """
 
+
     ########################################
     # Constants, enums, and helper classes #
     ########################################
-
-    # TODO: move these somewhere else
-    LAKEHOUSE_LANDING_ROOT = os.getenv("LAKEHOUSE_LANDING_ROOT")
-    LAKEHOUSE_BRONZE_ROOT = os.getenv("LAKEHOUSE_BRONZE_ROOT")
-    LAKEHOUSE_SILVER_ROOT = os.getenv("LAKEHOUSE_SILVER_ROOT")
-    LAKEHOUSE_GOLD_ROOT = os.getenv("LAKEHOUSE_GOLD_ROOT")
-
 
     @unique
     class LoadType(str, Enum):
@@ -104,17 +101,19 @@ class BrewDatFramework:
     @classmethod
     def read_raw_dataframe(
         cls,
-        spark:SparkSession,
+        spark: SparkSession,
         file_format: RawFileFormat,
         location: str,
     ) -> DataFrame:
         """Read a DataFrame from the Raw Layer. Convert all data types to string.
+
         Parameters
         ----------
         file_format : RawFileFormat
             The raw file format use in this dataset (CSV, PARQUET, etc.).
         location : str
             Absolute Data Lake path for the physical location of this dataset.
+
         Returns
         -------
         DataFrame
@@ -149,14 +148,17 @@ class BrewDatFramework:
         except_for: List[str] = [],
     ) -> DataFrame:
         """Normalize the name of all the columns in a given DataFrame.
+
         Uses BrewDat's standard approach as seen in other Notebooks.
         Improved to also trim (strip) whitespaces.
+
         Parameters
         ----------
         df : DataFrame
             The PySpark DataFrame to modify.
         except_for : List[str], default=[]
             A list of column names that should NOT be modified.
+
         Returns
         -------
         DataFrame
@@ -187,6 +189,7 @@ class BrewDatFramework:
         separator: str = "__",
     ) -> DataFrame:
         """Create a standard business key concatenating multiple columns.
+
         Parameters
         ----------
         df : DataFrame
@@ -197,6 +200,7 @@ class BrewDatFramework:
             The names of the columns used to uniquely identify each record the table.
         separator : str, default="__"
             A string to separate the values of each column in the business key.
+
         Returns
         -------
         DataFrame
@@ -224,13 +228,16 @@ class BrewDatFramework:
     @classmethod
     def create_or_replace_audit_columns(cls, df: DataFrame) -> DataFrame:
         """Create or replace BrewDat audit columns in the given DataFrame.
+
         The following audit columns are created/replaced:
             _insert_gmt_ts: timestamp of when the record was inserted.
             _update_gmt_ts: timestamp of when the record was last updated.
+
         Parameters
         ----------
         df : DataFrame
             The PySpark DataFrame to modify.
+
         Returns
         -------
         DataFrame
@@ -260,8 +267,10 @@ class BrewDatFramework:
         watermark_column: str,
     ) -> DataFrame:
         """Deduplicate rows from a DataFrame using key and watermark columns.
+
         We do not use orderBy followed by dropDuplicates because it
         would require a coalesce(1) to preserve the order of the rows.
+
         Parameters
         ----------
         df : DataFrame
@@ -270,6 +279,7 @@ class BrewDatFramework:
             The names of the columns used to uniquely identify each record the table.
         watermark_column : str
             The name of a datetime column used to select the newest records.
+
         Returns
         -------
         DataFrame
@@ -299,12 +309,14 @@ class BrewDatFramework:
         except_for: List[str] = [],
     ) -> DataFrame:
         """Drop columns which are null or empty for all the rows in the DataFrame.
+
         Parameters
         ----------
         df : DataFrame
             The PySpark DataFrame to modify.
         except_for : List[str], default=[]
             A list of column names that should NOT be dropped.
+
         Returns
         -------
         DataFrame
@@ -328,22 +340,24 @@ class BrewDatFramework:
     @classmethod
     def generate_bronze_table_location(
         cls,
-        source_zone: str,
-        source_business_domain: str,
-        source_system_name: str,
-        source_dataset: str,
+        target_zone: str,
+        target_business_domain: str,
+        target_system_name: str,
+        target_dataset: str,
     ) -> str:
         """Build the standard location for a Bronze table.
+
         Parameters
         ----------
-        source_zone : str
+        target_zone : str
             Zone of the source dataset.
-        source_business_domain : str
+        target_business_domain : str
             Business domain of the source dataset.
-        source_system_name : str
+        target_system_name : str
             Name of the source system.
-        source_dataset : str
+        target_dataset : str
             Name of the source dataset.
+
         Returns
         -------
         str
@@ -351,12 +365,12 @@ class BrewDatFramework:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [source_zone, source_business_domain, source_system_name, source_dataset]
+            params_list = [target_zone, target_business_domain, target_system_name, target_dataset]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
-            location = f"{cls.LAKEHOUSE_BRONZE_ROOT}/data/{source_zone}/{source_business_domain}/{source_system_name}/{source_dataset}"
-            return location.lower()
+            lakehouse_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
+            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{target_dataset}".lower()
 
         except:
             cls.exit_with_last_exception()
@@ -365,22 +379,24 @@ class BrewDatFramework:
     @classmethod
     def generate_silver_table_location(
         cls,
-        source_zone: str,
-        source_business_domain: str,
-        source_system_name: str,
+        target_zone: str,
+        target_business_domain: str,
+        target_system_name: str,
         table_name: str,
     ) -> str:
         """Build the standard location for a Silver table.
+
         Parameters
         ----------
-        source_zone : str
+        target_zone : str
             Zone of the source system.
-        source_business_domain : str
+        target_business_domain : str
             Business domain of the source system.
-        source_system_name : str
+        target_system_name : str
             Name of the source system.
         table_name : str
             Name of the target table in the metastore.
+
         Returns
         -------
         str
@@ -388,12 +404,12 @@ class BrewDatFramework:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [source_zone, source_business_domain, source_system_name, table_name]
+            params_list = [target_zone, target_business_domain, target_system_name, table_name]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
-            location = f"{cls.LAKEHOUSE_SILVER_ROOT}/data/{source_zone}/{source_business_domain}/{source_system_name}/{table_name}"
-            return location.lower()
+            lakehouse_root = os.getenv("LAKEHOUSE_SILVER_ROOT")
+            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{table_name}".lower()
 
         except:
             cls.exit_with_last_exception()
@@ -409,6 +425,7 @@ class BrewDatFramework:
         table_name: str,
     ) -> str:
         """Build the standard location for a Gold table.
+
         Parameters
         ----------
         target_zone : str
@@ -421,6 +438,7 @@ class BrewDatFramework:
             Name of the target schema/database for the table in the metastore.
         table_name : str
             Name of the target table in the metastore.
+
         Returns
         -------
         str
@@ -432,8 +450,8 @@ class BrewDatFramework:
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
-            location = f"{cls.LAKEHOUSE_GOLD_ROOT}/data/{target_zone}/{target_business_domain}/{project}/{schema_name}/{table_name}"
-            return location.lower()
+            lakehouse_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
+            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{project}/{schema_name}/{table_name}".lower()
 
         except:
             cls.exit_with_last_exception()
@@ -453,6 +471,7 @@ class BrewDatFramework:
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     ) -> ReturnObject:
         """Write the DataFrame as a delta table.
+
         Parameters
         ----------
         df : DataFrame
@@ -497,6 +516,7 @@ class BrewDatFramework:
             RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
                 This is the same strategy used in AutoLoader's rescue mode.
                 For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+
         Returns
         -------
         ReturnObject
@@ -603,7 +623,6 @@ class BrewDatFramework:
             )
 
         except Exception as e:
-            raise e
             return cls._build_return_object(
                 status=cls.RunStatus.FAILED,
                 target_object=f"{schema_name}.{table_name}",
@@ -617,7 +636,9 @@ class BrewDatFramework:
     @classmethod
     def exit_with_object(cls, dbutils, results: ReturnObject):
         """Finish execution returning an object to the notebook's caller.
+
         Used to return the results of a write operation to the orchestrator.
+
         Parameters
         ----------
         results : ReturnObject
@@ -629,7 +650,9 @@ class BrewDatFramework:
     @classmethod
     def exit_with_last_exception(cls):
         """Handle the last unhandled exception, returning an object to the notebook's caller.
+
             The most recent exception is obtained from sys.exc_info().
+
             Examples
             --------
             try:
@@ -662,6 +685,7 @@ class BrewDatFramework:
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     ):
         """Write the DataFrame using OVERWRITE_TABLE.
+
         Parameters
         ----------
         df : DataFrame
@@ -725,6 +749,7 @@ class BrewDatFramework:
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     ):
         """Write the DataFrame using OVERWRITE_PARTITION.
+
         Parameters
         ----------
         df : DataFrame
@@ -800,6 +825,7 @@ class BrewDatFramework:
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     ):
         """Write the DataFrame using APPEND_ALL.
+
         Parameters
         ----------
         df : DataFrame
@@ -863,6 +889,7 @@ class BrewDatFramework:
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     ):
         """Write the DataFrame using APPEND_NEW.
+
         Parameters
         ----------
         df : DataFrame
@@ -931,6 +958,7 @@ class BrewDatFramework:
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     ):
         """Write the DataFrame using UPSERT.
+
         Parameters
         ----------
         df : DataFrame
@@ -1001,6 +1029,7 @@ class BrewDatFramework:
         error_details: str = "",
     ) -> ReturnObject:
         """Build the return object for a write operation.
+
         Parameters
         ----------
         status : Framework.RunStatus
@@ -1015,6 +1044,7 @@ class BrewDatFramework:
             Error message describing whichever error that occurred.
         error_details : str, default=""
             Detailed error message or stack trace for the above error.
+
         Returns
         -------
         ReturnObject
