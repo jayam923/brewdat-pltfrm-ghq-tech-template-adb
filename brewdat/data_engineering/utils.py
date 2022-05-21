@@ -296,8 +296,8 @@ class BrewDatLibrary:
         """Create or replace BrewDat audit columns in the given DataFrame.
 
         The following audit columns are created/replaced:
-            - _insert_gmt_ts: timestamp of when the record was inserted.
-            - _update_gmt_ts: timestamp of when the record was last updated.
+            - __insert_gmt_ts: timestamp of when the record was inserted.
+            - __update_gmt_ts: timestamp of when the record was last updated.
 
         Parameters
         ----------
@@ -314,11 +314,11 @@ class BrewDatLibrary:
             current_timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
             # Create or replace columns
-            if "_insert_gmt_ts" in df.columns:
-                df = df.fillna(current_timestamp, "_insert_gmt_ts")
+            if "__insert_gmt_ts" in df.columns:
+                df = df.fillna(current_timestamp, "__insert_gmt_ts")
             else:
-                df = df.withColumn("_insert_gmt_ts", F.lit(current_timestamp).cast("timestamp"))
-            df = df.withColumn("_update_gmt_ts", F.lit(current_timestamp).cast("timestamp"))
+                df = df.withColumn("__insert_gmt_ts", F.lit(current_timestamp).cast("timestamp"))
+            df = df.withColumn("__update_gmt_ts", F.lit(current_timestamp).cast("timestamp"))
             return df
 
         except:
