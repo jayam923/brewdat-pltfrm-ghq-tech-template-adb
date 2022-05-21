@@ -12,7 +12,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('/home/wesley.silva/Projetos/INBEV/brewdat-pltfrm-ghq-tech-template-adb/'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 
 # -- Project information -----------------------------------------------------
@@ -28,8 +28,6 @@ author = 'BrewDat'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.coverage', 'sphinx.ext.napoleon', 'myst_parser']
-
-source_suffix = ['.rst', '.md']
 
 
 # Napoleon settings
