@@ -15,6 +15,47 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.window import Window
 
 
+@unique
+class LoadType(str, Enum):
+    """Specifies the way in which the table should be loaded."""
+
+    OVERWRITE_TABLE = "OVERWRITE_TABLE"
+    """Load type where the entire table is rewritten in every execution.
+    Avoid whenever possible, as this is not good for large tables.
+    This deletes records that are not present in df.
+    """
+
+    OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
+    """Load type for overwriting a single partition based on partitionColumns.
+    This deletes records that are not present in df for the chosen partition.
+    The df must be filtered such that it contains a single partition.
+    """
+
+    APPEND_ALL = "APPEND_ALL"
+    """Load type where all records in the df are written into an table.
+
+    **ATTENTION**: use this load type only for Bronze tables, as it is bad for backfilling.
+    """
+
+    APPEND_NEW = "APPEND_NEW"
+    """Load type where only new records in the df are written into an existing table.
+    Records for which the key already exists in the table are ignored. 
+    """
+
+    UPSERT = "UPSERT"
+    """Load type where records of a df are appended as new records or update existing records based on the key.
+    This does NOT delete existing records that are not included in df.
+    """
+
+    TYPE_2_SCD = "TYPE_2_SCD"  # not yet implemented
+    """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+    This essentially uses an upsert that keeps track of all previous versions of each record.
+    For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension .
+
+    **ATTENTION**: This load type is not implemented on this library yet!
+    """
+
+
 class BrewDatLibrary:
     """Reusable functions for all BrewDat projects.
 
@@ -30,51 +71,6 @@ class BrewDatLibrary:
     ########################################
     # Constants, enums, and helper classes #
     ########################################
-
-
-    @unique
-    class LoadType(str, Enum):
-        """Specifies the way in which the table should be loaded."""
-
-        OVERWRITE_TABLE = "OVERWRITE_TABLE"
-        """Load type where the entire table is rewritten in every execution.
-        Avoid whenever possible, as this is not good for large tables.
-        This deletes records that are not present in df.
-        """
-
-        OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
-        """Load type for overwriting a single partition based on partitionColumns.
-        This deletes records that are not present in df for the chosen partition.
-        The df must be filtered such that it contains a single partition.
-        """
-
-        APPEND_ALL = "APPEND_ALL"
-        """Load type where all records in the df are written into an table.
-        
-        Notes
-        -----
-        **ATTENTION**: use this load type only for Bronze tables, as it is bad for backfilling.
-        """
-
-        APPEND_NEW = "APPEND_NEW"
-        """Load type where only new records in the df are written into an existing table.
-        Records for which the key already exists in the table are ignored. 
-        """
-
-        UPSERT = "UPSERT"
-        """Load type where records of a df are appended as new records or update existing records based on the key.
-        This does NOT delete existing records that are not included in df.
-        """
-
-        TYPE_2_SCD = "TYPE_2_SCD"  # not yet implemented
-        """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
-        This essentially uses an upsert that keeps track of all previous versions of each record.
-        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension .
-        
-        Notes
-        -----
-        **ATTENTION**: This load type is not implemented on this library yet!
-        """
 
 
     @unique
@@ -114,8 +110,6 @@ class BrewDatLibrary:
         This is the same strategy used in AutoLoader's rescue mode.
         For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution .
         
-        Notes
-        -----
         **ATTENTION**: not implemented yet!
         """
 

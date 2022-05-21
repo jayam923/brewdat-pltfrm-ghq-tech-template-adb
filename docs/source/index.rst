@@ -7,8 +7,6 @@ Welcome to brewdat-pltfrm-ghq-tech-template-adb's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
-
 Indices and tables
 ==================
 
