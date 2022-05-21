@@ -31,7 +31,6 @@ An enumeration.
 
 #### APPEND_ALL(_ = 'APPEND_ALL_ )
 Load type where all records in the df are written into an table.
-ATTENTION: use this load type only for Bronze tables, as it is bad for backfilling.
 
 
 #### APPEND_NEW(_ = 'APPEND_NEW_ )
@@ -54,8 +53,7 @@ This deletes records that are not present in df.
 #### TYPE_2_SCD(_ = 'TYPE_2_SCD_ )
 Load type that implements the standard type-2 Slowly Changing Dimension implementation.
 This essentially uses an upsert that keeps track of all previous versions of each record.
-For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension)
-ATTENTION: This load type is not implemented on this library yet!
+For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension) .
 
 
 #### UPSERT(_ = 'UPSERT_ )
@@ -67,12 +65,28 @@ This does NOT delete existing records that are not included in df.
 An enumeration.
 
 
+#### CSV(_ = 'CSV_ )
+CSV format.
+
+
+#### DELTA(_ = 'DELTA_ )
+Delta Lake format.
+
+
+#### ORC(_ = 'ORC_ )
+ORC format.
+
+
+#### PARQUET(_ = 'PARQUET_ )
+Parquet format.
+
+
 #### _class_ ReturnObject(\*args, \*\*kwargs)
 Object that holds metadata from a data write operation.
 
 
 #### status()
-Final status of a write operation.
+Resulting status for this write operation.
 
 
 * **Type**
@@ -82,7 +96,7 @@ Final status of a write operation.
 
 
 #### target_object()
-The target object where data was written into.
+Target object that we intended to write to.
 
 
 * **Type**
@@ -92,52 +106,42 @@ The target object where data was written into.
 
 
 #### num_records_read()
-Total number of records read from the origin dataset.
+Number of records read from the DataFrame.
 
 
 * **Type**
 
-    int
+    int, default=0
 
 
 
 #### num_records_loaded()
-Total number of records written into target object.
+Number of records written to the target table.
 
 
 * **Type**
 
-    int
-
-
-
-#### num_records_errored_out()
-Total number of records that could not be properly processed and written into target object.
-
-
-* **Type**
-
-    int
+    int, default=0
 
 
 
 #### error_message()
-Error message regarding any error that happened when processing and writing into target object.
+Error message describing whichever error that occurred.
 
 
 * **Type**
 
-    str
+    str, default=””
 
 
 
 #### error_details()
-Detailed information about any error that happened when processing and writing into target object.
+Detailed error message or stack trace for the above error.
 
 
 * **Type**
 
-    str
+    str, default=””
 
 
 
@@ -145,8 +149,42 @@ Detailed information about any error that happened when processing and writing i
 An enumeration.
 
 
+#### FAILED(_ = 'FAILED_ )
+Represents a failed run status.
+
+
+#### SUCCEEDED(_ = 'SUCCEEDED_ )
+Represents a succeeded run status.
+
+
 #### _class_ SchemaEvolutionMode(value)
 An enumeration.
+
+
+#### ADD_NEW_COLUMNS(_ = 'ADD_NEW_COLUMNS_ )
+Schema evolution through adding new columns to the target table.
+This is the same as using the option “mergeSchema”.
+
+
+#### FAIL_ON_SCHEMA_MISMATCH(_ = 'FAIL_ON_SCHEMA_MISMATCH_ )
+Fail if the table’s schema is not compatible with the DataFrame’s.
+This is the default Spark behavior when no option is given.
+
+
+#### IGNORE_NEW_COLUMNS(_ = 'IGNORE_NEW_COLUMNS_ )
+Drop DataFrame columns that do not exist in the table’s schema.
+Does nothing if the table does not yet exist in the Hive metastore.
+
+
+#### OVERWRITE_SCHEMA(_ = 'OVERWRITE_SCHEMA_ )
+Overwrite the table’s schema with the DataFrame’s schema.
+This is the same as using the option “overwriteSchema”.
+
+
+#### RESCUE_NEW_COLUMNS(_ = 'RESCUE_NEW_COLUMNS_ )
+Create a new struct-type column to collect data for new columns.
+This is the same strategy used in AutoLoader’s rescue mode.
+For more information: [https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution](https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution) .
 
 
 #### clean_column_names(df: pyspark.sql.dataframe.DataFrame, except_for: List[str] = [])
@@ -299,16 +337,6 @@ Drop columns which are null or empty for all the rows in the DataFrame.
 Handle the last unhandled exception, returning an object to the notebook’s caller.
 
 The most recent exception is obtained from sys.exc_info().
-
-### Examples
-
-try:
-
-    # some code
-
-except:
-
-    BrewDatLibrary.exit_with_last_exception()
 
 
 #### exit_with_object(results: brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject)
@@ -469,29 +497,6 @@ Write the DataFrame as a delta table.
 
 
     * **load_type** (*BrewDatLibrary.LoadType*) – Specifies the way in which the table should be loaded.
-    OVERWRITE_TABLE: the entire table is rewritten in every execution.
-
-    > Avoid whenever possible, as this is not good for large tables.
-    > This deletes records that are not present in df.
-
-    OVERWRITE_PARTITION: overwrite a single partition based on partitionColumns.
-
-        This deletes records that are not present in df for the chosen partition.
-        The df must be filtered such that it contains a single partition.
-
-    APPEND_NEW: write new records in the df to the existing table.
-
-        Records for which the key already exists in the table are ignored.
-
-    UPSERT: write new records and update existing records based on the key.
-
-        This does NOT delete existing records that are not included in df.
-
-    TYPE_2_SCD: use the standard type-2 Slowly Changing Dimension implementation.
-
-        This essentially uses an upsert that keeps track of all previous versions of each record.
-        For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension)
-
 
 
     * **key_columns** (*List**[**str**]**, **default=**[**]*) – The names of the columns used to uniquely identify each record the table.
@@ -502,27 +507,6 @@ Write the DataFrame as a delta table.
 
 
     * **schema_evolution_mode** (*BrewDatLibrary.SchemaEvolutionMode**, **default=ADD_NEW_COLUMNS*) – Specifies the way in which schema mismatches should be handled.
-    FAIL_ON_SCHEMA_MISMATCH: fail if the table’s schema is not compatible with the DataFrame’s.
-
-    > This is the default Spark behavior when no option is given.
-
-    ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-
-        This is the same as using the option “mergeSchema”.
-
-    IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table’s schema.
-
-        Does nothing if the table does not yet exist in the Hive metastore.
-
-    OVERWRITE_SCHEMA: overwrite the table’s schema with the DataFrame’s schema.
-
-        This is the same as using the option “overwriteSchema”.
-
-    RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-
-        This is the same strategy used in AutoLoader’s rescue mode.
-        For more information: [https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution](https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution)
-
 
 
 

@@ -65,8 +65,11 @@
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.LoadType.APPEND_ALL">
 <span class="sig-name descname"><span class="pre">APPEND_ALL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'APPEND_ALL'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.LoadType.APPEND_ALL" title="Permalink to this definition">¶</a></dt>
-<dd><p>Load type where all records in the df are written into an table.
-ATTENTION: use this load type only for Bronze tables, as it is bad for backfilling.</p>
+<dd><p>Load type where all records in the df are written into an table.</p>
+<div class="admonition-notes admonition">
+<p class="admonition-title">Notes</p>
+<p><strong>ATTENTION</strong>: use this load type only for Bronze tables, as it is bad for backfilling.</p>
+</div>
 </dd></dl>
 
 <dl class="py attribute">
@@ -97,8 +100,11 @@ This deletes records that are not present in df.</p>
 <span class="sig-name descname"><span class="pre">TYPE_2_SCD</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'TYPE_2_SCD'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.LoadType.TYPE_2_SCD" title="Permalink to this definition">¶</a></dt>
 <dd><p>Load type that implements the standard type-2 Slowly Changing Dimension implementation.
 This essentially uses an upsert that keeps track of all previous versions of each record.
-For more information: <a class="reference external" href="https://en.wikipedia.org/wiki/Slowly_changing_dimension">https://en.wikipedia.org/wiki/Slowly_changing_dimension</a>
-ATTENTION: This load type is not implemented on this library yet!</p>
+For more information: <a class="reference external" href="https://en.wikipedia.org/wiki/Slowly_changing_dimension">https://en.wikipedia.org/wiki/Slowly_changing_dimension</a> .</p>
+<div class="admonition-notes admonition">
+<p class="admonition-title">Notes</p>
+<p><strong>ATTENTION</strong>: This load type is not implemented on this library yet!</p>
+</div>
 </dd></dl>
 
 <dl class="py attribute">
@@ -114,6 +120,30 @@ This does NOT delete existing records that are not included in df.</p>
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RawFileFormat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat" title="Permalink to this definition">¶</a></dt>
 <dd><p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.CSV">
+<span class="sig-name descname"><span class="pre">CSV</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'CSV'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.CSV" title="Permalink to this definition">¶</a></dt>
+<dd><p>CSV format.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.DELTA">
+<span class="sig-name descname"><span class="pre">DELTA</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'DELTA'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.DELTA" title="Permalink to this definition">¶</a></dt>
+<dd><p>Delta Lake format.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.ORC">
+<span class="sig-name descname"><span class="pre">ORC</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ORC'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.ORC" title="Permalink to this definition">¶</a></dt>
+<dd><p>ORC format.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.PARQUET">
+<span class="sig-name descname"><span class="pre">PARQUET</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'PARQUET'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat.PARQUET" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parquet format.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
@@ -123,7 +153,7 @@ This does NOT delete existing records that are not included in df.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.status">
 <span class="sig-name descname"><span class="pre">status</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.status" title="Permalink to this definition">¶</a></dt>
-<dd><p>Final status of a write operation.</p>
+<dd><p>Resulting status for this write operation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
 <dd class="field-odd"><p>str</p>
@@ -134,7 +164,7 @@ This does NOT delete existing records that are not included in df.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.target_object">
 <span class="sig-name descname"><span class="pre">target_object</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.target_object" title="Permalink to this definition">¶</a></dt>
-<dd><p>The target object where data was written into.</p>
+<dd><p>Target object that we intended to write to.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
 <dd class="field-odd"><p>str</p>
@@ -145,10 +175,10 @@ This does NOT delete existing records that are not included in df.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.num_records_read">
 <span class="sig-name descname"><span class="pre">num_records_read</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.num_records_read" title="Permalink to this definition">¶</a></dt>
-<dd><p>Total number of records read from the origin dataset.</p>
+<dd><p>Number of records read from the DataFrame.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>int</p>
+<dd class="field-odd"><p>int, default=0</p>
 </dd>
 </dl>
 </dd></dl>
@@ -156,21 +186,10 @@ This does NOT delete existing records that are not included in df.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.num_records_loaded">
 <span class="sig-name descname"><span class="pre">num_records_loaded</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.num_records_loaded" title="Permalink to this definition">¶</a></dt>
-<dd><p>Total number of records written into target object.</p>
+<dd><p>Number of records written to the target table.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>int</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.num_records_errored_out">
-<span class="sig-name descname"><span class="pre">num_records_errored_out</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.num_records_errored_out" title="Permalink to this definition">¶</a></dt>
-<dd><p>Total number of records that could not be properly processed and written into target object.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>int</p>
+<dd class="field-odd"><p>int, default=0</p>
 </dd>
 </dl>
 </dd></dl>
@@ -178,10 +197,10 @@ This does NOT delete existing records that are not included in df.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.error_message">
 <span class="sig-name descname"><span class="pre">error_message</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.error_message" title="Permalink to this definition">¶</a></dt>
-<dd><p>Error message regarding any error that happened when processing and writing into target object.</p>
+<dd><p>Error message describing whichever error that occurred.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>str</p>
+<dd class="field-odd"><p>str, default=””</p>
 </dd>
 </dl>
 </dd></dl>
@@ -189,10 +208,10 @@ This does NOT delete existing records that are not included in df.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.error_details">
 <span class="sig-name descname"><span class="pre">error_details</span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject.error_details" title="Permalink to this definition">¶</a></dt>
-<dd><p>Detailed information about any error that happened when processing and writing into target object.</p>
+<dd><p>Detailed error message or stack trace for the above error.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type</dt>
-<dd class="field-odd"><p>str</p>
+<dd class="field-odd"><p>str, default=””</p>
 </dd>
 </dl>
 </dd></dl>
@@ -203,12 +222,64 @@ This does NOT delete existing records that are not included in df.</p>
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RunStatus">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RunStatus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RunStatus" title="Permalink to this definition">¶</a></dt>
 <dd><p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RunStatus.FAILED">
+<span class="sig-name descname"><span class="pre">FAILED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'FAILED'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RunStatus.FAILED" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents a failed run status.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RunStatus.SUCCEEDED">
+<span class="sig-name descname"><span class="pre">SUCCEEDED</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'SUCCEEDED'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RunStatus.SUCCEEDED" title="Permalink to this definition">¶</a></dt>
+<dd><p>Represents a succeeded run status.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SchemaEvolutionMode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode" title="Permalink to this definition">¶</a></dt>
 <dd><p>An enumeration.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.ADD_NEW_COLUMNS">
+<span class="sig-name descname"><span class="pre">ADD_NEW_COLUMNS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ADD_NEW_COLUMNS'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.ADD_NEW_COLUMNS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Schema evolution through adding new columns to the target table.
+This is the same as using the option “mergeSchema”.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH">
+<span class="sig-name descname"><span class="pre">FAIL_ON_SCHEMA_MISMATCH</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'FAIL_ON_SCHEMA_MISMATCH'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fail if the table’s schema is not compatible with the DataFrame’s.
+This is the default Spark behavior when no option is given.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.IGNORE_NEW_COLUMNS">
+<span class="sig-name descname"><span class="pre">IGNORE_NEW_COLUMNS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'IGNORE_NEW_COLUMNS'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.IGNORE_NEW_COLUMNS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Drop DataFrame columns that do not exist in the table’s schema.
+Does nothing if the table does not yet exist in the Hive metastore.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.OVERWRITE_SCHEMA">
+<span class="sig-name descname"><span class="pre">OVERWRITE_SCHEMA</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'OVERWRITE_SCHEMA'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.OVERWRITE_SCHEMA" title="Permalink to this definition">¶</a></dt>
+<dd><p>Overwrite the table’s schema with the DataFrame’s schema.
+This is the same as using the option “overwriteSchema”.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.RESCUE_NEW_COLUMNS">
+<span class="sig-name descname"><span class="pre">RESCUE_NEW_COLUMNS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'RESCUE_NEW_COLUMNS'</span></em><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode.RESCUE_NEW_COLUMNS" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a new struct-type column to collect data for new columns.
+This is the same strategy used in AutoLoader’s rescue mode.
+For more information: <a class="reference external" href="https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution">https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution</a> .</p>
+<div class="admonition-notes admonition">
+<p class="admonition-title">Notes</p>
+<p><strong>ATTENTION</strong>: not implemented yet!</p>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py method">
@@ -325,13 +396,15 @@ would require a coalesce(1) to preserve the order of the rows.</p>
 <span class="sig-name descname"><span class="pre">exit_with_last_exception</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.exit_with_last_exception" title="Permalink to this definition">¶</a></dt>
 <dd><p>Handle the last unhandled exception, returning an object to the notebook’s caller.</p>
 <p>The most recent exception is obtained from sys.exc_info().</p>
-<p class="rubric">Examples</p>
+<div class="admonition-examples admonition">
+<p class="admonition-title">Examples</p>
 <dl class="simple">
 <dt>try:</dt><dd><p># some code</p>
 </dd>
 <dt>except:</dt><dd><p>BrewDatLibrary.exit_with_last_exception()</p>
 </dd>
 </dl>
+</div>
 </dd></dl>
 
 <dl class="py method">
@@ -445,45 +518,11 @@ would require a coalesce(1) to preserve the order of the rows.</p>
 <li><p><strong>schema_name</strong> (<em>str</em>) – Name of the schema/database for the table in the metastore.
 Schema is created if it does not exist.</p></li>
 <li><p><strong>table_name</strong> (<em>str</em>) – Name of the table in the metastore.</p></li>
-<li><p><strong>load_type</strong> (<a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.LoadType" title="brewdat.data_engineering.utils.BrewDatLibrary.LoadType"><em>BrewDatLibrary.LoadType</em></a>) – <p>Specifies the way in which the table should be loaded.
-OVERWRITE_TABLE: the entire table is rewritten in every execution.</p>
-<blockquote>
-<div><p>Avoid whenever possible, as this is not good for large tables.
-This deletes records that are not present in df.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>OVERWRITE_PARTITION: overwrite a single partition based on partitionColumns.</dt><dd><p>This deletes records that are not present in df for the chosen partition.
-The df must be filtered such that it contains a single partition.</p>
-</dd>
-<dt>APPEND_NEW: write new records in the df to the existing table.</dt><dd><p>Records for which the key already exists in the table are ignored.</p>
-</dd>
-<dt>UPSERT: write new records and update existing records based on the key.</dt><dd><p>This does NOT delete existing records that are not included in df.</p>
-</dd>
-<dt>TYPE_2_SCD: use the standard type-2 Slowly Changing Dimension implementation.</dt><dd><p>This essentially uses an upsert that keeps track of all previous versions of each record.
-For more information: <a class="reference external" href="https://en.wikipedia.org/wiki/Slowly_changing_dimension">https://en.wikipedia.org/wiki/Slowly_changing_dimension</a></p>
-</dd>
-</dl>
-</p></li>
+<li><p><strong>load_type</strong> (<a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.LoadType" title="brewdat.data_engineering.utils.BrewDatLibrary.LoadType"><em>BrewDatLibrary.LoadType</em></a>) – Specifies the way in which the table should be loaded.</p></li>
 <li><p><strong>key_columns</strong> (<em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>default=</em><em>[</em><em>]</em>) – The names of the columns used to uniquely identify each record the table.
 Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.</p></li>
 <li><p><strong>partition_columns</strong> (<em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>default=</em><em>[</em><em>]</em>) – The names of the columns used to partition the table.</p></li>
-<li><p><strong>schema_evolution_mode</strong> (<a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode" title="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode"><em>BrewDatLibrary.SchemaEvolutionMode</em></a><em>, </em><em>default=ADD_NEW_COLUMNS</em>) – <p>Specifies the way in which schema mismatches should be handled.
-FAIL_ON_SCHEMA_MISMATCH: fail if the table’s schema is not compatible with the DataFrame’s.</p>
-<blockquote>
-<div><p>This is the default Spark behavior when no option is given.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.</dt><dd><p>This is the same as using the option “mergeSchema”.</p>
-</dd>
-<dt>IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table’s schema.</dt><dd><p>Does nothing if the table does not yet exist in the Hive metastore.</p>
-</dd>
-<dt>OVERWRITE_SCHEMA: overwrite the table’s schema with the DataFrame’s schema.</dt><dd><p>This is the same as using the option “overwriteSchema”.</p>
-</dd>
-<dt>RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.</dt><dd><p>This is the same strategy used in AutoLoader’s rescue mode.
-For more information: <a class="reference external" href="https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution">https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution</a></p>
-</dd>
-</dl>
-</p></li>
+<li><p><strong>schema_evolution_mode</strong> (<a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode" title="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode"><em>BrewDatLibrary.SchemaEvolutionMode</em></a><em>, </em><em>default=ADD_NEW_COLUMNS</em>) – Specifies the way in which schema mismatches should be handled.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>

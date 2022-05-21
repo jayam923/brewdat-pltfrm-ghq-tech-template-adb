@@ -30,6 +30,7 @@ class BrewDatLibrary:
     # Constants, enums, and helper classes #
     ########################################
 
+
     @unique
     class LoadType(str, Enum):
         OVERWRITE_TABLE = "OVERWRITE_TABLE"
@@ -43,8 +44,11 @@ class BrewDatLibrary:
         The df must be filtered such that it contains a single partition.
         """
         APPEND_ALL = "APPEND_ALL"
-        """Load type where all records in the df are written into an table. 
-        ATTENTION: use this load type only for Bronze tables, as it is bad for backfilling.
+        """Load type where all records in the df are written into an table.
+        
+        Notes
+        -----
+        **ATTENTION**: use this load type only for Bronze tables, as it is bad for backfilling.
         """
         APPEND_NEW = "APPEND_NEW"
         """Load type where only new records in the df are written into an existing table.
@@ -57,52 +61,79 @@ class BrewDatLibrary:
         TYPE_2_SCD = "TYPE_2_SCD"
         """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
         This essentially uses an upsert that keeps track of all previous versions of each record.
-        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
-        ATTENTION: This load type is not implemented on this library yet!
+        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension .
+        
+        Notes
+        -----
+        **ATTENTION**: This load type is not implemented on this library yet!
         """
 
 
     @unique
     class RawFileFormat(str, Enum):
         PARQUET = "PARQUET"
+        """Parquet format."""
         DELTA = "DELTA"
+        """Delta Lake format."""
         ORC = "ORC"
+        """ORC format."""
         CSV = "CSV"
+        """CSV format."""
 
 
     @unique
     class SchemaEvolutionMode(str, Enum):
         FAIL_ON_SCHEMA_MISMATCH = "FAIL_ON_SCHEMA_MISMATCH"
+        """Fail if the table's schema is not compatible with the DataFrame's.
+        This is the default Spark behavior when no option is given.
+        """
         ADD_NEW_COLUMNS = "ADD_NEW_COLUMNS"
+        """Schema evolution through adding new columns to the target table.
+        This is the same as using the option "mergeSchema"."""
         IGNORE_NEW_COLUMNS = "IGNORE_NEW_COLUMNS"
+        """Drop DataFrame columns that do not exist in the table's schema.
+        Does nothing if the table does not yet exist in the Hive metastore.
+        """
         OVERWRITE_SCHEMA = "OVERWRITE_SCHEMA"
-        RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"  # not yet implemented
+        """Overwrite the table's schema with the DataFrame's schema.
+        This is the same as using the option "overwriteSchema".
+        """
+        RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"
+        """Create a new struct-type column to collect data for new columns.
+        This is the same strategy used in AutoLoader's rescue mode.
+        For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution .
+        
+        Notes
+        -----
+        **ATTENTION**: not implemented yet!
+        """
 
 
     @unique
     class RunStatus(str, Enum):
         SUCCEEDED = "SUCCEEDED"
+        """Represents a succeeded run status."""
         FAILED = "FAILED"
+        """Represents a failed run status."""
+
 
     class ReturnObject(TypedDict):
         """Object that holds metadata from a data write operation.
 
-            Attributes
-            ----------
-            status : str
-                Final status of a write operation.
-            target_object : str
-                The target object where data was written into.
-            num_records_read: int
-                Total number of records read from the origin dataset.
-            num_records_loaded: int
-                Total number of records written into target object.
-            num_records_errored_out: int
-                Total number of records that could not be properly processed and written into target object.
-            error_message: str
-                Error message regarding any error that happened when processing and writing into target object.
-            error_details: str
-                Detailed information about any error that happened when processing and writing into target object.
+        Attributes
+        ----------
+        status : str
+            Resulting status for this write operation.
+        target_object : str
+            Target object that we intended to write to.
+        num_records_read : int, default=0
+            Number of records read from the DataFrame.
+        num_records_loaded : int, default=0
+            Number of records written to the target table.
+        error_message : str, default=""
+            Error message describing whichever error that occurred.
+        error_details : str, default=""
+            Detailed error message or stack trace for the above error.
         """
         status: str
         target_object: str
@@ -498,19 +529,6 @@ class BrewDatLibrary:
             Name of the table in the metastore.
         load_type : BrewDatLibrary.LoadType
             Specifies the way in which the table should be loaded.
-            OVERWRITE_TABLE: the entire table is rewritten in every execution.
-                Avoid whenever possible, as this is not good for large tables.
-                This deletes records that are not present in df.
-            OVERWRITE_PARTITION: overwrite a single partition based on partitionColumns.
-                This deletes records that are not present in df for the chosen partition.
-                The df must be filtered such that it contains a single partition.
-            APPEND_NEW: write new records in the df to the existing table.
-                Records for which the key already exists in the table are ignored.
-            UPSERT: write new records and update existing records based on the key.
-                This does NOT delete existing records that are not included in df.
-            TYPE_2_SCD: use the standard type-2 Slowly Changing Dimension implementation.
-                This essentially uses an upsert that keeps track of all previous versions of each record.
-                For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
         key_columns : List[str], default=[]
             The names of the columns used to uniquely identify each record the table.
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
@@ -518,17 +536,6 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
 
         Returns
         -------
@@ -699,18 +706,6 @@ class BrewDatLibrary:
         partition_columns : List[str], default=[]
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
-            Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         df_writer = (
             df.write
@@ -762,17 +757,6 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         df_partitions = df.select(partition_columns).distinct()
 
@@ -836,17 +820,6 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         df_writer = (
             df.write
@@ -900,17 +873,6 @@ class BrewDatLibrary:
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         # Set schema_evolution_mode options
         if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
@@ -967,17 +929,6 @@ class BrewDatLibrary:
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
         """
         # Set schema_evolution_mode options
         if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
