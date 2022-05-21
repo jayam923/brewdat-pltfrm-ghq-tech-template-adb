@@ -26,35 +26,43 @@ class BrewDatLibrary:
         A Databricks utils object.
     """
 
+
     ########################################
     # Constants, enums, and helper classes #
     ########################################
 
     @unique
     class LoadType(str, Enum):
+        """Specifies the way in which the table should be loaded."""
+
         OVERWRITE_TABLE = "OVERWRITE_TABLE"
         """Load type where the entire table is rewritten in every execution.
         Avoid whenever possible, as this is not good for large tables.
         This deletes records that are not present in df.
         """
+
         OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
         """Load type for overwriting a single partition based on partitionColumns.
         This deletes records that are not present in df for the chosen partition.
         The df must be filtered such that it contains a single partition.
         """
+
         APPEND_ALL = "APPEND_ALL"
         """Load type where all records in the df are written into an table. 
         ATTENTION: use this load type only for Bronze tables, as it is bad for backfilling.
         """
+
         APPEND_NEW = "APPEND_NEW"
         """Load type where only new records in the df are written into an existing table.
         Records for which the key already exists in the table are ignored. 
         """
+
         UPSERT = "UPSERT"
         """Load type where records of a df are appended as new records or update existing records based on the key.
         This does NOT delete existing records that are not included in df.
         """
-        TYPE_2_SCD = "TYPE_2_SCD"
+
+        TYPE_2_SCD = "TYPE_2_SCD"  # not yet implemented
         """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
         This essentially uses an upsert that keeps track of all previous versions of each record.
         For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
@@ -72,17 +80,41 @@ class BrewDatLibrary:
 
     @unique
     class SchemaEvolutionMode(str, Enum):
+        """Specifies the way in which schema mismatches should be handled."""
+
         FAIL_ON_SCHEMA_MISMATCH = "FAIL_ON_SCHEMA_MISMATCH"
+        """Fail if the table's schema is not compatible with the DataFrame's.
+        This is the default Spark behavior when no option is given.
+        """
+
         ADD_NEW_COLUMNS = "ADD_NEW_COLUMNS"
+        """Schema evolution through adding new columns to the target table.
+        This is the same as using the option "mergeSchema".
+        """
+
         IGNORE_NEW_COLUMNS = "IGNORE_NEW_COLUMNS"
+        """Drop DataFrame columns that do not exist in the table's schema.
+        Does nothing if the table does not yet exist in the Hive metastore.
+        """
+
         OVERWRITE_SCHEMA = "OVERWRITE_SCHEMA"
+        """Overwrite the table's schema with the DataFrame's schema.
+        This is the same as using the option "overwriteSchema".
+        """
+
         RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"  # not yet implemented
+        """Create a new struct-type column to collect data for new columns.
+        This is the same strategy used in AutoLoader's rescue mode.
+        For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+        ATTENTION: This schema evolution mode is not implemented on this library yet!
+        """
 
 
     @unique
     class RunStatus(str, Enum):
         SUCCEEDED = "SUCCEEDED"
         FAILED = "FAILED"
+
 
     class ReturnObject(TypedDict):
         """Object that holds metadata from a data write operation.
@@ -112,6 +144,7 @@ class BrewDatLibrary:
         error_message: str
         error_details: str
 
+
     ##################
     # Public methods #
     ##################
@@ -125,6 +158,9 @@ class BrewDatLibrary:
         self,
         file_format: RawFileFormat,
         location: str,
+        csv_has_headers: bool = True,
+        csv_delimiter: str = ",",
+        csv_escape_character: str = "\"",
     ) -> DataFrame:
         """Read a DataFrame from the Raw Layer. Convert all data types to string.
 
@@ -134,6 +170,13 @@ class BrewDatLibrary:
             The raw file format use in this dataset (CSV, PARQUET, etc.).
         location : str
             Absolute Data Lake path for the physical location of this dataset.
+            Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
+        csv_has_headers : bool, default=True
+            Whether the CSV file has a header row.
+        csv_delimiter : str, default=","
+            Delimiter string for CSV file format.
+        csv_escape_character : str, default="\""
+            Escape character for CSV file format.
 
         Returns
         -------
@@ -144,15 +187,16 @@ class BrewDatLibrary:
             df = (
                 self.spark.read
                 .format(file_format.lower())
-                .option("header", True)
-                .option("escape", "\"")
+                .option("header", csv_has_headers)
+                .option("delimiter", csv_delimiter)
+                .option("escape", csv_escape_character)
                 .option("mergeSchema", True)
                 .load(location)
             )
 
-            # Cast everything to string
-            # TODO: make sure we can handle nested types (array, struct)
             if file_format != self.RawFileFormat.CSV:
+                # Cast all columns to string
+                # TODO: make sure we can handle nested types (array, struct)
                 non_string_columns = [col for col, dtype in df.dtypes if dtype != "string"]
                 for column in non_string_columns:
                     df = df.withColumn(column, F.col(column).cast("string"))
@@ -328,6 +372,8 @@ class BrewDatLibrary:
     ) -> DataFrame:
         """Drop columns which are null or empty for all the rows in the DataFrame.
 
+        This is a slow operation and is NOT recommended for production workloads.
+
         Parameters
         ----------
         df : DataFrame
@@ -357,20 +403,25 @@ class BrewDatLibrary:
 
     def generate_bronze_table_location(
         self,
+        lakehouse_bronze_root: str,
         target_zone: str,
         target_business_domain: str,
-        target_system_name: str,
+        source_system: str,
         table_name: str,
     ) -> str:
         """Build the standard location for a Bronze table.
 
         Parameters
         ----------
+        lakehouse_bronze_root : str
+            Root path to the Lakehouse's Bronze layer.
+            Format: "abfss://bronze@storage_account.dfs.core.windows.net".
+            Value varies by environment, so you should use environment variables.
         target_zone : str
             Zone of the target dataset.
         target_business_domain : str
             Business domain of the target dataset.
-        target_system_name : str
+        source_system : str
             Name of the source system.
         table_name : str
             Name of the target table in the metastore.
@@ -382,12 +433,11 @@ class BrewDatLibrary:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [target_zone, target_business_domain, target_system_name, table_name]
+            params_list = [lakehouse_bronze_root, target_zone, target_business_domain, source_system, table_name]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
-            lakehouse_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
-            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{table_name}".lower()
+            return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
         except:
             self.exit_with_last_exception()
@@ -395,20 +445,25 @@ class BrewDatLibrary:
 
     def generate_silver_table_location(
         self,
+        lakehouse_silver_root: str,
         target_zone: str,
         target_business_domain: str,
-        target_system_name: str,
+        source_system: str,
         table_name: str,
     ) -> str:
         """Build the standard location for a Silver table.
 
         Parameters
         ----------
+        lakehouse_silver_root : str
+            Root path to the Lakehouse's Silver layer.
+            Format: "abfss://silver@storage_account.dfs.core.windows.net".
+            Value varies by environment, so you should use environment variables.
         target_zone : str
             Zone of the target dataset.
         target_business_domain : str
             Business domain of the target dataset.
-        target_system_name : str
+        source_system : str
             Name of the source system.
         table_name : str
             Name of the target table in the metastore.
@@ -420,12 +475,11 @@ class BrewDatLibrary:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [target_zone, target_business_domain, target_system_name, table_name]
+            params_list = [lakehouse_silver_root, target_zone, target_business_domain, source_system, table_name]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
-            lakehouse_root = os.getenv("LAKEHOUSE_SILVER_ROOT")
-            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{target_system_name}/{table_name}".lower()
+            return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
         except:
             self.exit_with_last_exception()
@@ -433,6 +487,7 @@ class BrewDatLibrary:
 
     def generate_gold_table_location(
         self,
+        lakehouse_gold_root: str,
         target_zone: str,
         target_business_domain: str,
         project: str,
@@ -443,6 +498,10 @@ class BrewDatLibrary:
 
         Parameters
         ----------
+        lakehouse_gold_root : str
+            Root path to the Lakehouse's Gold layer.
+            Format: "abfss://gold@storage_account.dfs.core.windows.net".
+            Value varies by environment, so you should use environment variables.
         target_zone : str
             Zone of the target dataset.
         target_business_domain : str
@@ -461,12 +520,11 @@ class BrewDatLibrary:
         """
         try:
             # Check that no parameter is None or empty string
-            params_list = [target_zone, target_business_domain, project, database_name, table_name]
+            params_list = [lakehouse_gold_root, target_zone, target_business_domain, project, database_name, table_name]
             if any(x is None or len(x) == 0 for x in params_list):
                 raise ValueError("Location would contain null or empty values.")
 
-            lakehouse_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
-            return f"{lakehouse_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
+            return f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
 
         except:
             self.exit_with_last_exception()
@@ -498,19 +556,7 @@ class BrewDatLibrary:
             Name of the table in the metastore.
         load_type : BrewDatLibrary.LoadType
             Specifies the way in which the table should be loaded.
-            OVERWRITE_TABLE: the entire table is rewritten in every execution.
-                Avoid whenever possible, as this is not good for large tables.
-                This deletes records that are not present in df.
-            OVERWRITE_PARTITION: overwrite a single partition based on partitionColumns.
-                This deletes records that are not present in df for the chosen partition.
-                The df must be filtered such that it contains a single partition.
-            APPEND_NEW: write new records in the df to the existing table.
-                Records for which the key already exists in the table are ignored.
-            UPSERT: write new records and update existing records based on the key.
-                This does NOT delete existing records that are not included in df.
-            TYPE_2_SCD: use the standard type-2 Slowly Changing Dimension implementation.
-                This essentially uses an upsert that keeps track of all previous versions of each record.
-                For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
+            See documentation for BrewDatLibrary.LoadType.
         key_columns : List[str], default=[]
             The names of the columns used to uniquely identify each record the table.
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
@@ -518,23 +564,14 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+            See documentation for BrewDatLibrary.SchemaEvolutionMode.
 
         Returns
         -------
         ReturnObject
             Object containing the results of a write operation.
         """
+        # TODO: refactor this and all related write methods
         num_records_read = 0
         num_records_loaded = 0
 
@@ -621,6 +658,7 @@ class BrewDatLibrary:
 
             # Create the Hive database and table
             self.spark.sql(f"CREATE DATABASE IF NOT EXISTS {schema_name};")
+            # TODO: drop table if location has changed
             self.spark.sql(f"CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} USING DELTA LOCATION '{location}';")
 
             return self._build_return_object(
@@ -676,7 +714,6 @@ class BrewDatLibrary:
         self.exit_with_object(results)
 
 
-
     ###################
     # Private methods #
     ###################
@@ -700,18 +737,9 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+            See documentation for BrewDatLibrary.SchemaEvolutionMode.
         """
+        # TODO: refactor this and all related write methods
         df_writer = (
             df.write
             .format("delta")
@@ -762,18 +790,9 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+            See documentation for BrewDatLibrary.SchemaEvolutionMode.
         """
+        # TODO: refactor this and all related write methods
         df_partitions = df.select(partition_columns).distinct()
 
         if df_partitions.count() != 1:
@@ -836,18 +855,9 @@ class BrewDatLibrary:
             The names of the columns used to partition the table.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+            See documentation for BrewDatLibrary.SchemaEvolutionMode.
         """
+        # TODO: refactor this and all related write methods
         df_writer = (
             df.write
             .format("delta")
@@ -900,18 +910,9 @@ class BrewDatLibrary:
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+            See documentation for BrewDatLibrary.SchemaEvolutionMode.
         """
+        # TODO: refactor this and all related write methods
         # Set schema_evolution_mode options
         if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
@@ -967,18 +968,9 @@ class BrewDatLibrary:
             Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
-            FAIL_ON_SCHEMA_MISMATCH: fail if the table's schema is not compatible with the DataFrame's.
-                This is the default Spark behavior when no option is given.
-            ADD_NEW_COLUMNS: schema evolution through adding new columns to the target table.
-                This is the same as using the option "mergeSchema".
-            IGNORE_NEW_COLUMNS: drop DataFrame columns that do not exist in the table's schema.
-                Does nothing if the table does not yet exist in the Hive metastore.
-            OVERWRITE_SCHEMA: overwrite the table's schema with the DataFrame's schema.
-                This is the same as using the option "overwriteSchema".
-            RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-                This is the same strategy used in AutoLoader's rescue mode.
-                For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+            See documentation for BrewDatLibrary.SchemaEvolutionMode.
         """
+        # TODO: refactor this and all related write methods
         # Set schema_evolution_mode options
         if schema_evolution_mode == self.SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
             pass
