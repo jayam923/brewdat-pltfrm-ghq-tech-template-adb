@@ -706,10 +706,10 @@ class BrewDatLibrary:
 
         Examples
         --------
-        try:
-            # some code
-        except:
-            BrewDatLibrary.exit_with_last_exception()
+        >>> try:
+        >>>    # some code
+        >>> except:
+        >>>    BrewDatLibrary.exit_with_last_exception()
         """
         exc_type, exc_value, _ = sys.exc_info()
         results = self._build_return_object(
