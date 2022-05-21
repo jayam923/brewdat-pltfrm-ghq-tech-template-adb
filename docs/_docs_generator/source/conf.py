@@ -29,6 +29,8 @@ author = 'BrewDat'
 # ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.coverage', 'sphinx.ext.napoleon', 'myst_parser']
 
+source_suffix = ['.rst', '.md']
+
 
 # Napoleon settings
 napoleon_google_docstring = False
