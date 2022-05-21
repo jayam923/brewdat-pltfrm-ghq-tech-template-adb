@@ -15,47 +15,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.window import Window
 
 
-@unique
-class LoadType(str, Enum):
-    """Specifies the way in which the table should be loaded."""
-
-    OVERWRITE_TABLE = "OVERWRITE_TABLE"
-    """Load type where the entire table is rewritten in every execution.
-    Avoid whenever possible, as this is not good for large tables.
-    This deletes records that are not present in df.
-    """
-
-    OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
-    """Load type for overwriting a single partition based on partitionColumns.
-    This deletes records that are not present in df for the chosen partition.
-    The df must be filtered such that it contains a single partition.
-    """
-
-    APPEND_ALL = "APPEND_ALL"
-    """Load type where all records in the df are written into an table.
-
-    **ATTENTION**: use this load type only for Bronze tables, as it is bad for backfilling.
-    """
-
-    APPEND_NEW = "APPEND_NEW"
-    """Load type where only new records in the df are written into an existing table.
-    Records for which the key already exists in the table are ignored. 
-    """
-
-    UPSERT = "UPSERT"
-    """Load type where records of a df are appended as new records or update existing records based on the key.
-    This does NOT delete existing records that are not included in df.
-    """
-
-    TYPE_2_SCD = "TYPE_2_SCD"  # not yet implemented
-    """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
-    This essentially uses an upsert that keeps track of all previous versions of each record.
-    For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension .
-
-    **ATTENTION**: This load type is not implemented on this library yet!
-    """
-
-
 class BrewDatLibrary:
     """Reusable functions for all BrewDat projects.
 
@@ -74,52 +33,96 @@ class BrewDatLibrary:
 
 
     @unique
+    class LoadType(str, Enum):
+        """Specifies the way in which the table should be loaded.
+
+        OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
+        Avoid whenever possible, as this is not good for large tables.
+        This deletes records that are not present in df.
+
+        OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
+        This deletes records that are not present in df for the chosen partition.
+        The df must be filtered such that it contains a single partition.
+
+        APPEND_ALL: Load type where all records in the df are written into an table.
+        *Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
+
+        APPEND_NEW: Load type where only new records in the df are written into an existing table.
+        Records for which the key already exists in the table are ignored.
+
+        UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
+        This does NOT delete existing records that are not included in df.
+
+        TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+        This essentially uses an upsert that keeps track of all previous versions of each record.
+        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension .
+        *Attention*: This load type is not implemented on this library yet!
+        """
+        OVERWRITE_TABLE = "OVERWRITE_TABLE"
+        OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
+        APPEND_ALL = "APPEND_ALL"
+        APPEND_NEW = "APPEND_NEW"
+        UPSERT = "UPSERT"
+        TYPE_2_SCD = "TYPE_2_SCD"
+
+
+    @unique
     class RawFileFormat(str, Enum):
+        """ Available file formats.
+
+        PARQUET: Parquet format.
+
+        DELTA: Delta Lake format.
+
+        ORC: ORC format.
+
+        CSV: CSV format.
+        """
         PARQUET = "PARQUET"
-        """Parquet format."""
         DELTA = "DELTA"
-        """Delta Lake format."""
         ORC = "ORC"
-        """ORC format."""
         CSV = "CSV"
-        """CSV format."""
 
 
     @unique
     class SchemaEvolutionMode(str, Enum):
-        """Specifies the way in which schema mismatches should be handled."""
+        """Specifies the way in which schema mismatches should be handled.
 
-        FAIL_ON_SCHEMA_MISMATCH = "FAIL_ON_SCHEMA_MISMATCH"
-        """Fail if the table's schema is not compatible with the DataFrame's.
+        FAIL_ON_SCHEMA_MISMATCH: Fail if the table's schema is not compatible with the DataFrame's.
         This is the default Spark behavior when no option is given.
-        """
-        ADD_NEW_COLUMNS = "ADD_NEW_COLUMNS"
-        """Schema evolution through adding new columns to the target table.
+
+        ADD_NEW_COLUMNS: Schema evolution through adding new columns to the target table.
         This is the same as using the option "mergeSchema".
-        """
-        IGNORE_NEW_COLUMNS = "IGNORE_NEW_COLUMNS"
-        """Drop DataFrame columns that do not exist in the table's schema.
+
+        IGNORE_NEW_COLUMNS: Drop DataFrame columns that do not exist in the table's schema.
         Does nothing if the table does not yet exist in the Hive metastore.
-        """
-        OVERWRITE_SCHEMA = "OVERWRITE_SCHEMA"
-        """Overwrite the table's schema with the DataFrame's schema.
+
+        OVERWRITE_SCHEMA: Overwrite the table's schema with the DataFrame's schema.
         This is the same as using the option "overwriteSchema".
-        """
-        RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"
-        """Create a new struct-type column to collect data for new columns.
+
+        RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
         This is the same strategy used in AutoLoader's rescue mode.
         For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution .
-        
-        **ATTENTION**: not implemented yet!
+        *Attention*: not implemented yet!
         """
+
+        FAIL_ON_SCHEMA_MISMATCH = "FAIL_ON_SCHEMA_MISMATCH"
+        ADD_NEW_COLUMNS = "ADD_NEW_COLUMNS"
+        IGNORE_NEW_COLUMNS = "IGNORE_NEW_COLUMNS"
+        OVERWRITE_SCHEMA = "OVERWRITE_SCHEMA"
+        RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"
 
 
     @unique
     class RunStatus(str, Enum):
+        """Available run status
+
+        SUCCEEDED: Represents a succeeded run status.
+
+        FAILED: Represents a failed run status.
+        """
         SUCCEEDED = "SUCCEEDED"
-        """Represents a succeeded run status."""
         FAILED = "FAILED"
-        """Represents a failed run status."""
 
 
     class ReturnObject(TypedDict):
