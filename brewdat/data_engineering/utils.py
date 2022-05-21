@@ -38,24 +38,24 @@ class BrewDatLibrary:
 
         OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
         Avoid whenever possible, as this is not good for large tables.
-        This deletes records that are not present in df.
+        This deletes records that are not present in the DataFrame.
 
         OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
-        This deletes records that are not present in df for the chosen partition.
+        This deletes records that are not present in the DataFrame for the chosen partition.
         The df must be filtered such that it contains a single partition.
 
-        APPEND_ALL: Load type where all records in the df are written into an table.
+        APPEND_ALL: Load type where all records in the DataFrame are written into an table.
         *Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
 
-        APPEND_NEW: Load type where only new records in the df are written into an existing table.
+        APPEND_NEW: Load type where only new records in the DataFrame are written into an existing table.
         Records for which the key already exists in the table are ignored.
 
         UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
-        This does NOT delete existing records that are not included in df.
+        This does NOT delete existing records that are not included in the DataFrame.
 
         TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
         This essentially uses an upsert that keeps track of all previous versions of each record.
-        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension .
+        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
         *Attention*: This load type is not implemented on this library yet!
         """
         OVERWRITE_TABLE = "OVERWRITE_TABLE"
@@ -68,20 +68,17 @@ class BrewDatLibrary:
 
     @unique
     class RawFileFormat(str, Enum):
-        """ Available file formats.
+        """Supported raw file formats.
 
+        CSV: Delimited text format.
+        DELTA: Delta format.
         PARQUET: Parquet format.
-
-        DELTA: Delta Lake format.
-
         ORC: ORC format.
-
-        CSV: CSV format.
         """
-        PARQUET = "PARQUET"
-        DELTA = "DELTA"
-        ORC = "ORC"
         CSV = "CSV"
+        DELTA = "DELTA"
+        PARQUET = "PARQUET"
+        ORC = "ORC"
 
 
     @unique
@@ -102,10 +99,9 @@ class BrewDatLibrary:
 
         RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
         This is the same strategy used in AutoLoader's rescue mode.
-        For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution .
-        *Attention*: not implemented yet!
+        For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+        *Attention*: This schema evolution mode is not implemented on this library yet!
         """
-
         FAIL_ON_SCHEMA_MISMATCH = "FAIL_ON_SCHEMA_MISMATCH"
         ADD_NEW_COLUMNS = "ADD_NEW_COLUMNS"
         IGNORE_NEW_COLUMNS = "IGNORE_NEW_COLUMNS"
@@ -115,10 +111,9 @@ class BrewDatLibrary:
 
     @unique
     class RunStatus(str, Enum):
-        """Available run status
+        """Available run statuses.
 
         SUCCEEDED: Represents a succeeded run status.
-
         FAILED: Represents a failed run status.
         """
         SUCCEEDED = "SUCCEEDED"
@@ -182,7 +177,7 @@ class BrewDatLibrary:
             Whether the CSV file has a header row.
         csv_delimiter : str, default=","
             Delimiter string for CSV file format.
-        csv_escape_character : str, default="\""
+        csv_escape_character : str, default="\\""
             Escape character for CSV file format.
 
         Returns
