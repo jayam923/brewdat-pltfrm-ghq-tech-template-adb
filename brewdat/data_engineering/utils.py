@@ -128,7 +128,6 @@ class BrewDatLibrary:
         """Represents a failed run status."""
 
 
-
     class ReturnObject(TypedDict):
         """Object that holds metadata from a data write operation.
 
@@ -305,8 +304,8 @@ class BrewDatLibrary:
         """Create or replace BrewDat audit columns in the given DataFrame.
 
         The following audit columns are created/replaced:
-            _insert_gmt_ts: timestamp of when the record was inserted.
-            _update_gmt_ts: timestamp of when the record was last updated.
+            - _insert_gmt_ts: timestamp of when the record was inserted.
+            - _update_gmt_ts: timestamp of when the record was last updated.
 
         Parameters
         ----------
