@@ -24,35 +24,7 @@ class BrewDatLibrary:
         A Spark session.
     dbutils : object
         A Databricks utils object.
-
-    Methods
-    -------
-    read_raw_dataframe -> DataFrame
-        Read a DataFrame from the Raw Layer.
-    clean_column_names -> DataFrame
-        Normalize the name of all the columns in a given DataFrame.
-    create_or_replace_business_key_column -> DataFrame
-        Create a standard business key concatenating multiple columns.
-    create_or_replace_audit_columns -> DataFrame
-        Create or replace BrewDat audit columns in the given DataFrame.
-    deduplicate_records -> DataFrame
-        Deduplicate rows from a DataFrame using key and watermark columns.
-    drop_empty_columns -> DataFrame
-        Drop columns which are null or empty for all the rows in the DataFrame.
-    generate_bronze_table_location -> str
-        Build the standard location for a Bronze table.
-    generate_silver_table_location -> str
-        Build the standard location for a Silver table.
-    generate_gold_table_location -> str
-        Build the standard location for a Gold table.
-    write_delta_table -> ReturnObject
-        Write the DataFrame as a delta table.
-    exit_with_object
-        Finish execution returning an object to the notebook's caller.
-    exit_with_last_exception
-        Handle the last unhandled exception, returning an object to the notebook's caller.
     """
-
 
     ########################################
     # Constants, enums, and helper classes #
@@ -61,11 +33,33 @@ class BrewDatLibrary:
     @unique
     class LoadType(str, Enum):
         OVERWRITE_TABLE = "OVERWRITE_TABLE"
+        """Load type where the entire table is rewritten in every execution.
+        Avoid whenever possible, as this is not good for large tables.
+        This deletes records that are not present in df.
+        """
         OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
-        APPEND_ALL = "APPEND_ALL"  # only for Bronze tables, as it is bad for backfilling
+        """Load type for overwriting a single partition based on partitionColumns.
+        This deletes records that are not present in df for the chosen partition.
+        The df must be filtered such that it contains a single partition.
+        """
+        APPEND_ALL = "APPEND_ALL"
+        """Load type where all records in the df are written into an table. 
+        ATTENTION: use this load type only for Bronze tables, as it is bad for backfilling.
+        """
         APPEND_NEW = "APPEND_NEW"
+        """Load type where only new records in the df are written into an existing table.
+        Records for which the key already exists in the table are ignored. 
+        """
         UPSERT = "UPSERT"
-        TYPE_2_SCD = "TYPE_2_SCD"  # not yet implemented
+        """Load type where records of a df are appended as new records or update existing records based on the key.
+        This does NOT delete existing records that are not included in df.
+        """
+        TYPE_2_SCD = "TYPE_2_SCD"
+        """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+        This essentially uses an upsert that keeps track of all previous versions of each record.
+        For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
+        ATTENTION: This load type is not implemented on this library yet!
+        """
 
 
     @unique
@@ -90,8 +84,26 @@ class BrewDatLibrary:
         SUCCEEDED = "SUCCEEDED"
         FAILED = "FAILED"
 
-
     class ReturnObject(TypedDict):
+        """Object that holds metadata from a data write operation.
+
+            Attributes
+            ----------
+            status : str
+                Final status of a write operation.
+            target_object : str
+                The target object where data was written into.
+            num_records_read: int
+                Total number of records read from the origin dataset.
+            num_records_loaded: int
+                Total number of records written into target object.
+            num_records_errored_out: int
+                Total number of records that could not be properly processed and written into target object.
+            error_message: str
+                Error message regarding any error that happened when processing and writing into target object.
+            error_details: str
+                Detailed information about any error that happened when processing and writing into target object.
+        """
         status: str
         target_object: str
         num_records_read: int
@@ -99,8 +111,6 @@ class BrewDatLibrary:
         num_records_errored_out: int
         error_message: str
         error_details: str
-
-
 
     ##################
     # Public methods #
