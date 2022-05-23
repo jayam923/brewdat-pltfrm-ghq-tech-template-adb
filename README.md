@@ -12,5 +12,5 @@ You can find mode information about the functionalities that are currently
 available on BrewDat library for Databricks Notebooks looking directly 
 on module `brewdat.data_engineering` code or [here](./docs/library_doc.md).
 
-Regarding the development lifecycle od this project, you can find more information
+Regarding the development lifecycle of this project, you can find more information
 [here](./docs/framework_release_workflow.md).
