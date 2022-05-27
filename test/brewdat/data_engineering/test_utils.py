@@ -92,3 +92,4 @@ def test_write_delta_table_append_all(tmpdir):
 
     result_df = spark.table(result['target_object'])
     assert 1 == result_df.count()
+    result_df.show()
