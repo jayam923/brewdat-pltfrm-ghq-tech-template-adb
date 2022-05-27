@@ -1,14 +1,22 @@
 [tool.poetry]
-name = "brewdat-pltfrm-ghq-tech-template-adb"
+name = "brewdat-library"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = []
+
+packages = [
+    { include = "brewdat" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.8"
+delta-spark = "1.1.0"
 
 [tool.poetry.dev-dependencies]
+pyspark = "3.2.1"
+pytest = "7.1.2"
+pytest-mockito = "0.0.4"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core==1.0.0"]
 build-backend = "poetry.core.masonry.api"
