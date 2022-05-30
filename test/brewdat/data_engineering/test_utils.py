@@ -4,6 +4,7 @@ from test.spark_test import spark
 
 from brewdat.data_engineering.utils import BrewDatLibrary
 
+# TODO mock dbutils
 brewdat_library = BrewDatLibrary(spark=spark, dbutils=None)
 
 
@@ -11,9 +12,9 @@ def test_clean_column_names():
     # ARRANGE
     df = spark.createDataFrame([
         {
-            "phone  number": '00000000000'
-            , "name (Complete)": 'my name'
-            , "address 1": "my address"
+            "phone  number": '00000000000',
+            "name (Complete)": 'my name',
+            "address 1": "my address"
          }
     ])
 
@@ -30,14 +31,15 @@ def test_clean_column_names_except_for():
     # ARRANGE
     df = spark.createDataFrame([
         {
-            "phone  number": '00000000000'
-            , "name (Complete)": 'my name'
-            , "address 1": "my address"
+            "phone  number": '00000000000',
+            "name (Complete)": 'my name',
+            "address 1": "my address",
          }
     ])
 
     # ACT
-    result_df = brewdat_library.clean_column_names(df, except_for=['address 1'])
+    result_df = brewdat_library.clean_column_names(df,
+                                                   except_for=['address 1'])
 
     # ASSERT
     assert 'phone_number' in result_df.columns
@@ -68,9 +70,9 @@ def test_write_delta_table_append_all(tmpdir):
     # ARRANGE
     df = spark.createDataFrame([
         {
-            "phone_number": '00000000000'
-            , "name": 'my name'
-            , "address": "my address"
+            "phone_number": '00000000000',
+            "name": 'my name',
+            "address": "my address"
         }
     ])
     location = f'{tmpdir}/test_write_delta_table_append_all'
