@@ -1,7 +1,7 @@
-# ADB framework versioning and distribution
+# BrewDat Library versioning and distribution
 
-Created: May 13, 2022 10:24 AM
-Epic: Data engine
+Created: May 13, 2022  
+Updated: May 31, 2022
 
 # Motivation
 
@@ -9,58 +9,61 @@ In ESA, we intend to provide data engineers with notebook templates and librarie
 
 # Assumptions
 
-1. All releases must be properly versioned and documented, in a way anyone can see what was introduced on each release;
-2. ESA platform team is responsible for releasing new versions of the framework;
-3. DE are responsible for choosing a framework version to work with, as well as upgrade/downgrade it on any of their developments after proper testing; 
-4. All released versions of the framework should be automatically available to the ADB workspaces on DLZs through a CI/CD pipeline;
+1. All releases must be properly versioned and documented such that anyone can see what changed in each release;
+2. BrewDat/ESA platform team is responsible for releasing new versions of the library;
+3. Data Engineers are responsible for choosing a library version to work with, as well as upgrade/downgrade it on any of their notebooks after proper testing; 
+4. All released versions of the library should be made available to the all Databricks workspaces in ESA through an automated deployment process;
 
-# DE experience using the framework
+# Data Engineer experience using the library
 
-The available vesions of the framework would be found on every ADB workspace as a Repo under Repos/brewdat_framework/ :
+Every Azure Databricks Workspace in ESA will contain multiple vesions of the library as read-only repositories under Repos/brewdat_library/:
 
-![Screenshot from 2022-05-19 07-57-54.png](framework_release_workflow/Screenshot_from_2022-05-19_07-57-54.png)
+![Screenshot from 2022-05-19 07-57-54.png](img/library_release_workflow/Screenshot_from_2022-05-19_07-57-54.png)
 
-Inside each repo, all artifacts of the framewok can be found: python modules and scripts, adb template notebooks, markdown documents, etc... Only admins users on that workspace can change these repos.
+Each repository includes multiple library artifacts, including: Python modules and scripts, sample notebooks, markdown documents such as this one, etc. Only Workspace Admins can change these repositories.
 
-In order to start using the framework code on a custom notebook, the path for the framework version must be appended to sys path: 
+To start using the library code in a custom notebook, append the path for the library version to sys.path: 
 
 ```python
 import sys
-sys.path.append("/Workspace/Repos/brewdat_framework/v0.0.1-alpha-3")
+
+sys.path.append("/Workspace/Repos/brewdat_framework/v0.1.0")
 ```
 
-Each notebook can reference a different version of the framework, even if they are running on the same cluster. 
+Different notebooks can reference different library versions, even if they are running on the same cluster. 
 
-To call some functionality of the framework the regular python import command is needed informing wich module/function is needed:
+To use some functionality from the library, you must use Python's import statement informing which class/function you require:
 
 ```python
-from lakehouse.data_engineering import load_data, write_data
+# Import the BrewDat Library class
+sys.path.append(f"/Workspace/Repos/brewdat_framework/{brewdat_library_version}")
+from brewdat.data_engineering.utils import BrewDatLibrary
 
-load_data()
-write_data()
+# Initialize the BrewDat Library
+brewdat_library = BrewDatLibrary(spark=spark, dbutils=dbutils)
 ```
 
-For upgrading the framework on existing artifacts, DE just need to change the imported path to the new released version, as well as running tests before releasing his code to production. 
+To upgrade the library on existing notebooks, Data Engineers need to change the appended path to point to the new library version. It is good practice to run integration tests before promoting the new code to production.
 
-# Framework versioning and release
+# Library versioning and release
 
-All framework artifacts should be versioned on git repository, where all DE should be able to read it: [https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb)
+Library artifacts are versioned in a git repository. All ABI Data Engineers and Data Architects should be able to view it: [https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb)
 
-The workflow for evolving the framework artifacts should follow the gitflow pattern, as discribed on [this article](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow) from Atlassian.
+The workflow for evolving library artifacts follows the Gitflow workflow, as discribed in [here](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 
 ![gitflow.png](framework_release_workflow/gitflow.png)
 
-For every merge into master branch, a [github release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) and tag should be created. The release page should provide an overview on changes introduced by the new release. Through releases page, it is easy to compare releases and have a more in depth understanding on differences between versions of the framework.
+For every commit to the main branch, a new [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) and tag are created. The release page provides an overview of changes introduced in each release. Through release page, it is easy to compare library versions and have a more in-depth understanding of their differences.
 
 ![refreshed-releases-overview-with-contributors.png](framework_release_workflow/refreshed-releases-overview-with-contributors.png)
 
-Release and tags names should reference a framework version. Version numbers should obey semantic versioning best practices, with at least major and minor components (see: [https://semver.org/spec/v2.0.0.html](https://semver.org/spec/v2.0.0.html))
+Release and tags names always reference a library version. Version numbers follow the semantic versioning standard (see: [https://semver.org/spec/v2.0.0.html](https://semver.org/spec/v2.0.0.html)).
 
 ## CI/CD pipeline
 
 ### Unit tests
 
-Every comit on any branch should trigger the pipeline that runs unit tests. 
+Every commit on any branch should trigger the pipeline that runs unit tests. 
 
 Merging new code into develop and master branches should be allowed only when all unit tests ran successfully.
 
@@ -71,20 +74,19 @@ Unit tests should be written as much as possible, in order to get more stable re
 Every new tag created for a any release should trigger the delivery process. The steps for the delivery pipeline are:
 
 - List all existing ADB workspaces on ESA platform;
-- List all existing tags on framework repo;
+- List all existing tags on library repo;
 - For every combination of tag and ADB workspace:
     - check if there is already a repo referencing the tag on ADB workspace
         - when not, add a new repo to the ADB workspace and attach it to the tag
 
 Assumptions:
-
 - The pipeline agent must have permissions to list ADB workspaces on every subscription of ESA;
 - The pipeline agent must have permissions to interact with every ADB workspace through the Repos API and Workspace API;
 - Since the delivery is triggered by the tag creation event, when a new ADB workspace is created, the delivery pipeline must be triggered manually.
 
-## Colaborative framework evolution
+## Collaborative library evolution
 
-DE from DLZs can support the evolution of the framework by helping to validate not yet released versions or actively coding on feature branches.
+DE from DLZs can support the evolution of the library by helping to validate unreleased versions or actively submitting pull-requests from private forks.
 
 For testing a unreleased version, the DE can add a repo under his personal folder and set the branch where the feature they want to validate is being developed (it could be either a hotfix, release, feature or develop branch).
 
@@ -92,7 +94,7 @@ For testing a unreleased version, the DE can add a repo under his personal folde
 
 - Integrated to git and managed releases
 - CI/CD pipelines
-- Allow multiple versions of the framework to coexist on ADB workspace
-- All framework artifacts are available to DE on ADB workspace
-- DE can take part on framework development
-- Unit tests can be integrated into the framework development workflow
+- Allow multiple versions of the library to coexist on ADB workspace
+- All library artifacts are available to DE on ADB workspace
+- DE can take part on library development
+- Unit tests can be integrated into the library development workflow
