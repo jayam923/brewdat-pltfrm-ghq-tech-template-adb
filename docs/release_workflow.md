@@ -18,7 +18,7 @@ In ESA, we intend to provide data engineers with notebook templates and librarie
 
 Every Azure Databricks Workspace in ESA will contain multiple vesions of the library as read-only repositories under Repos/brewdat_library/:
 
-![Screenshot from 2022-05-19 07-57-54.png](img/release_workflow/Screenshot_from_2022-05-19_07-57-54.png)
+![Screenshot from 2022-05-19 07-57-54.png](img/release_workflow/adb-repos.png)
 
 Each repository includes multiple library artifacts, including: Python modules and scripts, sample notebooks, markdown documents such as this one, etc. Only Workspace Admins can change these repositories.
 
@@ -51,11 +51,11 @@ Library artifacts are versioned in a git repository. All ABI Data Engineers and 
 
 The workflow for evolving library artifacts follows the Gitflow workflow, as discribed in [here](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 
-![gitflow.png](release_workflow/gitflow.png)
+![gitflow.png](img/release_workflow/gitflow.png)
 
 For every commit to the main branch, a new [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) and tag are created. The release page provides an overview of changes introduced in each release. Through release page, it is easy to compare library versions and have a more in-depth understanding of their differences.
 
-![refreshed-releases-overview-with-contributors.png](release_workflow/refreshed-releases-overview-with-contributors.png)
+![github-release.png](img/release_workflow/github-release.png)
 
 Release and tags names always reference a library version. Version numbers follow the semantic versioning standard (see: [https://semver.org/spec/v2.0.0.html](https://semver.org/spec/v2.0.0.html)).
 
