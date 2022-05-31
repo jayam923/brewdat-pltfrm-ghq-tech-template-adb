@@ -5,22 +5,24 @@ Updated: May 31, 2022
 
 # Motivation
 
-In ESA, we intend to provide data engineers with notebook templates and libraries that they can leverage to accelerate the development process -- extracting data to the Raw Layer, ingesting it into the Bronze Layer, ingesting it into the Silver Layer, and finally creating Gold data products based on that data, all while using best practices for auditing, exception handling, dependency control, Data Lake organization, etc. One important aspect of these templates is that they will evolve over time, meaning newer versions will be release as new features become available (e.g., a new standard library function for running data quality checks, or a bugfix to an existing library function). These new template versions will be made available for ESA users; however, we should not overwrite the user's copy without their consent, as that could cause existing data pipelines to fail. Instead, we plan on maintaining the many template versions in a source control software (GitHub), using releases with semantic versioning to allow multiple versions of the same templates to coexist. The objective is to allow users to upgrade/downgrade their code at their own pace, after proper testing.
+In ESA, we intend to provide data engineers with notebook templates and PySpark libraries that they can leverage to accelerate their development process -- extracting data to the Raw Layer, ingesting it into the Bronze Layer, ingesting it into the Silver Layer, and finally creating Gold data products based on that data, all while using best practices for auditing, exception handling, dependency control, Data Lake organization, etc.
+
+One important aspect of these libraries and templates is that they will evolve over time, meaning newer versions will be released as new features become available (e.g., a new library function for running data quality checks, or a bugfix to an existing library function). These new versions will be made available for ESA users; however, BrewDat should not overwrite the user's copy without their consent, as that could cause existing data pipelines to fail. Instead, we plan to maintain the many library versions in GitHub, using releases with semantic versioning to allow multiple versions of the same library to coexist. This way, we will allow users to upgrade their code at their own pace, after proper testing.
 
 # Assumptions
 
 1. All releases must be properly versioned and documented such that anyone can see what changed in each release;
 2. BrewDat/ESA platform team is responsible for releasing new versions of the library;
-3. Data Engineers are responsible for choosing a library version to work with, as well as upgrade/downgrade it on any of their notebooks after proper testing; 
-4. All released versions of the library should be made available to the all Databricks workspaces in ESA through an automated deployment process;
+3. Data engineers are responsible for choosing a library version to work with, as well as upgrading/downgrading the library version used in any of their notebooks after proper testing;
+4. Released library versions will be made available to the all Databricks workspaces in ESA through an automated deployment process;
 
-# Data Engineer experience using the library
+# Data engineer experience using the library
 
-Every Azure Databricks Workspace in ESA will contain multiple vesions of the library as read-only repositories under Repos/brewdat_library/:
+Every Databricks Workspace in ESA will contain multiple vesions of the library as read-only repositories under Repos/brewdat_library/:
 
 ![](img/release_workflow/adb-repos.png)
 
-Each repository includes multiple library artifacts, including: Python modules and scripts, sample notebooks, markdown documents such as this one, etc. Only Workspace Admins can change these repositories.
+Each repository contains multiple library artifacts, including: Python modules and scripts, sample notebooks, markdown documents such as this one, etc. Only Workspace Admins can change these repositories.
 
 To start using the library code in a custom notebook, append the path for the library version to sys.path: 
 
@@ -32,7 +34,7 @@ sys.path.append("/Workspace/Repos/brewdat_framework/v0.1.0")
 
 Different notebooks can reference different library versions, even if they are running on the same cluster. 
 
-To use some functionality from the library, you must use Python's import statement informing which class/function you require:
+To use some functionality from the library, you must use Python's `import` statement informing which class/function you require:
 
 ```python
 # Import the BrewDat Library class
@@ -43,11 +45,11 @@ from brewdat.data_engineering.utils import BrewDatLibrary
 brewdat_library = BrewDatLibrary(spark=spark, dbutils=dbutils)
 ```
 
-To upgrade the library on existing notebooks, Data Engineers need to change the appended path to point to the new library version. It is good practice to run integration tests before promoting the new code to production.
+To upgrade the library on existing notebooks, data engineers need to change the appended path to point to the new library version. It is good practice to run integration tests before promoting the new code to production.
 
 # Library versioning and release
 
-Library artifacts are versioned in a git repository. All ABI Data Engineers and Data Architects should be able to view it: [https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb)
+Library artifacts are versioned in a git repository. All ABI data engineers and architects should be able to view it: [https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb)
 
 The workflow for evolving library artifacts follows the Gitflow workflow, as discribed in [here](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 
@@ -63,11 +65,7 @@ Release and tags names always reference a library version. Version numbers follo
 
 ### Unit tests
 
-Unit tests will be run automatically for every new Pull Request.
-
-Merging new code into develop and main branches is only allowed if all unit tests ran successfully.
-
-We will strive to create a large number of unit tests to allow for stable library releases.
+Unit tests will be run automatically for every new Pull Request. Merging new code into develop and main branches is only allowed if all unit tests ran successfully. We will strive to create a large number of unit tests to allow for stable library releases.
 
 ### Delivery
 
@@ -85,18 +83,18 @@ Assumptions:
 
 ## Collaborative library evolution
 
-Every Data Engineer in ABI is welcome to support the evolution of this library. Valuable collaboration includes:
+Every data engineer in ABI is welcome to support the evolution of this library. Valuable collaboration efforts includes:
 - Helping validate unreleased versions of the library;
 - Submitting issues regarding unexpected behavior or bugs;
-- Actively submitting pull requests from private forks.
+- Actively submitting pull requests from other forks.
 
-To test an unreleased library version, the Data Engineer may create a Repo under their personal folder and select a specific branch where some feature/bugfix is being developed.
+To test an unreleased library version, the data engineer may create a Repo under their personal Repos folder and select a specific branch where some feature/bugfix is being developed. Then they can append this new path to sys.path instead.
 
 ## Outcomes
 
-- Integrated to git and managed releases
+- GitHub version control and release management
+- Allow multiple versions of the library to coexist in the same cluster
 - CI/CD pipelines
-- Allow multiple versions of the library to coexist on ADB workspace
-- All library artifacts are available to DE/DA on ADB workspaces in ESA
-- DE can take part on library development
-- Unit tests are be integrated into the library development workflow
+- New library versions always available for ADB workspaces in ESA
+- Users can take part in library development
+- Unit tests as part of the library development lifecycle
