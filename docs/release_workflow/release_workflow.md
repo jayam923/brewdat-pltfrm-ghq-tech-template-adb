@@ -1,7 +1,7 @@
 # BrewDat Library versioning and distribution
 
 Created: May 13, 2022  
-Updated: May 31, 2022
+Updated: June 1, 2022
 
 # Motivation
 
@@ -20,7 +20,7 @@ One important aspect of these libraries and templates is that they will evolve o
 
 Every Databricks Workspace in ESA will contain multiple vesions of the library as read-only repositories under Repos/brewdat_library/:
 
-![](img/adb-repos.png)
+<img src="img/adb-repos.png" width="75%">
 
 Each repository contains multiple library artifacts, including: Python modules and scripts, sample notebooks, markdown documents such as this one, etc. Only Workspace Admins can change these repositories.
 
@@ -53,11 +53,11 @@ Library artifacts are versioned in a git repository. All ABI data engineers and 
 
 The workflow for evolving library artifacts follows the Gitflow workflow, as discribed [here](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 
-![](img/gitflow.png)
+<img src="img/gitflow.png" width="60%">
 
 For every commit to the main branch, a new [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository) and tag are created. The release page provides an overview of changes introduced in each release. Through release page, it is easy to compare library versions and have a more in-depth understanding of their differences.
 
-![](img/github-release.png)
+<img src="img/github-release.png" width="75%">
 
 Release and tags names always reference a library version. Version numbers follow the semantic versioning standard (see: [https://semver.org/spec/v2.0.0.html](https://semver.org/spec/v2.0.0.html)).
 
