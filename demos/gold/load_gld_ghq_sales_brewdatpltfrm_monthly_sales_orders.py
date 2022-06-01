@@ -23,13 +23,13 @@ dbutils.widgets.text("target_hive_table", "monthly_sales_order", "6 - target_hiv
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
-# dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "7 - data_interval_start")
-# data_interval_start = dbutils.widgets.get("data_interval_start")
-# print(f"data_interval_start: {data_interval_start}")
+dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "7 - data_interval_start")
+data_interval_start = dbutils.widgets.get("data_interval_start")
+print(f"data_interval_start: {data_interval_start}")
 
-# dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_interval_end")
-# data_interval_end = dbutils.widgets.get("data_interval_end")
-# print(f"data_interval_end: {data_interval_end}")
+dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_interval_end")
+data_interval_end = dbutils.widgets.get("data_interval_end")
+print(f"data_interval_end: {data_interval_end}")
 
 # COMMAND ----------
 
@@ -97,10 +97,12 @@ df = spark.sql("""
         ship_to_city
     WITH ROLLUP
 """)
+#df.display()
 
 # COMMAND ----------
 
-df = brewdat_library.create_or_replace_audit_columns(df)
+audit_df = brewdat_library.create_or_replace_audit_columns(df)
+#audit_df.display()
 
 # COMMAND ----------
 
@@ -114,7 +116,7 @@ location = brewdat_library.generate_gold_table_location(
 )
 
 results = brewdat_library.write_delta_table(
-    df=df,
+    df=audit_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
