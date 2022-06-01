@@ -51,7 +51,7 @@ To upgrade the library on existing notebooks, data engineers need to change the 
 
 Library artifacts are versioned in a git repository. All ABI data engineers and architects should be able to view it: [https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb)
 
-The workflow for evolving library artifacts follows the Gitflow workflow, as discribed in [here](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
+The workflow for evolving library artifacts follows the Gitflow workflow, as discribed [here](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 
 ![](img/gitflow.png)
 
