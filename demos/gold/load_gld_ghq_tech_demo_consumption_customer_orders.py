@@ -86,7 +86,7 @@ df = spark.sql("""
             order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
     """.format(
         data_interval_start=data_interval_start,
-        data_interval_end=data_interval_end
+        data_interval_end=data_interval_end,
     ))
 
 #display(df)

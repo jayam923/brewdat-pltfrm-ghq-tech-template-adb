@@ -70,45 +70,45 @@ spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microso
 key_columns = ["sales_order_id"]
 
 df = spark.sql("""
-      SELECT
-          CAST(SalesOrderId AS INT) AS sales_order_id,
-          CAST(RevisionNumber AS TINYINT) AS revision_number,
-          TO_DATE(OrderDate) AS order_date,
-          TO_DATE(DueDate) AS due_date,
-          TO_DATE(ShipDate) AS ship_date,
-          CAST(Status AS TINYINT) AS status_code,
-          CASE
-              WHEN Status = 1 THEN 'In Process'
-              WHEN Status = 2 THEN 'Approved'
-              WHEN Status = 3 THEN 'Backordered'
-              WHEN Status = 4 THEN 'Rejected'
-              WHEN Status = 5 THEN 'Shipped'
-              WHEN Status = 6 THEN 'Canceled'
-              WHEN Status IS NULL THEN NULL
-              ELSE '--MAPPING ERROR--'
-          END AS status,
-          CAST(OnlineOrderFlag AS BOOLEAN) AS online_order_flag,
-          SalesOrderNumber AS sales_order_number,
-          PurchaseOrderNumber AS purchase_order_number,
-          AccountNumber AS account_number,
-          CAST(CustomerId AS INT) AS customer_id,
-          CAST(ShipToAddressId AS INT) AS ship_to_address_id,
-          CAST(BillToAddressId AS INT) AS bill_to_address_id,
-          ShipMethod AS ship_method,
-          CAST(SubTotal AS DECIMAL(19,4)) AS sub_total,
-          CAST(TaxAmt AS DECIMAL(19,4)) AS tax_amount,
-          CAST(Freight AS DECIMAL(19,4)) AS freight,
-          CAST(TotalDue AS DECIMAL(19,4)) AS total_due,
-          TO_TIMESTAMP(ModifiedDate) AS modified_date,
-          __ref_dt
-      FROM
-          brz_ghq_tech_adventureworks.sales_order_header
-      WHERE 1 = 1
-          AND __ref_dt BETWEEN DATE_FORMAT('{data_interval_start}', 'yyyyMMdd')
-              AND DATE_FORMAT('{data_interval_end}', 'yyyyMMdd')
+        SELECT
+            CAST(SalesOrderId AS INT NOT NULL) AS sales_order_id,
+            CAST(RevisionNumber AS TINYINT) AS revision_number,
+            TO_DATE(OrderDate) AS order_date,
+            TO_DATE(DueDate) AS due_date,
+            TO_DATE(ShipDate) AS ship_date,
+            CAST(Status AS TINYINT) AS status_code,
+            CASE
+                WHEN Status = 1 THEN 'In Process'
+                WHEN Status = 2 THEN 'Approved'
+                WHEN Status = 3 THEN 'Backordered'
+                WHEN Status = 4 THEN 'Rejected'
+                WHEN Status = 5 THEN 'Shipped'
+                WHEN Status = 6 THEN 'Canceled'
+                WHEN Status IS NULL THEN NULL
+                ELSE '--MAPPING ERROR--'
+            END AS status,
+            CAST(OnlineOrderFlag AS BOOLEAN) AS online_order_flag,
+            SalesOrderNumber AS sales_order_number,
+            PurchaseOrderNumber AS purchase_order_number,
+            AccountNumber AS account_number,
+            CAST(CustomerId AS INT) AS customer_id,
+            CAST(ShipToAddressId AS INT) AS ship_to_address_id,
+            CAST(BillToAddressId AS INT) AS bill_to_address_id,
+            ShipMethod AS ship_method,
+            CAST(SubTotal AS DECIMAL(19,4)) AS sub_total,
+            CAST(TaxAmt AS DECIMAL(19,4)) AS tax_amount,
+            CAST(Freight AS DECIMAL(19,4)) AS freight,
+            CAST(TotalDue AS DECIMAL(19,4)) AS total_due,
+            TO_TIMESTAMP(ModifiedDate) AS modified_date,
+            __ref_dt
+        FROM
+            brz_ghq_tech_adventureworks.sales_order_header
+        WHERE 1 = 1
+            AND __ref_dt BETWEEN DATE_FORMAT('{data_interval_start}', 'yyyyMMdd')
+                AND DATE_FORMAT('{data_interval_end}', 'yyyyMMdd')
     """.format(
         data_interval_start=data_interval_start,
-        data_interval_end=data_interval_end
+        data_interval_end=data_interval_end,
     ))
 
 #display(df)
