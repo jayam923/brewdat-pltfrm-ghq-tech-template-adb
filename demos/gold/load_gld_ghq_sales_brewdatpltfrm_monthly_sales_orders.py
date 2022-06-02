@@ -3,19 +3,19 @@ dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_v
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("target_zone", "ghq", "2 - target_zone")
-target_zone = dbutils.widgets.get("target_zone")
-print(f"target_zone: {target_zone}")
-
-dbutils.widgets.text("target_business_domain", "tech", "3 - target_business_domain")
-target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"target_business_domain: {target_business_domain}")
-
-dbutils.widgets.text("project", "template", "4 - project")
+dbutils.widgets.text("project", "demo_consumption", "2 - project")
 project = dbutils.widgets.get("project")
 print(f"project: {project}")
 
-dbutils.widgets.text("target_hive_database", "gld_ghq_tech_adventureworks", "5 - target_hive_database")
+dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
+target_zone = dbutils.widgets.get("target_zone")
+print(f"target_zone: {target_zone}")
+
+dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_domain")
+target_business_domain = dbutils.widgets.get("target_business_domain")
+print(f"target_business_domain: {target_business_domain}")
+
+dbutils.widgets.text("target_hive_database", "gld_ghq_tech_demo_consumption", "5 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
@@ -48,10 +48,11 @@ help(brewdat_library)
 
 # Gather standard Lakehouse environment variables
 environment = os.getenv("ENVIRONMENT")
+lakehouse_silver_root = os.getenv("LAKEHOUSE_SILVER_ROOT")
 lakehouse_gold_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
 
 # Ensure that all standard Lakehouse environment variables are set
-if None in [environment, lakehouse_gold_root]:
+if None in [environment, lakehouse_silver_root, lakehouse_gold_root]:
     raise Exception("This Databricks Workspace does not have necessary environment variables."
         " Contact the admin team to set up the global init script and restart your cluster.")
 
@@ -67,42 +68,47 @@ spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microso
 # COMMAND ----------
 
 df = spark.sql("""
-    SELECT
-        DATE_FORMAT(order_header.order_date, 'yyyy-MM') AS order_year_month,
-        order_header.online_order_flag,
-        customer.gender AS customer_gender,
-        ship_to_address.country_region AS ship_to_country_region,
-        ship_to_address.state_province AS ship_to_state_province,
-        ship_to_address.city AS ship_to_city,
-        COUNT(order_header.sales_order_id) AS total_orders,
-        SUM(order_header.sub_total) AS sum_sub_total
-    FROM
-        slv_ghq_tech_adventureworks.sales_order_header AS order_header
-        INNER JOIN slv_ghq_tech_adventureworks.customer
-            ON customer.customer_id = order_header.customer_id
-        INNER JOIN slv_ghq_tech_adventureworks.address AS ship_to_address
-            ON ship_to_address.address_id = order_header.ship_to_address_id
-    WHERE
-        order_header.status_code NOT IN (
-            1, -- In Process
-            4, -- Rejected
-            6 -- Canceled
-        )
-    GROUP BY
-        order_year_month,
-        online_order_flag,
-        customer_gender,
-        ship_to_country_region,
-        ship_to_state_province,
-        ship_to_city
-    WITH ROLLUP
-""")
-#df.display()
+        SELECT
+            DATE_FORMAT(order_header.order_date, 'yyyy-MM') AS order_year_month,
+            order_header.online_order_flag,
+            customer.gender AS customer_gender,
+            ship_to_address.country_region AS ship_to_country_region,
+            ship_to_address.state_province AS ship_to_state_province,
+            ship_to_address.city AS ship_to_city,
+            COUNT(order_header.sales_order_id) AS total_orders,
+            SUM(order_header.sub_total) AS sum_sub_total
+        FROM
+            slv_ghq_tech_adventureworks.sales_order_header AS order_header
+            INNER JOIN slv_ghq_tech_adventureworks.customer
+                ON customer.customer_id = order_header.customer_id
+            INNER JOIN slv_ghq_tech_adventureworks.address AS ship_to_address
+                ON ship_to_address.address_id = order_header.ship_to_address_id
+        WHERE
+            order_header.status_code NOT IN (
+                1, -- In Process
+                4, -- Rejected
+                6 -- Canceled
+            )
+        GROUP BY
+            order_year_month,
+            online_order_flag,
+            customer_gender,
+            ship_to_country_region,
+            ship_to_state_province,
+            ship_to_city
+        WITH ROLLUP
+    """.format(
+        data_interval_start=data_interval_start,
+        data_interval_end=data_interval_end,
+    ))
+
+#display(df)
 
 # COMMAND ----------
 
 audit_df = brewdat_library.create_or_replace_audit_columns(df)
-#audit_df.display()
+
+#display(audit_df)
 
 # COMMAND ----------
 
