@@ -1,8 +1,7 @@
 import pytest
 
-from test.spark_test import spark
-
 from brewdat.data_engineering.utils import BrewDatLibrary
+from test.spark_test import spark
 
 # TODO mock dbutils
 brewdat_library = BrewDatLibrary(spark=spark, dbutils=None)
@@ -66,7 +65,6 @@ def test_read_raw_dataframe_csv():
 
 
 def test_write_delta_table_append_all(tmpdir):
-
     # ARRANGE
     df = spark.createDataFrame([
         {
@@ -81,17 +79,16 @@ def test_write_delta_table_append_all(tmpdir):
 
     # ACT
     result = brewdat_library.write_delta_table(
-        df=df
-        , location=location
-        , schema_name=schema_name
-        , table_name=table_name
-        , load_type=brewdat_library.LoadType.APPEND_ALL
+        df=df,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=brewdat_library.LoadType.APPEND_ALL,
     )
+    print(result)
 
     # ASSERT
-    print(result)
     assert result['status'] == brewdat_library.RunStatus.SUCCEEDED
-
     result_df = spark.table(result['target_object'])
     assert 1 == result_df.count()
     result_df.show()
