@@ -1,25 +1,25 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.0.1", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("target_zone", "ghq", "2 - target_zone")
+dbutils.widgets.text("project", "demo_consumption", "2 - project")
+project = dbutils.widgets.get("project")
+print(f"project: {project}")
+
+dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"target_zone: {target_zone}")
 
-dbutils.widgets.text("target_business_domain", "tech", "3 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("source_system", "adventureworks", "4 - source_system")
-source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
-
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_adventureworks", "5 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "gld_ghq_tech_demo_consumption", "5 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "sales_order_header", "6 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "monthly_sales_order", "6 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
@@ -48,13 +48,11 @@ help(brewdat_library)
 
 # Gather standard Lakehouse environment variables
 environment = os.getenv("ENVIRONMENT")
-lakehouse_raw_root = os.getenv("LAKEHOUSE_RAW_ROOT")
-lakehouse_bronze_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
 lakehouse_silver_root = os.getenv("LAKEHOUSE_SILVER_ROOT")
 lakehouse_gold_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
 
 # Ensure that all standard Lakehouse environment variables are set
-if None in [environment, lakehouse_raw_root, lakehouse_bronze_root, lakehouse_silver_root, lakehouse_gold_root]:
+if None in [environment, lakehouse_silver_root, lakehouse_gold_root]:
     raise Exception("This Databricks Workspace does not have necessary environment variables."
         " Contact the admin team to set up the global init script and restart your cluster.")
 
@@ -69,61 +67,67 @@ spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microso
 
 # COMMAND ----------
 
-raw_df = brewdat_library.read_raw_dataframe(
-    file_format=BrewDatLibrary.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    csv_has_headers=True,
-    csv_delimiter=",",
-    csv_escape_character="\"",
-)
-
-#display(df)
-
-# COMMAND ----------
-
-clean_df = brewdat_library.clean_column_names(raw_df)
-
-#display(df)
-
-# COMMAND ----------
-
-from pyspark.sql import functions as F
-
-transformed_df = (
-    clean_df
-    .filter(F.col("__ref_dt").between(
-        F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
-        F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
+df = spark.sql("""
+        SELECT
+            DATE_FORMAT(order_header.order_date, 'yyyy-MM') AS order_year_month,
+            order_header.online_order_flag,
+            customer.gender AS customer_gender,
+            ship_to_address.country_region AS ship_to_country_region,
+            ship_to_address.state_province AS ship_to_state_province,
+            ship_to_address.city AS ship_to_city,
+            COUNT(order_header.sales_order_id) AS total_orders,
+            SUM(order_header.sub_total) AS sum_sub_total
+        FROM
+            slv_ghq_tech_adventureworks.sales_order_header AS order_header
+            INNER JOIN slv_ghq_tech_adventureworks.customer
+                ON customer.customer_id = order_header.customer_id
+            INNER JOIN slv_ghq_tech_adventureworks.address AS ship_to_address
+                ON ship_to_address.address_id = order_header.ship_to_address_id
+        WHERE
+            order_header.status_code NOT IN (
+                1, -- In Process
+                4, -- Rejected
+                6 -- Canceled
+            )
+        GROUP BY
+            order_year_month,
+            online_order_flag,
+            customer_gender,
+            ship_to_country_region,
+            ship_to_state_province,
+            ship_to_city
+        WITH ROLLUP
+    """.format(
+        data_interval_start=data_interval_start,
+        data_interval_end=data_interval_end,
     ))
-    .withColumn("__src_file", F.input_file_name())
-)
 
 #display(df)
 
 # COMMAND ----------
 
-audit_df = brewdat_library.create_or_replace_audit_columns(transformed_df)
+audit_df = brewdat_library.create_or_replace_audit_columns(df)
 
-#display(df)
+#display(audit_df)
 
 # COMMAND ----------
 
-target_location = brewdat_library.generate_bronze_table_location(
-    lakehouse_bronze_root=lakehouse_bronze_root,
+location = brewdat_library.generate_gold_table_location(
+    lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
-    source_system=source_system,
+    project=project,
+    database_name=target_hive_database,
     table_name=target_hive_table,
 )
 
 results = brewdat_library.write_delta_table(
     df=audit_df,
-    location=target_location,
+    location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=brewdat_library.LoadType.APPEND_ALL,
-    partition_columns=["__ref_dt"],
-    schema_evolution_mode=brewdat_library.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    load_type=brewdat_library.LoadType.OVERWRITE_TABLE,
+    schema_evolution_mode=brewdat_library.SchemaEvolutionMode.OVERWRITE_SCHEMA,
 )
 
 print(results)

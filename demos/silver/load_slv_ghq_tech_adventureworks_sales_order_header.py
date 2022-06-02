@@ -3,17 +3,17 @@ dbutils.widgets.text("brewdat_library_version", "v0.0.1", "1 - brewdat_library_v
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("target_zone", "ghq", "2 - target_zone")
+dbutils.widgets.text("source_system", "adventureworks", "2 - source_system")
+source_system = dbutils.widgets.get("source_system")
+print(f"source_system: {source_system}")
+
+dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"target_zone: {target_zone}")
 
-dbutils.widgets.text("target_business_domain", "tech", "3 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
-
-dbutils.widgets.text("source_system", "adventureworks", "4 - source_system")
-source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
 
 dbutils.widgets.text("target_hive_database", "slv_ghq_tech_adventureworks", "5 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
@@ -48,13 +48,11 @@ help(brewdat_library)
 
 # Gather standard Lakehouse environment variables
 environment = os.getenv("ENVIRONMENT")
-lakehouse_raw_root = os.getenv("LAKEHOUSE_RAW_ROOT")
 lakehouse_bronze_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
 lakehouse_silver_root = os.getenv("LAKEHOUSE_SILVER_ROOT")
-lakehouse_gold_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
 
 # Ensure that all standard Lakehouse environment variables are set
-if None in [environment, lakehouse_raw_root, lakehouse_bronze_root, lakehouse_silver_root, lakehouse_gold_root]:
+if None in [environment, lakehouse_bronze_root, lakehouse_silver_root]:
     raise Exception("This Databricks Workspace does not have necessary environment variables."
         " Contact the admin team to set up the global init script and restart your cluster.")
 
@@ -72,46 +70,46 @@ spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microso
 key_columns = ["sales_order_id"]
 
 df = spark.sql("""
-    SELECT
-        CAST(SalesOrderId AS INT) AS sales_order_id,
-        CAST(RevisionNumber AS TINYINT) AS revision_number,
-        TO_DATE(OrderDate) AS order_date,
-        TO_DATE(DueDate) AS due_date,
-        TO_DATE(ShipDate) AS ship_date,
-        CAST(Status AS TINYINT) AS status_code,
-        CASE
-            WHEN Status = 1 THEN 'In Process'
-            WHEN Status = 2 THEN 'Approved'
-            WHEN Status = 3 THEN 'Backordered'
-            WHEN Status = 4 THEN 'Rejected'
-            WHEN Status = 5 THEN 'Shipped'
-            WHEN Status = 6 THEN 'Canceled'
-            WHEN Status IS NULL THEN NULL
-            ELSE '--MAPPING ERROR--'
-        END AS status,
-        CAST(OnlineOrderFlag AS BOOLEAN) AS online_order_flag,
-        SalesOrderNumber AS sales_order_number,
-        PurchaseOrderNumber AS purchase_order_number,
-        AccountNumber AS account_number,
-        CAST(CustomerId AS INT) AS customer_id,
-        CAST(ShipToAddressId AS INT) AS ship_to_address_id,
-        CAST(BillToAddressId AS INT) AS bill_to_address_id,
-        ShipMethod AS ship_method,
-        CAST(SubTotal AS DECIMAL(19,4)) AS sub_total,
-        CAST(TaxAmt AS DECIMAL(19,4)) AS tax_amount,
-        CAST(Freight AS DECIMAL(19,4)) AS freight,
-        CAST(TotalDue AS DECIMAL(19,4)) AS total_due,
-        TO_TIMESTAMP(ModifiedDate) AS modified_date,
-        __ref_dt
-    FROM
-        brz_ghq_tech_adventureworks.sales_order_header
-    WHERE 1 = 1
-        AND __ref_dt BETWEEN DATE_FORMAT('{data_interval_start}', 'yyyyMMdd')
-            AND DATE_FORMAT('{data_interval_end}', 'yyyyMMdd')
-""".format(
-    data_interval_start=data_interval_start,
-    data_interval_end=data_interval_end
-))
+        SELECT
+            CAST(SalesOrderId AS INT NOT NULL) AS sales_order_id,
+            CAST(RevisionNumber AS TINYINT) AS revision_number,
+            TO_DATE(OrderDate) AS order_date,
+            TO_DATE(DueDate) AS due_date,
+            TO_DATE(ShipDate) AS ship_date,
+            CAST(Status AS TINYINT) AS status_code,
+            CASE
+                WHEN Status = 1 THEN 'In Process'
+                WHEN Status = 2 THEN 'Approved'
+                WHEN Status = 3 THEN 'Backordered'
+                WHEN Status = 4 THEN 'Rejected'
+                WHEN Status = 5 THEN 'Shipped'
+                WHEN Status = 6 THEN 'Canceled'
+                WHEN Status IS NULL THEN NULL
+                ELSE '--MAPPING ERROR--'
+            END AS status,
+            CAST(OnlineOrderFlag AS BOOLEAN) AS online_order_flag,
+            SalesOrderNumber AS sales_order_number,
+            PurchaseOrderNumber AS purchase_order_number,
+            AccountNumber AS account_number,
+            CAST(CustomerId AS INT) AS customer_id,
+            CAST(ShipToAddressId AS INT) AS ship_to_address_id,
+            CAST(BillToAddressId AS INT) AS bill_to_address_id,
+            ShipMethod AS ship_method,
+            CAST(SubTotal AS DECIMAL(19,4)) AS sub_total,
+            CAST(TaxAmt AS DECIMAL(19,4)) AS tax_amount,
+            CAST(Freight AS DECIMAL(19,4)) AS freight,
+            CAST(TotalDue AS DECIMAL(19,4)) AS total_due,
+            TO_TIMESTAMP(ModifiedDate) AS modified_date,
+            __ref_dt
+        FROM
+            brz_ghq_tech_adventureworks.sales_order_header
+        WHERE 1 = 1
+            AND __ref_dt BETWEEN DATE_FORMAT('{data_interval_start}', 'yyyyMMdd')
+                AND DATE_FORMAT('{data_interval_end}', 'yyyyMMdd')
+    """.format(
+        data_interval_start=data_interval_start,
+        data_interval_end=data_interval_end,
+    ))
 
 #display(df)
 
@@ -123,13 +121,13 @@ dedup_df = brewdat_library.deduplicate_records(
     watermark_column="__ref_dt",
 )
 
-#display(df)
+#display(dedup_df)
 
 # COMMAND ----------
 
 audit_df = brewdat_library.create_or_replace_audit_columns(dedup_df)
 
-#display(df)
+#display(audit_df)
 
 # COMMAND ----------
 
