@@ -1,11 +1,11 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.0.1", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("project", "demo_consumption", "2 - project")
-project = dbutils.widgets.get("project")
-print(f"project: {project}")
+dbutils.widgets.text("source_system", "adventureworks", "2 - source_system")
+source_system = dbutils.widgets.get("source_system")
+print(f"source_system: {source_system}")
 
 dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
@@ -15,11 +15,11 @@ dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_doma
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "gld_ghq_tech_demo_consumption", "5 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_ghq_tech_adventureworks", "5 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "customer_orders", "6 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "sales_order_header", "6 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
@@ -48,11 +48,11 @@ help(brewdat_library)
 
 # Gather standard Lakehouse environment variables
 environment = os.getenv("ENVIRONMENT")
-
-lakehouse_gold_root = os.getenv("LAKEHOUSE_GOLD_ROOT")
+lakehouse_raw_root = os.getenv("LAKEHOUSE_RAW_ROOT")
+lakehouse_bronze_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
 
 # Ensure that all standard Lakehouse environment variables are set
-if None in [environment, lakehouse_gold_root]:
+if None in [environment, lakehouse_raw_root, lakehouse_bronze_root]:
     raise Exception("This Databricks Workspace does not have necessary environment variables."
         " Contact the admin team to set up the global init script and restart your cluster.")
 
@@ -67,49 +67,60 @@ spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microso
 
 # COMMAND ----------
 
-df = spark.sql("""
-      SELECT 
-          sales_order_id, 
-          status_code, 
-          online_order_flag, 
-          sales_order_number, 
-          order_header.customer_id, 
-          purchase_order_number
-      FROM 
-          slv_ghq_tech_adventureworks.sales_order_header as order_header 
-          LEFT JOIN slv_ghq_tech_adventureworks.customer as customer      
-              ON order_header.customer_id = customer.customer_id
-      WHERE
-          order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
-    """.format(
-        data_interval_start=data_interval_start,
-        data_interval_end=data_interval_end
+raw_df = brewdat_library.read_raw_dataframe(
+    file_format=BrewDatLibrary.RawFileFormat.CSV,
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    csv_has_headers=True,
+    csv_delimiter=",",
+    csv_escape_character="\"",
+)
+
+#display(raw_df)
+
+# COMMAND ----------
+
+clean_df = brewdat_library.clean_column_names(raw_df)
+
+#display(clean_df)
+
+# COMMAND ----------
+
+from pyspark.sql import functions as F
+
+transformed_df = (
+    clean_df
+    .filter(F.col("__ref_dt").between(
+        F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
+        F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
     ))
-#df.display()
+    .withColumn("__src_file", F.input_file_name())
+)
+
+#display(transformed_df)
 
 # COMMAND ----------
 
-audit_df = brewdat_library.create_or_replace_audit_columns(df)
-#audit_df.display()
+audit_df = brewdat_library.create_or_replace_audit_columns(transformed_df)
+
+#display(audit_df)
 
 # COMMAND ----------
 
-location = brewdat_library.generate_gold_table_location(
-    lakehouse_gold_root=lakehouse_gold_root,
+target_location = brewdat_library.generate_bronze_table_location(
+    lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
-    project=project,
-    database_name=target_hive_database,
+    source_system=source_system,
     table_name=target_hive_table,
 )
 
 results = brewdat_library.write_delta_table(
     df=audit_df,
-    key_columns=['sales_order_id'],
-    location=location,
+    location=target_location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=brewdat_library.LoadType.UPSERT,
+    load_type=brewdat_library.LoadType.APPEND_ALL,
+    partition_columns=["__ref_dt"],
     schema_evolution_mode=brewdat_library.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
