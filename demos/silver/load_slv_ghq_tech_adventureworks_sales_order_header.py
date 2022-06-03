@@ -71,7 +71,7 @@ key_columns = ["sales_order_id"]
 
 df = spark.sql("""
         SELECT
-            CAST(SalesOrderId AS INT NOT NULL) AS sales_order_id,
+            CAST(SalesOrderId AS INT) AS sales_order_id,
             CAST(RevisionNumber AS TINYINT) AS revision_number,
             TO_DATE(OrderDate) AS order_date,
             TO_DATE(DueDate) AS due_date,
