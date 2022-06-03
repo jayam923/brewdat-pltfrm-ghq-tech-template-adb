@@ -673,11 +673,10 @@ class BrewDatLibrary:
                 raise NotImplementedError
 
             # Find out how many records we have just written
-            num_version_written = self.spark.conf.get("spark.databricks.delta.lastCommitVersionInSession")
             delta_table = DeltaTable.forPath(self.spark, location)
             history_df = (
-                delta_table.history()
-                .filter(f"version = {num_version_written}")
+                delta_table
+                .history(1)
                 .select(F.col("operationMetrics.numOutputRows").cast("int"))
             )
             num_records_loaded = history_df.first()[0]
