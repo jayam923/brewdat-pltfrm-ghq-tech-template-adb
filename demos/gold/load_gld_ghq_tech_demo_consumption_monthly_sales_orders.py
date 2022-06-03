@@ -37,7 +37,7 @@ import os
 import sys
 
 # Import the BrewDat Library
-sys.path.append(f"/Workspace/Repos/brewdat_framework/{brewdat_library_version}")
+sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering.utils import BrewDatLibrary
 
 # Initialize the BrewDat Library

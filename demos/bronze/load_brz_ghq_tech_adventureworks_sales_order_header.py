@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.0.1", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -37,7 +37,7 @@ import os
 import sys
 
 # Import the BrewDat Library
-sys.path.append(f"/Workspace/Repos/brewdat_framework/{brewdat_library_version}")
+sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering.utils import BrewDatLibrary
 
 # Initialize the BrewDat Library
