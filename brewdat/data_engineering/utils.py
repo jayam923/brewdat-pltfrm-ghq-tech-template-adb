@@ -683,9 +683,25 @@ class BrewDatLibrary:
 
             # Create the Hive database and table
             self.spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
-            # TODO: drop table if location has changed
-            self.spark.sql(f"CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}` USING DELTA LOCATION '{location}';")
-            self.spark.sql(f"VACUUM `{schema_name}`.`{table_name}` RETAIN {time_travel_retention_days * 24} HOURS;")
+
+            # TODO: drop existing table if its location has changed
+
+            self.spark.sql(f"""
+                CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
+                USING DELTA
+                LOCATION '{location}';
+            """)
+
+            # Vacuum the delta table
+            self.spark.sql(f"""
+                ALTER TABLE `{schema_name}`.`{table_name}`
+                SET TBLPROPERTIES (
+                    'delta.deletedFileRetentionDuration' = 'interval {time_travel_retention_days} days',
+                    'delta.logRetentionDuration' = 'interval {time_travel_retention_days} days'
+                );
+            """)
+            self.spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
+            self.spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
 
             return self._build_return_object(
                 status=self.RunStatus.SUCCEEDED,
