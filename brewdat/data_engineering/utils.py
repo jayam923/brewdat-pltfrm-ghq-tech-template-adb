@@ -915,7 +915,6 @@ class BrewDatLibrary:
         df_writer.save(location)
 
 
-    @classmethod
     def _write_table_using_append_new(
         self,
         df: DataFrame,
