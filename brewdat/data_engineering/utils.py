@@ -165,6 +165,7 @@ class BrewDatLibrary:
         csv_has_headers: bool = True,
         csv_delimiter: str = ",",
         csv_escape_character: str = "\"",
+        cast_columns_to_string: bool = True
     ) -> DataFrame:
         """Read a DataFrame from the Raw Layer. Convert all data types to string.
 
@@ -198,17 +199,24 @@ class BrewDatLibrary:
                 .load(location)
             )
 
-            if file_format != self.RawFileFormat.CSV:
-                # Cast all columns to string
-                # TODO: make sure we can handle nested types (array, struct)
-                for col, dtype in df.dtypes:
-                    if dtype != "string":
-                        stringified_type = self._spark_type_to_string_recurse(df.schema[col].dataType)
-                        df = df.withColumn(col, F.col(col).cast(stringified_type))
+            if cast_columns_to_string and file_format != self.RawFileFormat.CSV:
+                df = self.cast_all_to_string(df)
             return df
 
         except:
             self.exit_with_last_exception()
+
+
+    def cast_all_to_string(self, df: DataFrame) -> DataFrame:
+        expressions = []
+        for column in df.schema:
+            if column.dataType.typeName() == "string":
+                expressions.append(f"`{column.name}`")
+            else:
+                new_type = self._spark_type_to_string_recurse(column.dataType)
+                expressions.append(f"CAST(`{column.name}` AS {new_type}) AS `{column.name}`")
+
+        return df.selectExpr(*expressions)
 
 
     def clean_column_names(
