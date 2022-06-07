@@ -201,3 +201,36 @@ def test_read_raw_dataframe_parquet_with_array_of_struct():
     df.show()
     assert 1 == df.count()
     assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array():
+    # ARRANGE
+    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet"
+    expected_schema = StructType(
+        [
+            StructField('id', StringType(), True),
+            StructField('users', ArrayType(StructType([
+                StructField('users_profile', StructType([
+                    StructField('personal_data', StructType([
+                        StructField('age', StringType(), True),
+                        StructField('name', StringType(), True)
+                    ]), True),
+                    StructField('contact_info', StructType([
+                        StructField('address', StringType(), True),
+                        StructField('phone', StringType(), True)
+                    ]), True)
+                ]), True),
+                StructField('is_new', StringType(), True)
+            ]), True), True)
+        ]
+    )
+    # ACT
+    df = brewdat_library.read_raw_dataframe(
+        file_format=BrewDatLibrary.RawFileFormat.PARQUET,
+        location=file_location,
+    )
+
+    # ASSERT
+    df.show()
+    assert 1 == df.count()
+    assert expected_schema == df.schema
