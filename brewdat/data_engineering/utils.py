@@ -12,7 +12,9 @@ from typing import List, TypedDict
 
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.types import DataType
 from pyspark.sql.window import Window
+
 
 
 class BrewDatLibrary:
@@ -199,10 +201,10 @@ class BrewDatLibrary:
             if file_format != self.RawFileFormat.CSV:
                 # Cast all columns to string
                 # TODO: make sure we can handle nested types (array, struct)
-                non_string_columns = [col for col, dtype in df.dtypes if dtype != "string"]
-                for column in non_string_columns:
-                    df = df.withColumn(column, F.col(column).cast("string"))
-
+                for col, dtype in df.dtypes:
+                    if dtype != "string":
+                        stringified_type = self._spark_type_to_string_recurse(df.schema[col].dataType)
+                        df = df.withColumn(col, F.col(col).cast(stringified_type))
             return df
 
         except:
@@ -1049,3 +1051,19 @@ class BrewDatLibrary:
             "error_message": error_message[:8000],
             "error_details": error_details,
         }
+
+    def _spark_type_to_string_recurse(self, spark_type: DataType) -> str:
+        if spark_type.typeName() == "array":
+            new_element_type = self._spark_type_to_string_recurse(spark_type.elementType)
+            return f"array<{new_element_type}>"
+        if spark_type.typeName() == "map":
+            new_key_type = self._spark_type_to_string_recurse(spark_type.keyType)
+            new_value_type = self._spark_type_to_string_recurse(spark_type.valueType)
+            return f"map<{new_key_type}, {new_value_type}>"
+        if spark_type.typeName() == "struct":
+            new_field_types = []
+            for name in spark_type.fieldNames():
+                new_field_type = self._spark_type_to_string_recurse(spark_type[name].dataType)
+                new_field_types.append(f"`{name}`: {new_field_type}")
+            return "struct<" + ", ".join(new_field_types) + ">"
+        return "string"
