@@ -1,7 +1,7 @@
 import pytest
 
 from typing import List
-from pyspark.sql.types import StructType, StructField, StringType, ArrayType
+from pyspark.sql.types import StructType, StructField, StringType, ArrayType, IntegerType, BooleanType
 
 from brewdat.data_engineering.utils import BrewDatLibrary
 from test.spark_test import spark
@@ -228,6 +228,39 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array():
     df = brewdat_library.read_raw_dataframe(
         file_format=BrewDatLibrary.RawFileFormat.PARQUET,
         location=file_location,
+    )
+
+    # ASSERT
+    df.show()
+    assert 1 == df.count()
+    assert expected_schema == df.schema
+
+def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_not_cast_types():
+    # ARRANGE
+    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet"
+    expected_schema = StructType(
+        [
+            StructField('id', IntegerType(), True),
+            StructField('users', ArrayType(StructType([
+                StructField('users_profile', StructType([
+                    StructField('personal_data', StructType([
+                        StructField('age', IntegerType(), True),
+                        StructField('name', StringType(), True)
+                    ]), True),
+                    StructField('contact_info', StructType([
+                        StructField('address', StringType(), True),
+                        StructField('phone', StringType(), True)
+                    ]), True)
+                ]), True),
+                StructField('is_new', BooleanType(), True)
+            ]), True), True)
+        ]
+    )
+    # ACT
+    df = brewdat_library.read_raw_dataframe(
+        file_format=BrewDatLibrary.RawFileFormat.PARQUET,
+        location=file_location,
+        cast_columns_to_string=False
     )
 
     # ASSERT
