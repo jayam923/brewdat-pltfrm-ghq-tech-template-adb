@@ -799,7 +799,7 @@ class BrewDatLibrary:
             df_writer = df_writer.option("mergeSchema", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -864,7 +864,7 @@ class BrewDatLibrary:
             df_writer = df_writer.option("mergeSchema", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -917,7 +917,7 @@ class BrewDatLibrary:
             df_writer = df_writer.option("mergeSchema", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -962,7 +962,7 @@ class BrewDatLibrary:
             self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -1021,7 +1021,7 @@ class BrewDatLibrary:
             self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
