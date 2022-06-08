@@ -260,7 +260,7 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_no
     df = brewdat_library.read_raw_dataframe(
         file_format=BrewDatLibrary.RawFileFormat.PARQUET,
         location=file_location,
-        cast_columns_to_string=False
+        cast_all_to_string=False
     )
 
     # ASSERT

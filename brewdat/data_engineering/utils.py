@@ -72,8 +72,10 @@ class BrewDatLibrary:
     class RawFileFormat(str, Enum):
         """Supported raw file formats.
 
+        AVRO: Avro format.
         CSV: Delimited text format.
         DELTA: Delta format.
+        JSON: JSON format.
         PARQUET: Parquet format.
         ORC: ORC format.
         """
@@ -162,10 +164,12 @@ class BrewDatLibrary:
         self,
         file_format: RawFileFormat,
         location: str,
+        cast_all_to_string: bool = True,
         csv_has_headers: bool = True,
         csv_delimiter: str = ",",
         csv_escape_character: str = "\"",
-        cast_columns_to_string: bool = True
+        xml_row_tag: str = "row",
+        additional_options: dict = {},
     ) -> DataFrame:
         """Read a DataFrame from the Raw Layer. Convert all data types to string.
 
@@ -176,12 +180,19 @@ class BrewDatLibrary:
         location : str
             Absolute Data Lake path for the physical location of this dataset.
             Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
+        cast_all_to_string : bool, default=True
+            Whether to cast all non-string values to string.
+            Useful to maximize schema compatibility in the Bronze layer.
         csv_has_headers : bool, default=True
             Whether the CSV file has a header row.
         csv_delimiter : str, default=","
             Delimiter string for CSV file format.
         csv_escape_character : str, default="\\""
             Escape character for CSV file format.
+        xml_row_tag : str, default="row"
+            Name of the XML tag to treat as DataFrame rows.
+        additional_options : dict, default={}
+            Dictionary with additional options for spark.read.
 
         Returns
         -------
@@ -192,15 +203,18 @@ class BrewDatLibrary:
             df = (
                 self.spark.read
                 .format(file_format.lower())
+                .option("mergeSchema", True)
                 .option("header", csv_has_headers)
                 .option("delimiter", csv_delimiter)
                 .option("escape", csv_escape_character)
-                .option("mergeSchema", True)
+                .option("rowTag", xml_row_tag)
+                .options(**additional_options)
                 .load(location)
             )
 
-            if cast_columns_to_string and file_format != self.RawFileFormat.CSV:
+            if cast_all_to_string:
                 df = self.cast_all_to_string(df)
+
             return df
 
         except:
@@ -264,6 +278,7 @@ class BrewDatLibrary:
         business_key_column_name: str,
         key_columns: List[str],
         separator: str = "__",
+        check_null_values: bool = True,
     ) -> DataFrame:
         """Create a standard business key concatenating multiple columns.
 
@@ -277,6 +292,9 @@ class BrewDatLibrary:
             The names of the columns used to uniquely identify each record the table.
         separator : str, default="__"
             A string to separate the values of each column in the business key.
+        check_null_values : bool, default=True
+            Whether to check if the given key columns contain NULL values.
+            Throw an error if any NULL value is found.
 
         Returns
         -------
@@ -287,14 +305,14 @@ class BrewDatLibrary:
             if not key_columns:
                 raise ValueError("No key column was given")
 
-            # Check for NULL values
-            filter_clauses = [f"`{key_column}` IS NULL" for key_column in key_columns]
-            filter_string = " OR ".join(filter_clauses)
-            if df.filter(filter_string).limit(1).count() > 0:
-                # TODO: improve error message
-                raise ValueError("Business key would contain null values.")
+            if check_null_values:
+                filter_clauses = [f"`{key_column}` IS NULL" for key_column in key_columns]
+                filter_string = " OR ".join(filter_clauses)
+                if df.filter(filter_string).limit(1).count() > 0:
+                    # TODO: improve error message
+                    raise ValueError("Business key would contain null values.")
 
-            df = df.withColumn(business_key_column_name, F.lower(F.concat_ws("__", *key_columns)))
+            df = df.withColumn(business_key_column_name, F.lower(F.concat_ws(separator, *key_columns)))
 
             return df
 
@@ -362,7 +380,8 @@ class BrewDatLibrary:
         """
         try:
             if not key_columns:
-                raise ValueError("No key column was given")
+                raise ValueError("No key column was given."
+                    " If this is intentional, use distinct() or dropDuplicates() instead.")
 
             return (
                 df
@@ -552,6 +571,7 @@ class BrewDatLibrary:
         key_columns: List[str] = [],
         partition_columns: List[str] = [],
         schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+        time_travel_retention_days: int = 30,
     ) -> ReturnObject:
         """Write the DataFrame as a delta table.
 
@@ -577,6 +597,10 @@ class BrewDatLibrary:
         schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
             Specifies the way in which schema mismatches should be handled.
             See documentation for BrewDatLibrary.SchemaEvolutionMode.
+        time_travel_retention_days : int, default=30
+            Number of days for retaining time travel data in the Delta table.
+            Used to limit how many old snapshots are preserved during the VACUUM operation.
+            For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
 
         Returns
         -------
@@ -598,6 +622,7 @@ class BrewDatLibrary:
 
             # Use optimized writes to create less small files
             self.spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
+            self.spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
 
             # Set load_type options
             if load_type == self.LoadType.OVERWRITE_TABLE:
@@ -659,19 +684,35 @@ class BrewDatLibrary:
                 raise NotImplementedError
 
             # Find out how many records we have just written
-            num_version_written = self.spark.conf.get("spark.databricks.delta.lastCommitVersionInSession")
             delta_table = DeltaTable.forPath(self.spark, location)
             history_df = (
-                delta_table.history()
-                .filter(f"version = {num_version_written}")
+                delta_table
+                .history(1)
                 .select(F.col("operationMetrics.numOutputRows").cast("int"))
             )
             num_records_loaded = history_df.first()[0]
 
             # Create the Hive database and table
-            self.spark.sql(f"CREATE DATABASE IF NOT EXISTS {schema_name};")
-            # TODO: drop table if location has changed
-            self.spark.sql(f"CREATE TABLE IF NOT EXISTS {schema_name}.{table_name} USING DELTA LOCATION '{location}';")
+            self.spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
+
+            # TODO: drop existing table if its location has changed
+
+            self.spark.sql(f"""
+                CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
+                USING DELTA
+                LOCATION '{location}';
+            """)
+
+            # Vacuum the delta table
+            self.spark.sql(f"""
+                ALTER TABLE `{schema_name}`.`{table_name}`
+                SET TBLPROPERTIES (
+                    'delta.deletedFileRetentionDuration' = 'interval {time_travel_retention_days} days',
+                    'delta.logRetentionDuration' = 'interval {time_travel_retention_days} days'
+                );
+            """)
+            self.spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
+            self.spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
 
             return self._build_return_object(
                 status=self.RunStatus.SUCCEEDED,
@@ -769,7 +810,7 @@ class BrewDatLibrary:
             df_writer = df_writer.option("mergeSchema", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -834,7 +875,7 @@ class BrewDatLibrary:
             df_writer = df_writer.option("mergeSchema", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -887,7 +928,7 @@ class BrewDatLibrary:
             df_writer = df_writer.option("mergeSchema", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -901,7 +942,6 @@ class BrewDatLibrary:
         df_writer.save(location)
 
 
-    @classmethod
     def _write_table_using_append_new(
         self,
         df: DataFrame,
@@ -933,7 +973,7 @@ class BrewDatLibrary:
             self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -957,7 +997,8 @@ class BrewDatLibrary:
         )
 
         # Reset spark.conf
-        self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
+        if schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+            self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
 
 
     def _write_table_using_upsert(
@@ -991,7 +1032,7 @@ class BrewDatLibrary:
             self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
         elif schema_evolution_mode == self.SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             if DeltaTable.isDeltaTable(self.spark, location):
-                table_columns = DeltaTable.forPath(self.spark, location).columns
+                table_columns = DeltaTable.forPath(self.spark, location).toDF().columns
                 new_df_columns = [col for col in df.columns if col not in table_columns]
                 df = df.drop(*new_df_columns)
         elif schema_evolution_mode == self.SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -1016,7 +1057,8 @@ class BrewDatLibrary:
         )
 
         # Reset spark.conf
-        self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
+        if schema_evolution_mode == self.SchemaEvolutionMode.ADD_NEW_COLUMNS:
+            self.spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
 
 
     def _build_return_object(
