@@ -221,7 +221,22 @@ class BrewDatLibrary:
             self.exit_with_last_exception()
 
 
-    def cast_all_to_string(self, df: DataFrame) -> DataFrame:
+    def cast_all_to_string(
+            self,
+            df: DataFrame
+    ) -> DataFrame:
+        """Cast all dataframe columns to string type preserving nested structure in array and struct columns.
+
+        Parameters
+        ----------
+        df : DataFrame
+            The PySpark DataFrame to cast.
+
+        Returns
+        -------
+        DataFrame
+            The modified PySpark DataFrame with casted columns.
+        """
         expressions = []
         for column in df.schema:
             if column.dataType.typeName() == "string":
@@ -1103,6 +1118,21 @@ class BrewDatLibrary:
         }
 
     def _spark_type_to_string_recurse(self, spark_type: DataType) -> str:
+        """Returns the Spark data type represented as string for casting purposes.
+        All primitive types (int, bool, etc.) will be replaced by string type.
+        Structs, arrays and maps will keep their original structure, but all nested primitive types will be replaces by
+        string as well.
+
+        Parameters
+        ----------
+        spark_type : DataType
+            DataType object to be translated to string format
+
+        Returns
+        -------
+        str
+            Datatype represented as a string
+        """
         if spark_type.typeName() == "array":
             new_element_type = self._spark_type_to_string_recurse(spark_type.elementType)
             return f"array<{new_element_type}>"
