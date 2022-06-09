@@ -1,4 +1,5 @@
 import pytest
+import os
 
 from brewdat.data_engineering.utils import BrewDatLibrary
 from test.spark_test import spark
@@ -72,7 +73,7 @@ def test_write_delta_table_append_all(tmpdir):
             "address": "my address"
         }
     ])
-    location = f"{tmpdir}/test_write_delta_table_append_all"
+    location = os.path.join(tmpdir, "test_write_delta_table_append_all")
     schema_name = "test_schema"
     table_name = "test_write_delta_table_append_all"
 
@@ -88,6 +89,3 @@ def test_write_delta_table_append_all(tmpdir):
 
     # ASSERT
     assert result["status"] == brewdat_library.RunStatus.SUCCEEDED
-    result_df = spark.table(result["target_object"])
-    assert 1 == result_df.count()
-    result_df.show()
