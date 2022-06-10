@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "modularization", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -37,12 +37,28 @@ import os
 import sys
 
 # Import the BrewDat Library
-sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.utils import BrewDatLibrary
+sys.path.append(f"/Workspace/Repos/Sanjay.Singh-ext@ab-inbev.com/{brewdat_library_version}")
+from brewdat.data_engineering.read import DataFrameRead
+from brewdat.data_engineering.lakehouse import DataFrameLakehouse
+from brewdat.data_engineering.transform import DataFrameTransform
+from brewdat.data_engineering.common import DataFrameCommon
+from brewdat.data_engineering.write import DataFrameWrite
+from brewdat.data_engineering.write import ReturnObject
+from brewdat.data_engineering.write import RunStatus
 
 # Initialize the BrewDat Library
-brewdat_library = BrewDatLibrary(spark=spark, dbutils=dbutils)
-help(brewdat_library)
+DataFrameRead          = DataFrameRead(spark=spark)
+DataFrameLakehouse     = DataFrameLakehouse(spark=spark)
+DataFrameTransform     = DataFrameTransform(spark=spark)
+DataFrameCommon        = DataFrameCommon(spark=spark, dbutils=dbutils)
+DataFrameWrite         = DataFrameWrite(spark=spark)
+
+
+#help(DataFrameRead)
+#help(DataFrameLakehouse)
+#help(DataFrameTransform)
+#help(DataFrameLakehouse)
+#help(DataFrameWrite)
 
 # COMMAND ----------
 
@@ -121,13 +137,13 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-audit_df = brewdat_library.create_or_replace_audit_columns(df)
+audit_df = DataFrameTransform.create_or_replace_audit_columns(df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-location = brewdat_library.generate_gold_table_location(
+location = DataFrameLakehouse.generate_gold_table_location(
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -136,17 +152,18 @@ location = brewdat_library.generate_gold_table_location(
     table_name=target_hive_table,
 )
 
-results = brewdat_library.write_delta_table(
+results = DataFrameWrite.write_delta_table(
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=brewdat_library.LoadType.OVERWRITE_TABLE,
-    schema_evolution_mode=brewdat_library.SchemaEvolutionMode.OVERWRITE_SCHEMA,
+    load_type=DataFrameWrite.LoadType.OVERWRITE_TABLE,
+    schema_evolution_mode=DataFrameWrite.SchemaEvolutionMode.OVERWRITE_SCHEMA,
 )
 
 print(results)
 
 # COMMAND ----------
 
-brewdat_library.exit_with_object(results)
+results ='Pass'
+DataFrameCommon.exit_with_object(results)
