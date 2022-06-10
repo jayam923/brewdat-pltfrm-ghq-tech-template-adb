@@ -4,8 +4,6 @@ import traceback
 from enum import Enum, unique
 from typing import TypedDict
 
-from pyspark.sql import SparkSession
-
 
 @unique
 class RunStatus(str, Enum):
@@ -50,14 +48,11 @@ class DataFrameCommon:
 
     Attributes
     ----------
-    spark : SparkSession
-        A Spark session.
     dbutils : object
         A Databricks utils object.
     """
 
-    def __init__(self, spark: SparkSession, dbutils: object):
-        self.spark = spark
+    def __init__(self, dbutils: object):
         self.dbutils = dbutils
 
 
