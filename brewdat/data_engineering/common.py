@@ -1,18 +1,21 @@
 import json
-import os
-import re
 import sys
 import traceback
-
-import pyspark.sql.functions as F
-
-from datetime import datetime
 from enum import Enum, unique
-from typing import List, TypedDict
+from typing import TypedDict
 
-from delta.tables import DeltaTable
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.window import Window
+from pyspark.sql import SparkSession
+
+
+@unique
+class RunStatus(str, Enum):
+    """Available run statuses.
+
+    SUCCEEDED: Represents a succeeded run status.
+    FAILED: Represents a failed run status.
+    """
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
 
 
 class ReturnObject(TypedDict):
@@ -24,13 +27,13 @@ class ReturnObject(TypedDict):
         Resulting status for this write operation.
     target_object : str
         Target object that we intended to write to.
-    num_records_read : int, default=0
+    num_records_read : int
         Number of records read from the DataFrame.
-    num_records_loaded : int, default=0
+    num_records_loaded : int
         Number of records written to the target table.
-    error_message : str, default=""
+    error_message : str
         Error message describing whichever error that occurred.
-    error_details : str, default=""
+    error_details : str
         Detailed error message or stack trace for the above error.
     """
     status: str
@@ -40,36 +43,6 @@ class ReturnObject(TypedDict):
     num_records_errored_out: int
     error_message: str
     error_details: str
-    
-    
-
-class RunStatus(str, Enum):
-    """Object that holds metadata from a data write operation.
-
-        Attributes
-        ----------
-        status : str
-            Resulting status for this write operation.
-        target_object : str
-            Target object that we intended to write to.
-        num_records_read : int, default=0
-            Number of records read from the DataFrame.
-        num_records_loaded : int, default=0
-            Number of records written to the target table.
-        error_message : str, default=""
-            Error message describing whichever error that occurred.
-        error_details : str, default=""
-            Detailed error message or stack trace for the above error.
-        """
-    status: str
-    target_object: str
-    num_records_read: int
-    num_records_loaded: int
-    num_records_errored_out: int
-    error_message: str
-    error_details: str
-    SUCCEEDED = "SUCCEEDED"
-    FAILED = "FAILED"
 
 
 class DataFrameCommon: 
@@ -79,14 +52,15 @@ class DataFrameCommon:
     ----------
     spark : SparkSession
         A Spark session.
+    dbutils : object
+        A Databricks utils object.
     """
-
 
     def __init__(self, spark: SparkSession, dbutils: object):
         self.spark = spark
         self.dbutils = dbutils
-       
-    
+
+
     def exit_with_object(self, results: ReturnObject):
         """Finish execution returning an object to the notebook's caller.
 
