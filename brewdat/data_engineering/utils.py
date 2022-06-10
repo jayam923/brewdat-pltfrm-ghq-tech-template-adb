@@ -77,8 +77,10 @@ class BrewDatLibrary:
         PARQUET: Parquet format.
         ORC: ORC format.
         """
+        AVRO = "AVRO"
         CSV = "CSV"
         DELTA = "DELTA"
+        JSON = "JSON"
         PARQUET = "PARQUET"
         ORC = "ORC"
 
