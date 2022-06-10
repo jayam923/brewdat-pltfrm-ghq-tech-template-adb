@@ -2,7 +2,6 @@ import json
 import sys
 import traceback
 from enum import Enum, unique
-from typing import TypedDict
 
 
 @unique
@@ -16,76 +15,75 @@ class RunStatus(str, Enum):
     FAILED = "FAILED"
 
 
-class ReturnObject(TypedDict):
+class ReturnObject():
     """Object that holds metadata from a data write operation.
 
     Attributes
     ----------
-    status : str
+    status : RunStatus
         Resulting status for this write operation.
     target_object : str
         Target object that we intended to write to.
-    num_records_read : int
+    num_records_read : int, default=0
         Number of records read from the DataFrame.
-    num_records_loaded : int
+    num_records_loaded : int, default=0
         Number of records written to the target table.
-    error_message : str
+    error_message : str, default=""
         Error message describing whichever error that occurred.
-    error_details : str
+    error_details : str, default=""
         Detailed error message or stack trace for the above error.
     """
-    status: str
-    target_object: str
-    num_records_read: int
-    num_records_loaded: int
-    num_records_errored_out: int
-    error_message: str
-    error_details: str
+    def __init__(
+        self,
+        status: RunStatus,
+        target_object: str,
+        num_records_read: int = 0,
+        num_records_loaded: int = 0,
+        error_message: str = "",
+        error_details: str = "",
+    ):
+        self.status = status
+        self.target_object = target_object
+        self.num_records_read = num_records_read
+        self.num_records_loaded = num_records_loaded
+        self.num_records_errored_out = num_records_read - num_records_loaded
+        self.error_message = error_message[:8000]
+        self.error_details = error_details
 
 
-class DataFrameCommon: 
-    """Reusable functions for all BrewDat projects.
+def exit_with_object(dbutils: object, results: ReturnObject):
+    """Finish execution returning an object to the notebook's caller.
 
-    Attributes
+    Used to return the results of a write operation to the orchestrator.
+
+    Parameters
     ----------
     dbutils : object
         A Databricks utils object.
+    results : ReturnObject
+        Object containing the results of a write operation.
     """
-
-    def __init__(self, dbutils: object):
-        self.dbutils = dbutils
-
-
-    def exit_with_object(self, results: ReturnObject):
-        """Finish execution returning an object to the notebook's caller.
-
-        Used to return the results of a write operation to the orchestrator.
-
-        Parameters
-        ----------
-        results : ReturnObject
-            Object containing the results of a write operation.
-        """
-        self.dbutils.notebook.exit(json.dumps(results))
+    results_json = json.dumps(vars(results))
+    dbutils.notebook.exit(results_json)
 
 
-    def exit_with_last_exception(self):
-        """Handle the last unhandled exception, returning an object to the notebook's caller.
+def exit_with_last_exception():
+    """Handle the last unhandled exception, returning an object to the notebook's caller.
 
-        The most recent exception is obtained from sys.exc_info().
+    The most recent exception is obtained from sys.exc_info().
 
-        Examples
-        --------
-        >>> try:
-        >>>    # some code
-        >>> except:
-        >>>    BrewDatLibrary.exit_with_last_exception()
-        """
-        exc_type, exc_value, _ = sys.exc_info()
-        results = self._build_return_object(
-            status=self.RunStatus.FAILED,
-            target_object=None,
-            error_message=f"{exc_type.__name__}: {exc_value}",
-            error_details=traceback.format_exc(),
-        )
-        self.exit_with_object(results)
+    Examples
+    --------
+    >>> try:
+    >>>    # some code
+    >>> except:
+    >>>    exit_with_last_exception()
+    """
+    exc_type, exc_value, _ = sys.exc_info()
+    results = ReturnObject(
+        status=RunStatus.FAILED,
+        target_object=None,
+        error_message=f"{exc_type.__name__}: {exc_value}",
+        error_details=traceback.format_exc(),
+    )
+    exit_with_object(results)
