@@ -3,7 +3,7 @@ from enum import Enum, unique
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession
 
-from .common import exit_with_last_exception
+from . import common
 
 
 @unique
@@ -29,14 +29,13 @@ def read_raw_dataframe(
     spark: SparkSession,
     file_format: RawFileFormat,
     location: str,
-    cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
     csv_escape_character: str = "\"",
     xml_row_tag: str = "row",
     additional_options: dict = {},
 ) -> DataFrame:
-    """Read a DataFrame from the Raw Layer. Convert all data types to string.
+    """Read a DataFrame from the Raw Layer.
 
     Parameters
     ----------
@@ -47,9 +46,6 @@ def read_raw_dataframe(
     location : str
         Absolute Data Lake path for the physical location of this dataset.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
-    cast_all_to_string : bool, default=True
-        Whether to cast all non-string values to string.
-        Useful to maximize schema compatibility in the Bronze layer.
     csv_has_headers : bool, default=True
         Whether the CSV file has a header row.
     csv_delimiter : str, default=","
@@ -67,7 +63,7 @@ def read_raw_dataframe(
         The PySpark DataFrame read from the Raw Layer.
     """
     try:
-        df = (
+        return (
             spark.read
             .format(file_format.lower())
             .option("mergeSchema", True)
@@ -79,13 +75,5 @@ def read_raw_dataframe(
             .load(location)
         )
 
-        if cast_all_to_string:
-            # TODO: improve handling of nested types (array, map, struct)
-            non_string_columns = [col for col, dtype in df.dtypes if dtype != "string"]
-            for column in non_string_columns:
-                df = df.withColumn(column, F.col(column).cast("string"))
-
-        return df
-
     except:
-        exit_with_last_exception()
+        common.exit_with_last_exception()

@@ -119,7 +119,7 @@ def write_delta_table(
     ReturnObject
         Object containing the results of a write operation.
     """
-    # TODO: refactor this and all related write methods
+    # TODO: refactor
     num_records_read = 0
     num_records_loaded = 0
 
@@ -267,7 +267,7 @@ def _write_table_using_overwrite_table(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor this and all related write methods
+    # TODO: refactor
     df_writer = (
         df.write
         .format("delta")
@@ -322,7 +322,7 @@ def _write_table_using_overwrite_partition(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor this and all related write methods
+    # TODO: refactor
     df_partitions = df.select(partition_columns).distinct()
 
     if df_partitions.count() != 1:
@@ -389,7 +389,7 @@ def _write_table_using_append_all(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor this and all related write methods
+    # TODO: refactor
     df_writer = (
         df.write
         .format("delta")
@@ -445,12 +445,11 @@ def _write_table_using_append_new(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor this and all related write methods
+    # TODO: refactor
     # Set schema_evolution_mode options
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        original_auto_merge = spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
         spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         if DeltaTable.isDeltaTable(spark, location):
@@ -477,10 +476,6 @@ def _write_table_using_append_new(
         .execute()
     )
 
-    # Reset spark.conf
-    if schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)
-
 
 def _write_table_using_upsert(
     spark: SparkSession,
@@ -506,12 +501,11 @@ def _write_table_using_upsert(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor this and all related write methods
+    # TODO: refactor
     # Set schema_evolution_mode options
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        original_auto_merge = spark.conf.get("spark.databricks.delta.schema.autoMerge.enabled")
         spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         if DeltaTable.isDeltaTable(spark, location):
@@ -538,7 +532,3 @@ def _write_table_using_upsert(
         .whenNotMatchedInsertAll()
         .execute()
     )
-
-    # Reset spark.conf
-    if schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", original_auto_merge)

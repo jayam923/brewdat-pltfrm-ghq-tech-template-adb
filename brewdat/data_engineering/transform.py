@@ -6,7 +6,7 @@ import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from .common import exit_with_last_exception
+from . import common
 
 
 def clean_column_names(
@@ -42,8 +42,9 @@ def clean_column_names(
             if column_name != new_column_name:
                 df = df.withColumnRenamed(column_name, new_column_name)
         return df
+
     except:
-        exit_with_last_exception()
+        common.exit_with_last_exception()
         
     
 def create_or_replace_business_key_column(
@@ -90,7 +91,7 @@ def create_or_replace_business_key_column(
         return df
 
     except:
-        exit_with_last_exception()
+        common.exit_with_last_exception()
 
 
 def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
@@ -123,7 +124,7 @@ def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
         return df
 
     except:
-        exit_with_last_exception()
+        common.exit_with_last_exception()
 
         
 def deduplicate_records(
@@ -176,4 +177,4 @@ def deduplicate_records(
         )
 
     except:
-        exit_with_last_exception()
+        common.exit_with_last_exception()
