@@ -1,6 +1,6 @@
 from test.spark_test import spark
 
-from brewdat.data_engineering.transform import clean_column_names
+from brewdat.data_engineering.transform_utils import clean_column_names
 
 
 def test_clean_column_names():
@@ -14,7 +14,7 @@ def test_clean_column_names():
     ])
 
     # ACT
-    result_df = clean_column_names(df)
+    result_df = clean_column_names(dbutils=None, df=df)
 
     # ASSERT
     assert "phone_number" in result_df.columns
@@ -33,7 +33,7 @@ def test_clean_column_names_except_for():
     ])
 
     # ACT
-    result_df = clean_column_names(df, except_for=["address 1"])
+    result_df = clean_column_names(dbutils=None, df=df, except_for=["address 1"])
 
     # ASSERT
     assert "phone_number" in result_df.columns

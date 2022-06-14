@@ -1,7 +1,7 @@
 from test.spark_test import spark
 
-from brewdat.data_engineering.write import LoadType, write_delta_table
-from brewdat.data_engineering.common import RunStatus
+from brewdat.data_engineering.write_utils import LoadType, write_delta_table
+from brewdat.data_engineering.common_utils import RunStatus
 
 
 def test_write_delta_table_append_all(tmpdir):
@@ -26,10 +26,9 @@ def test_write_delta_table_append_all(tmpdir):
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
     )
-    print(result)
 
     # ASSERT
-    assert result["status"] == RunStatus.SUCCEEDED
-    result_df = spark.table(result["target_object"])
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
     assert 1 == result_df.count()
     result_df.show()

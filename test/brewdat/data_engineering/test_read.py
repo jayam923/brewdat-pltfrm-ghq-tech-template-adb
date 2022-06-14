@@ -1,6 +1,6 @@
 from test.spark_test import spark
 
-from brewdat.data_engineering.read import read_raw_dataframe, RawFileFormat
+from brewdat.data_engineering.read_utils import read_raw_dataframe, RawFileFormat
 
 
 def test_read_raw_dataframe_csv():
@@ -10,6 +10,7 @@ def test_read_raw_dataframe_csv():
     # ACT
     df = read_raw_dataframe(
         spark=spark,
+        dbutils=None,
         file_format=RawFileFormat.CSV,
         location=file_location,
     )
