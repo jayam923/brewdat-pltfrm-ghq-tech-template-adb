@@ -38,27 +38,26 @@ import sys
 
 # Import the BrewDat Library
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.read import DataFrameRead
-from brewdat.data_engineering.lakehouse import DataFrameLakehouse
-from brewdat.data_engineering.transform import DataFrameTransform
-from brewdat.data_engineering.common import DataFrameCommon
-from brewdat.data_engineering.write import DataFrameWrite
-from brewdat.data_engineering.write import ReturnObject
-from brewdat.data_engineering.write import RunStatus
+from brewdat.data_engineering.read       import read_raw_dataframe
+from brewdat.data_engineering.read       import RawFileFormat
+from brewdat.data_engineering.transform  import deduplicate_records, create_or_replace_audit_columns
+from brewdat.data_engineering.lakehouse  import generate_silver_table_location
+from brewdat.data_engineering.write      import write_delta_table, SchemaEvolutionMode, LoadType  
+from brewdat.data_engineering.common     import exit_with_object
+from brewdat.data_engineering.common     import ReturnObject
+
 
 # Initialize the BrewDat Library
-DataFrameRead          = DataFrameRead(spark=spark)
-DataFrameLakehouse     = DataFrameLakehouse(spark=spark)
-DataFrameTransform     = DataFrameTransform(spark=spark)
-DataFrameCommon        = DataFrameCommon(spark=spark, dbutils=dbutils)
-DataFrameWrite         = DataFrameWrite(spark=spark)
+#ReturnObject   = ReturnObject(status=RunStatus, target_object=target_object, num_records_read=num_records_read, num_records_loaded=num_records_loaded, num_records_errored_out= num_records_errored_out, error_message=error_message)
 
-
-#help(DataFrameRead)
-#help(DataFrameLakehouse)
-#help(DataFrameTransform)
-#help(DataFrameLakehouse)
-#help(DataFrameWrite)
+help(read_raw_dataframe)
+help(RawFileFormat)
+help(create_or_replace_audit_columns)
+help(generate_silver_table_location)
+help(write_delta_table)
+help(SchemaEvolutionMode)
+help(LoadType)
+help(exit_with_object)
 
 # COMMAND ----------
 
@@ -146,7 +145,7 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-dedup_df = DataFrameTransform.deduplicate_records(
+dedup_df = deduplicate_records(
     df=df,
     key_columns=key_columns,
     watermark_column="__ref_dt",
@@ -156,13 +155,13 @@ dedup_df = DataFrameTransform.deduplicate_records(
 
 # COMMAND ----------
 
-audit_df = DataFrameTransform.create_or_replace_audit_columns(dedup_df)
+audit_df = create_or_replace_audit_columns(dedup_df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-location = DataFrameLakehouse.generate_silver_table_location(
+location = generate_silver_table_location(
     lakehouse_silver_root=lakehouse_silver_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -170,18 +169,18 @@ location = DataFrameLakehouse.generate_silver_table_location(
     table_name=target_hive_table,
 )
 
-results = DataFrameWrite.write_delta_table(
+results = write_delta_table(spark,
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=DataFrameWrite.LoadType.UPSERT,
+    load_type=LoadType.UPSERT,
     key_columns=key_columns,
-    schema_evolution_mode=DataFrameWrite.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
-
+#print(location)
 print(results)
 
 # COMMAND ----------
 
-DataFrameCommon.exit_with_object(results)
+exit_with_object(dbutils,results)

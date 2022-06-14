@@ -142,6 +142,7 @@ def write_delta_table(
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
 
             _write_table_using_overwrite_table(
+                spark,
                 df=df,
                 location=location,
                 partition_columns=partition_columns,
@@ -155,6 +156,7 @@ def write_delta_table(
                 raise ValueError("Attempted to overwrite a partition with an empty dataset. Operation aborted.")
 
             _write_table_using_overwrite_partition(
+                spark,
                 df=df,
                 location=location,
                 partition_columns=partition_columns,
@@ -162,6 +164,7 @@ def write_delta_table(
             )
         elif load_type == LoadType.APPEND_ALL:
             _write_table_using_append_all(
+                spark,
                 df=df,
                 location=location,
                 partition_columns=partition_columns,
@@ -172,6 +175,7 @@ def write_delta_table(
                 raise ValueError("No key column was given")
 
             _write_table_using_append_new(
+                spark,
                 df=df,
                 location=location,
                 key_columns=key_columns,
@@ -182,6 +186,7 @@ def write_delta_table(
                 raise ValueError("No key column was given")
 
             _write_table_using_upsert(
+                spark,
                 df=df,
                 location=location,
                 key_columns=key_columns,
@@ -226,15 +231,17 @@ def write_delta_table(
         spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
         spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
 
-        return ReturnObject(
+        r=ReturnObject(
             status=RunStatus.SUCCEEDED,
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
         )
+        return  r.result()
 
     except Exception as e:
-        return ReturnObject(
+
+        r=ReturnObject(
             status=RunStatus.FAILED,
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
@@ -242,6 +249,7 @@ def write_delta_table(
             error_message=str(e),
             error_details=traceback.format_exc(),
         )
+        return r.result()
 
 
 def _write_table_using_overwrite_table(

@@ -5,7 +5,7 @@ from pyspark.sql import DataFrame, SparkSession
 
 from . import common
 
-
+    
 @unique
 class RawFileFormat(str, Enum):
     """Supported raw file formats.
@@ -24,7 +24,7 @@ class RawFileFormat(str, Enum):
     PARQUET = "PARQUET"
     ORC = "ORC"
 
-
+    
 def read_raw_dataframe(
     spark: SparkSession,
     file_format: RawFileFormat,

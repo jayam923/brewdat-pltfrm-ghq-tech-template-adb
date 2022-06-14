@@ -38,27 +38,23 @@ import sys
 
 # Import the BrewDat Library
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.read import DataFrameRead
-from brewdat.data_engineering.lakehouse import DataFrameLakehouse
-from brewdat.data_engineering.transform import DataFrameTransform
-from brewdat.data_engineering.common import DataFrameCommon
-from brewdat.data_engineering.write import DataFrameWrite
-from brewdat.data_engineering.write import ReturnObject
-from brewdat.data_engineering.write import RunStatus
-
-# Initialize the BrewDat Library
-DataFrameRead          = DataFrameRead(spark=spark)
-DataFrameLakehouse     = DataFrameLakehouse(spark=spark)
-DataFrameTransform     = DataFrameTransform(spark=spark)
-DataFrameCommon        = DataFrameCommon(spark=spark, dbutils=dbutils)
-DataFrameWrite         = DataFrameWrite(spark=spark)
+from brewdat.data_engineering.read       import read_raw_dataframe
+from brewdat.data_engineering.read       import RawFileFormat
+from brewdat.data_engineering.transform  import clean_column_names, create_or_replace_audit_columns
+from brewdat.data_engineering.lakehouse  import generate_bronze_table_location
+from brewdat.data_engineering.write      import write_delta_table, SchemaEvolutionMode, LoadType  
+from brewdat.data_engineering.common     import exit_with_object, ReturnObject 
 
 
-#help(DataFrameRead)
-#help(DataFrameLakehouse)
-#help(DataFrameTransform)
-#help(DataFrameLakehouse)
-#help(DataFrameWrite)
+help(read_raw_dataframe)
+help(RawFileFormat)
+help(clean_column_names)
+help(create_or_replace_audit_columns)
+help(generate_bronze_table_location)
+help(write_delta_table)
+help(SchemaEvolutionMode)
+help(LoadType)
+help(exit_with_object)
 
 
 # COMMAND ----------
@@ -99,19 +95,19 @@ elif environment == "prod":
 
 # COMMAND ----------
 
-raw_df = DataFrameRead.read_raw_dataframe(
-    file_format=DataFrameRead.RawFileFormat.CSV,
+raw_df = read_raw_dataframe(spark,
+    file_format=RawFileFormat.CSV,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
 )
-
 #display(raw_df)
+
 
 # COMMAND ----------
 
-clean_df = DataFrameTransform.clean_column_names(raw_df)
+clean_df = clean_column_names(raw_df)
 
 #display(clean_df)
 
@@ -132,13 +128,13 @@ transformed_df = (
 
 # COMMAND ----------
 
-audit_df = DataFrameTransform.create_or_replace_audit_columns(transformed_df)
+audit_df = create_or_replace_audit_columns(transformed_df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-target_location = DataFrameLakehouse.generate_bronze_table_location(
+target_location = generate_bronze_table_location(
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -146,18 +142,18 @@ target_location = DataFrameLakehouse.generate_bronze_table_location(
     table_name=target_hive_table,
 )
 
-results = DataFrameWrite.write_delta_table(
+results = write_delta_table(spark,
     df=audit_df,
     location=target_location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=DataFrameWrite.LoadType.APPEND_ALL,
+    load_type=LoadType.APPEND_ALL,
     partition_columns=["__ref_dt"],
-    schema_evolution_mode=DataFrameWrite.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
 print(results)
 
 # COMMAND ----------
 
-DataFrameCommon.exit_with_object(results)
+exit_with_object(dbutils,results)

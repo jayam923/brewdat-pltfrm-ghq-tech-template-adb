@@ -49,6 +49,10 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
+        
+    def result(self):
+        dct={'status':self.status,'target_object':self.target_object,'num_records_read':self.num_records_read,'num_records_loaded':self.num_records_loaded,'num_records_errored_out':self.num_records_errored_out,'error_message':self.error_message,'error_details':self.error_details}
+        return dct
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):
