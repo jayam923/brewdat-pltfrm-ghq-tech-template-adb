@@ -36,26 +36,12 @@ print(f"data_interval_end: {data_interval_end}")
 import os
 import sys
 
-# Import the BrewDat Library
+# Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.read       import read_raw_dataframe
-from brewdat.data_engineering.read       import RawFileFormat
-from brewdat.data_engineering.transform  import clean_column_names, create_or_replace_audit_columns
-from brewdat.data_engineering.lakehouse  import generate_bronze_table_location
-from brewdat.data_engineering.write      import write_delta_table, SchemaEvolutionMode, LoadType  
-from brewdat.data_engineering.common     import exit_with_object, ReturnObject 
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
-
-help(read_raw_dataframe)
-help(RawFileFormat)
-help(clean_column_names)
-help(create_or_replace_audit_columns)
-help(generate_bronze_table_location)
-help(write_delta_table)
-help(SchemaEvolutionMode)
-help(LoadType)
-help(exit_with_object)
-
+# Print module's help
+help(read_utils)
 
 # COMMAND ----------
 
@@ -95,19 +81,21 @@ elif environment == "prod":
 
 # COMMAND ----------
 
-raw_df = read_raw_dataframe(spark,
-    file_format=RawFileFormat.CSV,
+raw_df = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.CSV,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
 )
-#display(raw_df)
 
+#display(raw_df)
 
 # COMMAND ----------
 
-clean_df = clean_column_names(raw_df)
+clean_df = transform_utils.clean_column_names(dbutils=dbutils, df=raw_df)
 
 #display(clean_df)
 
@@ -128,13 +116,14 @@ transformed_df = (
 
 # COMMAND ----------
 
-audit_df = create_or_replace_audit_columns(transformed_df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-target_location = generate_bronze_table_location(
+target_location = lakehouse_utils.generate_bronze_table_location(
+    dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -142,18 +131,19 @@ target_location = generate_bronze_table_location(
     table_name=target_hive_table,
 )
 
-results = write_delta_table(spark,
+results = write_utils.write_delta_table(
+    spark=spark,
     df=audit_df,
     location=target_location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=LoadType.APPEND_ALL,
+    load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["__ref_dt"],
-    schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
-print(results)
+print(vars(results))
 
 # COMMAND ----------
 
-exit_with_object(dbutils,results)
+common_utils.exit_with_object(dbutils=dbutils, results=results)

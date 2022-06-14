@@ -49,10 +49,6 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
-        
-    def result(self):
-        dct={'status':self.status,'target_object':self.target_object,'num_records_read':self.num_records_read,'num_records_loaded':self.num_records_loaded,'num_records_errored_out':self.num_records_errored_out,'error_message':self.error_message,'error_details':self.error_details}
-        return dct
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):
@@ -71,17 +67,22 @@ def exit_with_object(dbutils: object, results: ReturnObject):
     dbutils.notebook.exit(results_json)
 
 
-def exit_with_last_exception():
+def exit_with_last_exception(dbutils: object):
     """Handle the last unhandled exception, returning an object to the notebook's caller.
 
     The most recent exception is obtained from sys.exc_info().
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
 
     Examples
     --------
     >>> try:
     >>>    # some code
     >>> except:
-    >>>    exit_with_last_exception()
+    >>>    common_utils..exit_with_last_exception()
     """
     exc_type, exc_value, _ = sys.exc_info()
     results = ReturnObject(
@@ -90,4 +91,4 @@ def exit_with_last_exception():
         error_message=f"{exc_type.__name__}: {exc_value}",
         error_details=traceback.format_exc(),
     )
-    exit_with_object(results)
+    exit_with_object(dbutils, results)

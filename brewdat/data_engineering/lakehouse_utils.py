@@ -1,7 +1,8 @@
-from . import common
+from . import common_utils
 
 
 def generate_bronze_table_location(
+    dbutils: object,
     lakehouse_bronze_root: str,
     target_zone: str,
     target_business_domain: str,
@@ -12,6 +13,8 @@ def generate_bronze_table_location(
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     lakehouse_bronze_root : str
         Root path to the Lakehouse's Bronze layer.
         Format: "abfss://bronze@storage_account.dfs.core.windows.net".
@@ -39,10 +42,11 @@ def generate_bronze_table_location(
         return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)
 
 
 def generate_silver_table_location(
+    dbutils: object,
     lakehouse_silver_root: str,
     target_zone: str,
     target_business_domain: str,
@@ -53,6 +57,8 @@ def generate_silver_table_location(
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     lakehouse_silver_root : str
         Root path to the Lakehouse's Silver layer.
         Format: "abfss://silver@storage_account.dfs.core.windows.net".
@@ -80,10 +86,11 @@ def generate_silver_table_location(
         return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)
 
 
 def generate_gold_table_location(
+    dbutils: object,
     lakehouse_gold_root: str,
     target_zone: str,
     target_business_domain: str,
@@ -95,6 +102,8 @@ def generate_gold_table_location(
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     lakehouse_gold_root : str
         Root path to the Lakehouse's Gold layer.
         Format: "abfss://gold@storage_account.dfs.core.windows.net".
@@ -124,4 +133,4 @@ def generate_gold_table_location(
         return f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)

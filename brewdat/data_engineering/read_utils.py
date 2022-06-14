@@ -3,9 +3,9 @@ from enum import Enum, unique
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession
 
-from . import common
+from . import common_utils
 
-    
+
 @unique
 class RawFileFormat(str, Enum):
     """Supported raw file formats.
@@ -24,9 +24,10 @@ class RawFileFormat(str, Enum):
     PARQUET = "PARQUET"
     ORC = "ORC"
 
-    
+
 def read_raw_dataframe(
     spark: SparkSession,
+    dbutils: object,
     file_format: RawFileFormat,
     location: str,
     csv_has_headers: bool = True,
@@ -41,6 +42,8 @@ def read_raw_dataframe(
     ----------
     spark : SparkSession
         A Spark session.
+    dbutils : object
+        A Databricks utils object.
     file_format : RawFileFormat
         The raw file format use in this dataset (CSV, PARQUET, etc.).
     location : str
@@ -76,4 +79,4 @@ def read_raw_dataframe(
         )
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)

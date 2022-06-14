@@ -6,10 +6,11 @@ import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
 
-from . import common
+from . import common_utils
 
 
 def clean_column_names(
+    dbutils: object,
     df: DataFrame,
     except_for: List[str] = [],
 )-> DataFrame:
@@ -20,6 +21,8 @@ def clean_column_names(
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to modify.
     except_for : List[str], default=[]
@@ -44,10 +47,11 @@ def clean_column_names(
         return df
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)
         
     
 def create_or_replace_business_key_column(
+    dbutils: object,
     df: DataFrame,
     business_key_column_name: str,
     key_columns: List[str],
@@ -58,6 +62,8 @@ def create_or_replace_business_key_column(
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to modify.
     business_key_column_name : str
@@ -91,10 +97,10 @@ def create_or_replace_business_key_column(
         return df
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)
 
 
-def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
+def create_or_replace_audit_columns(dbutils: object, df: DataFrame) -> DataFrame:
     """Create or replace BrewDat audit columns in the given DataFrame.
 
     The following audit columns are created/replaced:
@@ -103,6 +109,8 @@ def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to modify.
 
@@ -124,10 +132,11 @@ def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
         return df
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)
 
         
 def deduplicate_records(
+    dbutils: object,
     df: DataFrame,
     key_columns: List[str] = None,
     watermark_column: str = None,
@@ -140,6 +149,8 @@ def deduplicate_records(
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to modify.
     key_columns : List[str], default=None
@@ -177,4 +188,4 @@ def deduplicate_records(
         )
 
     except:
-        common.exit_with_last_exception()
+        common.exit_with_last_exception(dbutils)
