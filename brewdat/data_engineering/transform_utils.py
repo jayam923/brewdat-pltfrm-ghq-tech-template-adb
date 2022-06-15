@@ -5,6 +5,7 @@ from typing import List
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
 from pyspark.sql.window import Window
+from pyspark.sql.types import DataType
 
 from . import common_utils
 
@@ -189,3 +190,62 @@ def deduplicate_records(
 
     except:
         common_utils.exit_with_last_exception(dbutils)
+
+
+def cast_all_cols_to_string(
+    df: DataFrame
+) -> DataFrame:
+    """Cast all dataframe columns to string type preserving nested structure in array and
+    struct columns.
+
+    Parameters
+    ----------
+    df : DataFrame
+        The PySpark DataFrame to cast.
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame with casted columns.
+    """
+    expressions = []
+    for column in df.schema:
+        if column.dataType.typeName() == "string":
+            expressions.append(f"`{column.name}`")
+        else:
+            new_type = _spark_type_to_string_recurse(column.dataType)
+            expressions.append(f"CAST(`{column.name}` AS {new_type}) AS `{column.name}`")
+
+    return df.selectExpr(*expressions)
+
+
+def _spark_type_to_string_recurse(spark_type: DataType) -> str:
+    """Returns the Spark data type represented as string for casting purposes.
+    All primitive types (int, bool, etc.) will be replaced by string type.
+    Structs, arrays and maps will keep their original structure, but all nested primitive
+    types will be replaces by string as well.
+
+    Parameters
+    ----------
+    spark_type : DataType
+        DataType object to be translated to string format
+
+    Returns
+    -------
+    str
+        Datatype represented as a string
+    """
+    if spark_type.typeName() == "array":
+        new_element_type = _spark_type_to_string_recurse(spark_type.elementType)
+        return f"array<{new_element_type}>"
+    if spark_type.typeName() == "map":
+        new_key_type = _spark_type_to_string_recurse(spark_type.keyType)
+        new_value_type = _spark_type_to_string_recurse(spark_type.valueType)
+        return f"map<{new_key_type}, {new_value_type}>"
+    if spark_type.typeName() == "struct":
+        new_field_types = []
+        for name in spark_type.fieldNames():
+            new_field_type = _spark_type_to_string_recurse(spark_type[name].dataType)
+            new_field_types.append(f"`{name}`: {new_field_type}")
+        return "struct<" + ", ".join(new_field_types) + ">"
+    return "string"
