@@ -92,3 +92,34 @@ def exit_with_last_exception(dbutils: object):
         error_details=traceback.format_exc(),
     )
     exit_with_object(dbutils, results)
+    
+    
+def spn_access_adls(
+        self,
+        storage_account_name: str, 
+        key_vault_name: str,
+        spn_client_id: str, 
+        spn_secret_name: str,
+        spn_tenant_id: str = 'cef04b19-7776-4a94-b89b-375c77a8f936'
+        ):
+        """Function to set up SPN access using OAuth2.0 for a particular ADLS Storage Account.
+
+        Parameters
+        ----------
+        storage_account_name : str
+            Storage account name.
+        key_vault_name : str
+            Databricks secret scope name.
+        spn_client_id : str
+            Application (client) ID for the Azure Active Directory application.
+        spn_secret_name: str
+            Name of the key containing the client secret.
+        spn_tenant_id: str
+            Directory (tenant) ID for the Azure Active Directory application.
+        """
+        dbutils = DBUtils(self.spark)
+        self.spark.conf.set(f"fs.azure.account.auth.type.{storage_account_name}.dfs.core.windows.net", "OAuth")
+        self.spark.conf.set(f"fs.azure.account.oauth.provider.type.{storage_account_name}.dfs.core.windows.net", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
+        self.spark.conf.set(f"fs.azure.account.oauth2.client.id.{storage_account_name}.dfs.core.windows.net", spn_client_id)
+        self.spark.conf.set(f"fs.azure.account.oauth2.client.secret.{storage_account_name}.dfs.core.windows.net", dbutils.secrets.get(key_vault_name, spn_secret_name))
+        self.spark.conf.set(f"fs.azure.account.oauth2.client.endpoint.{storage_account_name}.dfs.core.windows.net", f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token")
