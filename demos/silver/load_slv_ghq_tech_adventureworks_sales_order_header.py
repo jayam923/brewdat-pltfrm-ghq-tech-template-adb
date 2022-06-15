@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.2.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -36,13 +36,12 @@ print(f"data_interval_end: {data_interval_end}")
 import os
 import sys
 
-# Import the BrewDat Library
+# Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.utils import BrewDatLibrary
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
-# Initialize the BrewDat Library
-brewdat_library = BrewDatLibrary(spark=spark, dbutils=dbutils)
-help(brewdat_library)
+# Print a module's help
+help(transform_utils)
 
 # COMMAND ----------
 
@@ -130,7 +129,8 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-dedup_df = brewdat_library.deduplicate_records(
+dedup_df = transform_utils.deduplicate_records(
+    dbutils=dbutils,
     df=df,
     key_columns=key_columns,
     watermark_column="__ref_dt",
@@ -140,13 +140,14 @@ dedup_df = brewdat_library.deduplicate_records(
 
 # COMMAND ----------
 
-audit_df = brewdat_library.create_or_replace_audit_columns(dedup_df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=dedup_df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-location = brewdat_library.generate_silver_table_location(
+location = lakehouse_utils.generate_silver_table_location(
+    dbutils=dbutils,
     lakehouse_silver_root=lakehouse_silver_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -154,18 +155,19 @@ location = brewdat_library.generate_silver_table_location(
     table_name=target_hive_table,
 )
 
-results = brewdat_library.write_delta_table(
+results = write_utils.write_delta_table(
+    spark=spark,
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=brewdat_library.LoadType.UPSERT,
+    load_type=write_utils.LoadType.UPSERT,
     key_columns=key_columns,
-    schema_evolution_mode=brewdat_library.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
-print(results)
+print(vars(results))
 
 # COMMAND ----------
 
-brewdat_library.exit_with_object(results)
+common_utils.exit_with_object(dbutils=dbutils, results=results)
