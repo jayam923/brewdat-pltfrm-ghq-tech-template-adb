@@ -1,6 +1,5 @@
 from enum import Enum, unique
 
-import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession
 
 from . import common_utils
@@ -79,4 +78,4 @@ def read_raw_dataframe(
         )
 
     except:
-        common.exit_with_last_exception(dbutils)
+        common_utils.exit_with_last_exception(dbutils)
