@@ -13,7 +13,7 @@ def clean_column_names(
     dbutils: object,
     df: DataFrame,
     except_for: List[str] = [],
-)-> DataFrame:
+) -> DataFrame:
     """Normalize the name of all the columns in a given DataFrame.
 
     Uses BrewDat's standard approach as seen in other Notebooks.
@@ -41,15 +41,15 @@ def clean_column_names(
 
             # \W is "anything that is not alphanumeric or underscore"
             # Equivalent to [^A-Za-z0-9_]
-            new_column_name = re.sub("\W+", "_", column_name.strip())
+            new_column_name = re.sub(r"\W+", "_", column_name.strip())
             if column_name != new_column_name:
                 df = df.withColumnRenamed(column_name, new_column_name)
         return df
 
     except:
-        common.exit_with_last_exception(dbutils)
-        
-    
+        common_utils.exit_with_last_exception(dbutils)
+
+
 def create_or_replace_business_key_column(
     dbutils: object,
     df: DataFrame,
@@ -97,7 +97,7 @@ def create_or_replace_business_key_column(
         return df
 
     except:
-        common.exit_with_last_exception(dbutils)
+        common_utils.exit_with_last_exception(dbutils)
 
 
 def create_or_replace_audit_columns(dbutils: object, df: DataFrame) -> DataFrame:
@@ -132,9 +132,9 @@ def create_or_replace_audit_columns(dbutils: object, df: DataFrame) -> DataFrame
         return df
 
     except:
-        common.exit_with_last_exception(dbutils)
+        common_utils.exit_with_last_exception(dbutils)
 
-        
+
 def deduplicate_records(
     dbutils: object,
     df: DataFrame,
@@ -188,4 +188,4 @@ def deduplicate_records(
         )
 
     except:
-        common.exit_with_last_exception(dbutils)
+        common_utils.exit_with_last_exception(dbutils)

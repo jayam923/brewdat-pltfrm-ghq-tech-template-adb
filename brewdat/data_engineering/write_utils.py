@@ -41,7 +41,7 @@ class LoadType(str, Enum):
     APPEND_NEW = "APPEND_NEW"
     UPSERT = "UPSERT"
     TYPE_2_SCD = "TYPE_2_SCD"
-    
+
 
 @unique
 class SchemaEvolutionMode(str, Enum):
