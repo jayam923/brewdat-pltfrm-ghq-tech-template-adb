@@ -156,7 +156,7 @@ location = lakehouse_utils.generate_silver_table_location(
 )
 
 results = write_utils.write_delta_table(
-    dbutils=dbutils,
+    spark=spark,
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
