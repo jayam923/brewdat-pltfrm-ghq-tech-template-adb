@@ -97,7 +97,7 @@ def read_raw_dataframe(
         )
 
         if cast_all_to_string:
-            df = transform_utils.cast_all_columns_to_string(df)
+            df = transform_utils.cast_all_columns_to_string(dbutils, df)
 
         return df
 
