@@ -38,10 +38,10 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
-# Print module's help
-help(read_utils)
+# Print a module's help
+help(transform_utils)
 
 # COMMAND ----------
 
@@ -120,7 +120,7 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils,df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=df)
 
 #display(audit_df)
 

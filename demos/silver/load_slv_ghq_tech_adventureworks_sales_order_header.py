@@ -38,10 +38,10 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
-# Print module's help
-help(read_utils)
+# Print a module's help
+help(transform_utils)
 
 # COMMAND ----------
 
@@ -140,7 +140,7 @@ dedup_df = transform_utils.deduplicate_records(
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils,dedup_df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=dedup_df)
 
 #display(audit_df)
 
@@ -156,7 +156,7 @@ location = lakehouse_utils.generate_silver_table_location(
 )
 
 results = write_utils.write_delta_table(
-    dbutils,
+    dbutils=dbutils,
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
@@ -170,4 +170,4 @@ print(vars(results))
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils,results)
+common_utils.exit_with_object(dbutils=dbutils, results=results)
