@@ -47,7 +47,7 @@ def clean_column_names(
                 df = df.withColumnRenamed(column_name, new_column_name)
         return df
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
 
@@ -97,7 +97,7 @@ def create_or_replace_business_key_column(
 
         return df
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
 
@@ -132,7 +132,7 @@ def create_or_replace_audit_columns(dbutils: object, df: DataFrame) -> DataFrame
         df = df.withColumn("__update_gmt_ts", F.lit(current_timestamp).cast("timestamp"))
         return df
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
 
@@ -188,7 +188,7 @@ def deduplicate_records(
             .drop("__dedup_row_number")
         )
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
 
