@@ -36,25 +36,12 @@ print(f"data_interval_end: {data_interval_end}")
 import os
 import sys
 
-
-# Import the BrewDat Library
+# Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.read       import read_raw_dataframe
-from brewdat.data_engineering.read       import RawFileFormat
-from brewdat.data_engineering.transform  import deduplicate_records, create_or_replace_audit_columns
-from brewdat.data_engineering.lakehouse  import generate_gold_table_location
-from brewdat.data_engineering.write      import write_delta_table, SchemaEvolutionMode, LoadType  
-from brewdat.data_engineering.common     import exit_with_object
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
-
-help(read_raw_dataframe)
-help(RawFileFormat)
-help(create_or_replace_audit_columns)
-help(generate_gold_table_location)
-help(write_delta_table)
-help(SchemaEvolutionMode)
-help(LoadType)
-help(exit_with_object)
+# Print module's help
+help(read_utils)
 
 # COMMAND ----------
 
@@ -133,13 +120,14 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-audit_df = create_or_replace_audit_columns(df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils,df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-location = generate_gold_table_location(
+location = lakehouse_utils.generate_gold_table_location(
+    dbutils=dbutils,
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -148,17 +136,18 @@ location = generate_gold_table_location(
     table_name=target_hive_table,
 )
 
-results = write_delta_table(spark,
+results = write_utils.write_delta_table(
+    spark=spark,
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=LoadType.OVERWRITE_TABLE,
-    schema_evolution_mode=SchemaEvolutionMode.OVERWRITE_SCHEMA,
+    load_type=write_utils.LoadType.OVERWRITE_TABLE,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.OVERWRITE_SCHEMA,
 )
 
-print(results)
+print(vars(results))
 
 # COMMAND ----------
 
-exit_with_object(dbutils,results)
+common_utils.exit_with_object(dbutils=dbutils, results=results)

@@ -36,28 +36,12 @@ print(f"data_interval_end: {data_interval_end}")
 import os
 import sys
 
-# Import the BrewDat Library
+# Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.read       import read_raw_dataframe
-from brewdat.data_engineering.read       import RawFileFormat
-from brewdat.data_engineering.transform  import deduplicate_records, create_or_replace_audit_columns
-from brewdat.data_engineering.lakehouse  import generate_silver_table_location
-from brewdat.data_engineering.write      import write_delta_table, SchemaEvolutionMode, LoadType  
-from brewdat.data_engineering.common     import exit_with_object
-from brewdat.data_engineering.common     import ReturnObject
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
-
-# Initialize the BrewDat Library
-#ReturnObject   = ReturnObject(status=RunStatus, target_object=target_object, num_records_read=num_records_read, num_records_loaded=num_records_loaded, num_records_errored_out= num_records_errored_out, error_message=error_message)
-
-help(read_raw_dataframe)
-help(RawFileFormat)
-help(create_or_replace_audit_columns)
-help(generate_silver_table_location)
-help(write_delta_table)
-help(SchemaEvolutionMode)
-help(LoadType)
-help(exit_with_object)
+# Print module's help
+help(read_utils)
 
 # COMMAND ----------
 
@@ -145,7 +129,8 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-dedup_df = deduplicate_records(
+dedup_df = transform_utils.deduplicate_records(
+    dbutils=dbutils,
     df=df,
     key_columns=key_columns,
     watermark_column="__ref_dt",
@@ -155,13 +140,14 @@ dedup_df = deduplicate_records(
 
 # COMMAND ----------
 
-audit_df = create_or_replace_audit_columns(dedup_df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils,dedup_df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-location = generate_silver_table_location(
+location = lakehouse_utils.generate_silver_table_location(
+    dbutils=dbutils,
     lakehouse_silver_root=lakehouse_silver_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -169,18 +155,19 @@ location = generate_silver_table_location(
     table_name=target_hive_table,
 )
 
-results = write_delta_table(spark,
+results = write_utils.write_delta_table(
+    dbutils,
     df=audit_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=LoadType.UPSERT,
+    load_type=write_utils.LoadType.UPSERT,
     key_columns=key_columns,
-    schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
-#print(location)
-print(results)
+
+print(vars(results))
 
 # COMMAND ----------
 
-exit_with_object(dbutils,results)
+common_utils.exit_with_object(dbutils,results)
