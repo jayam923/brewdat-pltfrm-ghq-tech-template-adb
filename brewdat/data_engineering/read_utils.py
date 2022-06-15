@@ -2,8 +2,7 @@ from enum import Enum, unique
 
 from pyspark.sql import DataFrame, SparkSession
 
-from . import common_utils
-from . import transform_utils
+from . import common_utils, transform_utils
 
 
 @unique
@@ -16,6 +15,7 @@ class RawFileFormat(str, Enum):
     JSON: JSON format.
     PARQUET: Parquet format.
     ORC: ORC format.
+    XML: XML format.
     """
     AVRO = "AVRO"
     CSV = "CSV"
@@ -23,6 +23,7 @@ class RawFileFormat(str, Enum):
     JSON = "JSON"
     PARQUET = "PARQUET"
     ORC = "ORC"
+    XML = "XML"
 
 
 def read_raw_dataframe(
@@ -70,22 +71,35 @@ def read_raw_dataframe(
         The PySpark DataFrame read from the Raw Layer.
     """
     try:
-        df = (
+        df_reader = (
             spark.read
             .format(file_format.lower())
             .option("mergeSchema", True)
-            .option("header", csv_has_headers)
-            .option("delimiter", csv_delimiter)
-            .option("escape", csv_escape_character)
-            .option("rowTag", xml_row_tag)
+        )
+
+        if file_format == RawFileFormat.CSV:
+            df_reader = (
+                df_reader
+                .option("header", csv_has_headers)
+                .option("delimiter", csv_delimiter)
+                .option("escape", csv_escape_character)
+            )
+        elif file_format == RawFileFormat.XML:
+            df_reader = (
+                df_reader
+                .option("rowTag", xml_row_tag)
+            )
+
+        df = (
+            df_reader
             .options(**additional_options)
             .load(location)
         )
 
         if cast_all_to_string:
-            df = transform_utils.cast_all_cols_to_string(df)
+            df = transform_utils.cast_all_columns_to_string(df)
 
         return df
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)

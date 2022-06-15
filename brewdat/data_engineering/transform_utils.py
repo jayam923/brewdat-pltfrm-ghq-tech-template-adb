@@ -4,8 +4,8 @@ from typing import List
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame
-from pyspark.sql.window import Window
 from pyspark.sql.types import DataType
+from pyspark.sql.window import Window
 
 from . import common_utils
 
@@ -192,48 +192,56 @@ def deduplicate_records(
         common_utils.exit_with_last_exception(dbutils)
 
 
-def cast_all_cols_to_string(
-    df: DataFrame
+def cast_all_columns_to_string(
+    dbutils: object,
+    df: DataFrame,
 ) -> DataFrame:
-    """Cast all dataframe columns to string type preserving nested structure in array and
-    struct columns.
+    """Recursively cast all DataFrame columns to string type, while
+    preserving the nested structure of array, map, and struct columns.
 
     Parameters
     ----------
+    dbutils : object
+        A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to cast.
 
     Returns
     -------
     DataFrame
-        The modified PySpark DataFrame with casted columns.
+        The modified PySpark DataFrame with all columns cast to string.
     """
-    expressions = []
-    for column in df.schema:
-        if column.dataType.typeName() == "string":
-            expressions.append(f"`{column.name}`")
-        else:
-            new_type = _spark_type_to_string_recurse(column.dataType)
-            expressions.append(f"CAST(`{column.name}` AS {new_type}) AS `{column.name}`")
+    try:
+        expressions = []
+        for column in df.schema:
+            if column.dataType.typeName() == "string":
+                expressions.append(f"`{column.name}`")
+            else:
+                new_type = _spark_type_to_string_recurse(column.dataType)
+                expressions.append(f"CAST(`{column.name}` AS {new_type}) AS `{column.name}`")
 
-    return df.selectExpr(*expressions)
+        return df.selectExpr(*expressions)
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
 
 
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:
-    """Returns the Spark data type represented as string for casting purposes.
-    All primitive types (int, bool, etc.) will be replaced by string type.
-    Structs, arrays and maps will keep their original structure, but all nested primitive
-    types will be replaces by string as well.
+    """Returns a DDL representation of a Spark data type for casting purposes.
+
+    All primitive types (int, bool, etc.) are replaced with the string type.
+    Structs, arrays, and maps keep their original structure; however, their
+    nested primitive types are replaced by string.
 
     Parameters
     ----------
     spark_type : DataType
-        DataType object to be translated to string format
+        DataType object to be recursively cast to string.
 
     Returns
     -------
     str
-        Datatype represented as a string
+        DDL representation of the new Datatype.
     """
     if spark_type.typeName() == "array":
         new_element_type = _spark_type_to_string_recurse(spark_type.elementType)
