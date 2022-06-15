@@ -59,25 +59,32 @@ if None in [environment, lakehouse_bronze_root, lakehouse_silver_root]:
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 if environment == "dev":
-    spark.conf.set("fs.azure.account.auth.type", "OAuth")
-    spark.conf.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-    spark.conf.set("fs.azure.account.oauth2.client.id", "1d3aebfe-929c-4cc1-a988-31c040d2b798")
-    spark.conf.set("fs.azure.account.oauth2.client.secret", dbutils.secrets.get(scope="brewdatpltfrmghqtechakvd", key="brewdat-spn-pltfrm-ghq-tech-template-rw-d"))
-    spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microsoftonline.com/cef04b19-7776-4a94-b89b-375c77a8f936/oauth2/token")
+    common_utils.configure_spn_access_for_adls(
+        spark=spark,
+        dbutils=dbutils,
+        storage_account_names=["brewdatpltfrmrawbrzd", "brewdatpltfrmslvgldd"],
+        key_vault_name="brewdatpltfrmghqtechakvd",
+        spn_client_id="1d3aebfe-929c-4cc1-a988-31c040d2b798",
+        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-d",
+    )
 elif environment == "qa":
-    # TODO: update
-    spark.conf.set("fs.azure.account.auth.type", "OAuth")
-    spark.conf.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-    spark.conf.set("fs.azure.account.oauth2.client.id", "12345678-1234-1234-1234-123456789999")
-    spark.conf.set("fs.azure.account.oauth2.client.secret", dbutils.secrets.get(scope="brewdatpltfrmghqtechakvq", key="brewdat-spn-pltfrm-ghq-tech-template-rw-q"))
-    spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microsoftonline.com/cef04b19-7776-4a94-b89b-375c77a8f936/oauth2/token")
+    common_utils.configure_spn_access_for_adls(
+        spark=spark,
+        dbutils=dbutils,
+        storage_account_names=["brewdatpltfrmrawbrzq", "brewdatpltfrmslvgldq"],
+        key_vault_name="brewdatpltfrmghqtechakvq",
+        spn_client_id="12345678-1234-1234-1234-123456789999",
+        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-q",
+    )
 elif environment == "prod":
-    # TODO: update
-    spark.conf.set("fs.azure.account.auth.type", "OAuth")
-    spark.conf.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-    spark.conf.set("fs.azure.account.oauth2.client.id", "12345678-1234-1234-1234-123456789999")
-    spark.conf.set("fs.azure.account.oauth2.client.secret", dbutils.secrets.get(scope="brewdatpltfrmghqtechakvp", key="brewdat-spn-pltfrm-ghq-tech-template-rw-p"))
-    spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microsoftonline.com/cef04b19-7776-4a94-b89b-375c77a8f936/oauth2/token")
+    common_utils.configure_spn_access_for_adls(
+        spark=spark,
+        dbutils=dbutils,
+        storage_account_names=["brewdatpltfrmrawbrzp", "brewdatpltfrmslvgldp"],
+        key_vault_name="brewdatpltfrmghqtechakvp",
+        spn_client_id="12345678-1234-1234-1234-123456789999",
+        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-p",
+    )
 
 # COMMAND ----------
 
