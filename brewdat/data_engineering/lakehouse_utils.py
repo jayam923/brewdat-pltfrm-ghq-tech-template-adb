@@ -41,7 +41,7 @@ def generate_bronze_table_location(
 
         return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
 
@@ -85,7 +85,7 @@ def generate_silver_table_location(
 
         return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
 
@@ -132,5 +132,5 @@ def generate_gold_table_location(
 
         return f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)

@@ -77,5 +77,5 @@ def read_raw_dataframe(
             .load(location)
         )
 
-    except:
+    except Exception:
         common_utils.exit_with_last_exception(dbutils)
