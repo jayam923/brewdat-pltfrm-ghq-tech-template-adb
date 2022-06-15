@@ -5,9 +5,8 @@ from pyspark.sql.types import StructType, StructField, StringType, ArrayType, In
 from brewdat.data_engineering.read_utils import read_raw_dataframe, RawFileFormat
 
 
-def test_read_raw_dataframe_csv_simple():
+def test_read_raw_dataframe_csv_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_simple1.csv"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_simple1.csv"
     expected_schema = StructType(
         [
             StructField('name', StringType(), True),
@@ -30,9 +29,8 @@ def test_read_raw_dataframe_csv_simple():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_parquet_simple():
+def test_read_raw_dataframe_parquet_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_simple1.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_simple1.parquet"
     expected_schema = StructType(
         [
             StructField('name', StringType(), True),
@@ -56,9 +54,8 @@ def test_read_raw_dataframe_parquet_simple():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_orc_simple():
+def test_read_raw_dataframe_orc_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/orc_simple1.orc"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/orc_simple1.orc"
     expected_schema = StructType(
         [
             StructField('name', StringType(), True),
@@ -82,9 +79,8 @@ def test_read_raw_dataframe_orc_simple():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_delta_simple():
+def test_read_raw_dataframe_delta_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/delta_simple1"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/delta_simple1"
     expected_schema = StructType(
         [
             StructField('name', StringType(), True),
@@ -108,9 +104,8 @@ def test_read_raw_dataframe_delta_simple():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_parquet_with_array():
+def test_read_raw_dataframe_parquet_with_array(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_array.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_array.parquet"
     expected_schema = StructType(
         [
             StructField('id', StringType(), True),
@@ -132,9 +127,8 @@ def test_read_raw_dataframe_parquet_with_array():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_parquet_with_struct():
+def test_read_raw_dataframe_parquet_with_struct(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_struct.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_struct.parquet"
     expected_schema = StructType(
         [
             StructField('id', StringType(), True),
@@ -159,9 +153,8 @@ def test_read_raw_dataframe_parquet_with_struct():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_parquet_with_deeply_nested_struct():
+def test_read_raw_dataframe_parquet_with_deeply_nested_struct(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct.parquet"
     expected_schema = StructType(
         [
             StructField('id', StringType(), True),
@@ -194,9 +187,8 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct():
 
 
 
-def test_read_raw_dataframe_parquet_with_array_of_struct():
+def test_read_raw_dataframe_parquet_with_array_of_struct(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_array_of_struct.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_array_of_struct.parquet"
     expected_schema = StructType(
         [
             StructField('id', StringType(), True),
@@ -221,9 +213,8 @@ def test_read_raw_dataframe_parquet_with_array_of_struct():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array():
+def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet"
     expected_schema = StructType(
         [
             StructField('id', StringType(), True),
@@ -257,9 +248,8 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array():
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_not_cast_types():
+def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_not_cast_types(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet"):
     # ARRANGE
-    file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet"
     expected_schema = StructType(
         [
             StructField('id', IntegerType(), True),
