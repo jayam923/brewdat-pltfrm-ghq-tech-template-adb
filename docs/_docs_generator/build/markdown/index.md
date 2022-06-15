@@ -30,37 +30,36 @@ Specifies the way in which the table should be loaded.
 
 OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
 Avoid whenever possible, as this is not good for large tables.
-This deletes records that are not present in df.
+This deletes records that are not present in the DataFrame.
 
 OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
-This deletes records that are not present in df for the chosen partition.
+This deletes records that are not present in the DataFrame for the chosen partition.
 The df must be filtered such that it contains a single partition.
 
-APPEND_ALL: Load type where all records in the df are written into an table.
+APPEND_ALL: Load type where all records in the DataFrame are written into an table.
 *Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
 
-APPEND_NEW: Load type where only new records in the df are written into an existing table.
+APPEND_NEW: Load type where only new records in the DataFrame are written into an existing table.
 Records for which the key already exists in the table are ignored.
 
 UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
-This does NOT delete existing records that are not included in df.
+This does NOT delete existing records that are not included in the DataFrame.
 
 TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
 This essentially uses an upsert that keeps track of all previous versions of each record.
-For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension) .
+For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension)
 *Attention*: This load type is not implemented on this library yet!
 
 
 #### _class_ RawFileFormat(value)
-Available file formats.
+Supported raw file formats.
 
+AVRO: Avro format.
+CSV: Delimited text format.
+DELTA: Delta format.
+JSON: JSON format.
 PARQUET: Parquet format.
-
-DELTA: Delta Lake format.
-
 ORC: ORC format.
-
-CSV: CSV format.
 
 
 #### _class_ ReturnObject(\*args, \*\*kwargs)
@@ -128,10 +127,9 @@ Detailed error message or stack trace for the above error.
 
 
 #### _class_ RunStatus(value)
-Available run status
+Available run statuses.
 
 SUCCEEDED: Represents a succeeded run status.
-
 FAILED: Represents a failed run status.
 
 
@@ -152,8 +150,8 @@ This is the same as using the option “overwriteSchema”.
 
 RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
 This is the same strategy used in AutoLoader’s rescue mode.
-For more information: [https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution](https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution) .
-*Attention*: not implemented yet!
+For more information: [https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution](https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution)
+*Attention*: This schema evolution mode is not implemented on this library yet!
 
 
 #### clean_column_names(df: pyspark.sql.dataframe.DataFrame, except_for: List[str] = [])
@@ -191,10 +189,10 @@ Create or replace BrewDat audit columns in the given DataFrame.
 The following audit columns are created/replaced:
 
     
-    * _insert_gmt_ts: timestamp of when the record was inserted.
+    * __insert_gmt_ts: timestamp of when the record was inserted.
 
 
-    * _update_gmt_ts: timestamp of when the record was last updated.
+    * __update_gmt_ts: timestamp of when the record was last updated.
 
 
 * **Parameters**
@@ -215,7 +213,7 @@ The following audit columns are created/replaced:
 
 
 
-#### create_or_replace_business_key_column(df: pyspark.sql.dataframe.DataFrame, business_key_column_name: str, key_columns: List[str], separator: str = '__')
+#### create_or_replace_business_key_column(df: pyspark.sql.dataframe.DataFrame, business_key_column_name: str, key_columns: List[str], separator: str = '__', check_null_values: bool = True)
 Create a standard business key concatenating multiple columns.
 
 
@@ -232,6 +230,10 @@ Create a standard business key concatenating multiple columns.
 
 
     * **separator** (*str**, **default="__"*) – A string to separate the values of each column in the business key.
+
+
+    * **check_null_values** (*bool**, **default=True*) – Whether to check if the given key columns contain NULL values.
+    Throw an error if any NULL value is found.
 
 
 
@@ -439,7 +441,7 @@ Build the standard location for a Silver table.
 
 
 
-#### read_raw_dataframe(file_format: brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat, location: str, csv_has_headers: bool = True, csv_delimiter: str = ',', csv_escape_character: str = '"')
+#### read_raw_dataframe(file_format: brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat, location: str, cast_all_to_string: bool = True, csv_has_headers: bool = True, csv_delimiter: str = ',', csv_escape_character: str = '"', xml_row_tag: str = 'row', additional_options: dict = {})
 Read a DataFrame from the Raw Layer. Convert all data types to string.
 
 
@@ -453,6 +455,10 @@ Read a DataFrame from the Raw Layer. Convert all data types to string.
     Format: “abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/”.
 
 
+    * **cast_all_to_string** (*bool**, **default=True*) – Whether to cast all non-string values to string.
+    Useful to maximize schema compatibility in the Bronze layer.
+
+
     * **csv_has_headers** (*bool**, **default=True*) – Whether the CSV file has a header row.
 
 
@@ -460,6 +466,12 @@ Read a DataFrame from the Raw Layer. Convert all data types to string.
 
 
     * **csv_escape_character** (*str**, **default="""*) – Escape character for CSV file format.
+
+
+    * **xml_row_tag** (*str**, **default="row"*) – Name of the XML tag to treat as DataFrame rows.
+
+
+    * **additional_options** (*dict**, **default={}*) – Dictionary with additional options for spark.read.
 
 
 
@@ -475,7 +487,7 @@ Read a DataFrame from the Raw Layer. Convert all data types to string.
 
 
 
-#### write_delta_table(df: pyspark.sql.dataframe.DataFrame, location: str, schema_name: str, table_name: str, load_type: brewdat.data_engineering.utils.BrewDatLibrary.LoadType, key_columns: List[str] = [], partition_columns: List[str] = [], schema_evolution_mode: brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS)
+#### write_delta_table(df: pyspark.sql.dataframe.DataFrame, location: str, schema_name: str, table_name: str, load_type: brewdat.data_engineering.utils.BrewDatLibrary.LoadType, key_columns: List[str] = [], partition_columns: List[str] = [], schema_evolution_mode: brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS, time_travel_retention_days: int = 30)
 Write the DataFrame as a delta table.
 
 
@@ -508,6 +520,11 @@ Write the DataFrame as a delta table.
 
     * **schema_evolution_mode** (*BrewDatLibrary.SchemaEvolutionMode**, **default=ADD_NEW_COLUMNS*) – Specifies the way in which schema mismatches should be handled.
     See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+
+    * **time_travel_retention_days** (*int**, **default=30*) – Number of days for retaining time travel data in the Delta table.
+    Used to limit how many old snapshots are preserved during the VACUUM operation.
+    For more information: [https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch](https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch)
 
 
 

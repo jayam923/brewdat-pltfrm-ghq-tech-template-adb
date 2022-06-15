@@ -4,7 +4,8 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
     <title>Welcome to brewdat-pltfrm-ghq-tech-template-adb’s documentation! &#8212; brewdat-pltfrm-ghq-tech-template-adb  documentation</title>
     <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
     <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
@@ -30,7 +31,7 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="module-brewdat.data_engineering.utils">
+  <section id="module-brewdat.data_engineering.utils">
 <span id="welcome-to-brewdat-pltfrm-ghq-tech-template-adb-s-documentation"></span><h1>Welcome to brewdat-pltfrm-ghq-tech-template-adb’s documentation!<a class="headerlink" href="#module-brewdat.data_engineering.utils" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary">
@@ -64,30 +65,32 @@
 <dd><p>Specifies the way in which the table should be loaded.</p>
 <p>OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
 Avoid whenever possible, as this is not good for large tables.
-This deletes records that are not present in df.</p>
+This deletes records that are not present in the DataFrame.</p>
 <p>OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
-This deletes records that are not present in df for the chosen partition.
+This deletes records that are not present in the DataFrame for the chosen partition.
 The df must be filtered such that it contains a single partition.</p>
-<p>APPEND_ALL: Load type where all records in the df are written into an table.
+<p>APPEND_ALL: Load type where all records in the DataFrame are written into an table.
 <em>Attention</em>: use this load type only for Bronze tables, as it is bad for backfilling.</p>
-<p>APPEND_NEW: Load type where only new records in the df are written into an existing table.
+<p>APPEND_NEW: Load type where only new records in the DataFrame are written into an existing table.
 Records for which the key already exists in the table are ignored.</p>
 <p>UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
-This does NOT delete existing records that are not included in df.</p>
+This does NOT delete existing records that are not included in the DataFrame.</p>
 <p>TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
 This essentially uses an upsert that keeps track of all previous versions of each record.
-For more information: <a class="reference external" href="https://en.wikipedia.org/wiki/Slowly_changing_dimension">https://en.wikipedia.org/wiki/Slowly_changing_dimension</a> .
+For more information: <a class="reference external" href="https://en.wikipedia.org/wiki/Slowly_changing_dimension">https://en.wikipedia.org/wiki/Slowly_changing_dimension</a>
 <em>Attention</em>: This load type is not implemented on this library yet!</p>
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RawFileFormat</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat" title="Permalink to this definition">¶</a></dt>
-<dd><p>Available file formats.</p>
-<p>PARQUET: Parquet format.</p>
-<p>DELTA: Delta Lake format.</p>
-<p>ORC: ORC format.</p>
-<p>CSV: CSV format.</p>
+<dd><p>Supported raw file formats.</p>
+<p>AVRO: Avro format.
+CSV: Delimited text format.
+DELTA: Delta format.
+JSON: JSON format.
+PARQUET: Parquet format.
+ORC: ORC format.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -165,9 +168,9 @@ For more information: <a class="reference external" href="https://en.wikipedia.o
 <dl class="py class">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.RunStatus">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RunStatus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.RunStatus" title="Permalink to this definition">¶</a></dt>
-<dd><p>Available run status</p>
-<p>SUCCEEDED: Represents a succeeded run status.</p>
-<p>FAILED: Represents a failed run status.</p>
+<dd><p>Available run statuses.</p>
+<p>SUCCEEDED: Represents a succeeded run status.
+FAILED: Represents a failed run status.</p>
 </dd></dl>
 
 <dl class="py class">
@@ -184,8 +187,8 @@ Does nothing if the table does not yet exist in the Hive metastore.</p>
 This is the same as using the option “overwriteSchema”.</p>
 <p>RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
 This is the same strategy used in AutoLoader’s rescue mode.
-For more information: <a class="reference external" href="https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution">https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution</a> .
-<em>Attention</em>: not implemented yet!</p>
+For more information: <a class="reference external" href="https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution">https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution</a>
+<em>Attention</em>: This schema evolution mode is not implemented on this library yet!</p>
 </dd></dl>
 
 <dl class="py method">
@@ -216,8 +219,8 @@ Improved to also trim (strip) whitespaces.</p>
 <dd><p>Create or replace BrewDat audit columns in the given DataFrame.</p>
 <dl class="simple">
 <dt>The following audit columns are created/replaced:</dt><dd><ul class="simple">
-<li><p>_insert_gmt_ts: timestamp of when the record was inserted.</p></li>
-<li><p>_update_gmt_ts: timestamp of when the record was last updated.</p></li>
+<li><p>__insert_gmt_ts: timestamp of when the record was inserted.</p></li>
+<li><p>__update_gmt_ts: timestamp of when the record was last updated.</p></li>
 </ul>
 </dd>
 </dl>
@@ -236,7 +239,7 @@ Improved to also trim (strip) whitespaces.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.create_or_replace_business_key_column">
-<span class="sig-name descname"><span class="pre">create_or_replace_business_key_column</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">business_key_column_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'__'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.create_or_replace_business_key_column" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">create_or_replace_business_key_column</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">business_key_column_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">separator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'__'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">check_null_values</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.create_or_replace_business_key_column" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create a standard business key concatenating multiple columns.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -245,6 +248,8 @@ Improved to also trim (strip) whitespaces.</p>
 <li><p><strong>business_key_column_name</strong> (<em>str</em>) – The name of the concatenated business key column.</p></li>
 <li><p><strong>key_columns</strong> (<em>List</em><em>[</em><em>str</em><em>]</em>) – The names of the columns used to uniquely identify each record the table.</p></li>
 <li><p><strong>separator</strong> (<em>str</em><em>, </em><em>default=&quot;__&quot;</em>) – A string to separate the values of each column in the business key.</p></li>
+<li><p><strong>check_null_values</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Whether to check if the given key columns contain NULL values.
+Throw an error if any NULL value is found.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -406,7 +411,7 @@ Value varies by environment, so you should use environment variables.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.read_raw_dataframe">
-<span class="sig-name descname"><span class="pre">read_raw_dataframe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat" title="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_has_headers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_delimiter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">','</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_escape_character</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'&quot;'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.read_raw_dataframe" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">read_raw_dataframe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_format</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat" title="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cast_all_to_string</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_has_headers</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_delimiter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">','</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">csv_escape_character</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'&quot;'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xml_row_tag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'row'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">additional_options</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">{}</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.read_raw_dataframe" title="Permalink to this definition">¶</a></dt>
 <dd><p>Read a DataFrame from the Raw Layer. Convert all data types to string.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -414,9 +419,13 @@ Value varies by environment, so you should use environment variables.</p></li>
 <li><p><strong>file_format</strong> (<a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat" title="brewdat.data_engineering.utils.BrewDatLibrary.RawFileFormat"><em>RawFileFormat</em></a>) – The raw file format use in this dataset (CSV, PARQUET, etc.).</p></li>
 <li><p><strong>location</strong> (<em>str</em>) – Absolute Data Lake path for the physical location of this dataset.
 Format: “abfss://container&#64;storage_account.dfs.core.windows.net/path/to/dataset/”.</p></li>
+<li><p><strong>cast_all_to_string</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Whether to cast all non-string values to string.
+Useful to maximize schema compatibility in the Bronze layer.</p></li>
 <li><p><strong>csv_has_headers</strong> (<em>bool</em><em>, </em><em>default=True</em>) – Whether the CSV file has a header row.</p></li>
 <li><p><strong>csv_delimiter</strong> (<em>str</em><em>, </em><em>default=&quot;</em><em>,</em><em>&quot;</em>) – Delimiter string for CSV file format.</p></li>
 <li><p><strong>csv_escape_character</strong> (<em>str</em><em>, </em><em>default=&quot;&quot;&quot;</em>) – Escape character for CSV file format.</p></li>
+<li><p><strong>xml_row_tag</strong> (<em>str</em><em>, </em><em>default=&quot;row&quot;</em>) – Name of the XML tag to treat as DataFrame rows.</p></li>
+<li><p><strong>additional_options</strong> (<em>dict</em><em>, </em><em>default={}</em>) – Dictionary with additional options for spark.read.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -430,7 +439,7 @@ Format: “abfss://container&#64;storage_account.dfs.core.windows.net/path/to/da
 
 <dl class="py method">
 <dt class="sig sig-object py" id="brewdat.data_engineering.utils.BrewDatLibrary.write_delta_table">
-<span class="sig-name descname"><span class="pre">write_delta_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.LoadType" title="brewdat.data_engineering.utils.BrewDatLibrary.LoadType"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.LoadType</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema_evolution_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode" title="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SchemaEvolutionMode.ADD_NEW_COLUMNS</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject" title="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject</span></a></span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.write_delta_table" title="Permalink to this definition">¶</a></dt>
+<span class="sig-name descname"><span class="pre">write_delta_table</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">pyspark.sql.dataframe.DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">location</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">table_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">load_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.LoadType" title="brewdat.data_engineering.utils.BrewDatLibrary.LoadType"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.LoadType</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">partition_columns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">schema_evolution_mode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode" title="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">SchemaEvolutionMode.ADD_NEW_COLUMNS</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_travel_retention_days</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject" title="brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject"><span class="pre">brewdat.data_engineering.utils.BrewDatLibrary.ReturnObject</span></a></span></span><a class="headerlink" href="#brewdat.data_engineering.utils.BrewDatLibrary.write_delta_table" title="Permalink to this definition">¶</a></dt>
 <dd><p>Write the DataFrame as a delta table.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -447,6 +456,9 @@ Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.</p></li>
 <li><p><strong>partition_columns</strong> (<em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>default=</em><em>[</em><em>]</em>) – The names of the columns used to partition the table.</p></li>
 <li><p><strong>schema_evolution_mode</strong> (<a class="reference internal" href="#brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode" title="brewdat.data_engineering.utils.BrewDatLibrary.SchemaEvolutionMode"><em>BrewDatLibrary.SchemaEvolutionMode</em></a><em>, </em><em>default=ADD_NEW_COLUMNS</em>) – Specifies the way in which schema mismatches should be handled.
 See documentation for BrewDatLibrary.SchemaEvolutionMode.</p></li>
+<li><p><strong>time_travel_retention_days</strong> (<em>int</em><em>, </em><em>default=30</em>) – Number of days for retaining time travel data in the Delta table.
+Used to limit how many old snapshots are preserved during the VACUUM operation.
+For more information: <a class="reference external" href="https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch">https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch</a></p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -462,7 +474,7 @@ See documentation for BrewDatLibrary.SchemaEvolutionMode.</p></li>
 
 <div class="toctree-wrapper compound">
 </div>
-</div>
+</section>
 
 
           </div>
