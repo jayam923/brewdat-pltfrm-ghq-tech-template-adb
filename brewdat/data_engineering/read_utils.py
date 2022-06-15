@@ -94,7 +94,8 @@ def read_raw_dataframe(
 def cast_all_cols_to_string(
     df: DataFrame
 ) -> DataFrame:
-    """Cast all dataframe columns to string type preserving nested structure in array and struct columns.
+    """Cast all dataframe columns to string type preserving nested structure in array and
+    struct columns.
 
     Parameters
     ----------
@@ -120,8 +121,8 @@ def cast_all_cols_to_string(
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:
     """Returns the Spark data type represented as string for casting purposes.
     All primitive types (int, bool, etc.) will be replaced by string type.
-    Structs, arrays and maps will keep their original structure, but all nested primitive types will be replaces by
-    string as well.
+    Structs, arrays and maps will keep their original structure, but all nested primitive
+    types will be replaces by string as well.
 
     Parameters
     ----------
@@ -147,4 +148,3 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
             new_field_types.append(f"`{name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
     return "string"
-
