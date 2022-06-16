@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.1.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.2.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -36,13 +36,12 @@ print(f"data_interval_end: {data_interval_end}")
 import os
 import sys
 
-# Import the BrewDat Library
+# Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering.utils import BrewDatLibrary
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
-# Initialize the BrewDat Library
-brewdat_library = BrewDatLibrary(spark=spark, dbutils=dbutils)
-help(brewdat_library)
+# Print a module's help
+help(transform_utils)
 
 # COMMAND ----------
 
@@ -60,25 +59,32 @@ if None in [environment, lakehouse_silver_root, lakehouse_gold_root]:
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 if environment == "dev":
-    spark.conf.set("fs.azure.account.auth.type", "OAuth")
-    spark.conf.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-    spark.conf.set("fs.azure.account.oauth2.client.id", "1d3aebfe-929c-4cc1-a988-31c040d2b798")
-    spark.conf.set("fs.azure.account.oauth2.client.secret", dbutils.secrets.get(scope="brewdatpltfrmghqtechakvd", key="brewdat-spn-pltfrm-ghq-tech-template-rw-d"))
-    spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microsoftonline.com/cef04b19-7776-4a94-b89b-375c77a8f936/oauth2/token")
+    common_utils.configure_spn_access_for_adls(
+        spark=spark,
+        dbutils=dbutils,
+        storage_account_names=["brewdatpltfrmslvgldd"],
+        key_vault_name="brewdatpltfrmghqtechakvd",
+        spn_client_id="1d3aebfe-929c-4cc1-a988-31c040d2b798",
+        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-d",
+    )
 elif environment == "qa":
-    # TODO: update
-    spark.conf.set("fs.azure.account.auth.type", "OAuth")
-    spark.conf.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-    spark.conf.set("fs.azure.account.oauth2.client.id", "12345678-1234-1234-1234-123456789999")
-    spark.conf.set("fs.azure.account.oauth2.client.secret", dbutils.secrets.get(scope="brewdatpltfrmghqtechakvq", key="brewdat-spn-pltfrm-ghq-tech-template-rw-q"))
-    spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microsoftonline.com/cef04b19-7776-4a94-b89b-375c77a8f936/oauth2/token")
+    common_utils.configure_spn_access_for_adls(
+        spark=spark,
+        dbutils=dbutils,
+        storage_account_names=["brewdatpltfrmslvgldq"],
+        key_vault_name="brewdatpltfrmghqtechakvq",
+        spn_client_id="12345678-1234-1234-1234-123456789999",
+        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-q",
+    )
 elif environment == "prod":
-    # TODO: update
-    spark.conf.set("fs.azure.account.auth.type", "OAuth")
-    spark.conf.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider")
-    spark.conf.set("fs.azure.account.oauth2.client.id", "12345678-1234-1234-1234-123456789999")
-    spark.conf.set("fs.azure.account.oauth2.client.secret", dbutils.secrets.get(scope="brewdatpltfrmghqtechakvp", key="brewdat-spn-pltfrm-ghq-tech-template-rw-p"))
-    spark.conf.set("fs.azure.account.oauth2.client.endpoint", "https://login.microsoftonline.com/cef04b19-7776-4a94-b89b-375c77a8f936/oauth2/token")
+    common_utils.configure_spn_access_for_adls(
+        spark=spark,
+        dbutils=dbutils,
+        storage_account_names=["brewdatpltfrmslvgldp"],
+        key_vault_name="brewdatpltfrmghqtechakvp",
+        spn_client_id="12345678-1234-1234-1234-123456789999",
+        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-p",
+    )
 
 # COMMAND ----------
 
@@ -108,7 +114,8 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-dedup_df = brewdat_library.deduplicate_records(
+dedup_df = transform_utils.deduplicate_records(
+    dbutils=dbutils,
     df=df,
     key_columns=key_columns,
     watermark_column="__update_gmt_ts",
@@ -118,13 +125,14 @@ dedup_df = brewdat_library.deduplicate_records(
 
 # COMMAND ----------
 
-audit_df = brewdat_library.create_or_replace_audit_columns(dedup_df)
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=dedup_df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
-location = brewdat_library.generate_gold_table_location(
+location = lakehouse_utils.generate_gold_table_location(
+    dbutils=dbutils,
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -133,18 +141,19 @@ location = brewdat_library.generate_gold_table_location(
     table_name=target_hive_table,
 )
 
-results = brewdat_library.write_delta_table(
+results = write_utils.write_delta_table(
+    spark=spark,
     df=audit_df,
     key_columns=key_columns,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=brewdat_library.LoadType.UPSERT,
-    schema_evolution_mode=brewdat_library.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    load_type=write_utils.LoadType.UPSERT,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
-print(results)
+print(vars(results))
 
 # COMMAND ----------
 
-brewdat_library.exit_with_object(results)
+common_utils.exit_with_object(dbutils=dbutils, results=results)
