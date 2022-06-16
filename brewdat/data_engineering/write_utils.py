@@ -8,6 +8,8 @@ from pyspark.sql import DataFrame, SparkSession
 
 from .common_utils import ReturnObject, RunStatus
 
+import os
+
 
 @unique
 class LoadType(str, Enum):
@@ -213,7 +215,13 @@ def write_delta_table(
         spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
 
         # TODO: drop existing table if its location has changed
-
+        #The below recreate block is added by srivatsa.r@ab-inbev.com
+        #this is to check if a table has been wrongly created in a different location
+        #dropping the wrongly created table and rest of the code automatically points it to the right location
+        recreate_flag = _recreate_check(spark = spark, schema_name = schema_name, table_name = table_name, location = table_name)
+        if recreate_flag:
+            spark.sql(f"DROP TABLE IF EXISTS  `{schema_name}`.`{table_name}`")
+        
         spark.sql(f"""
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
@@ -247,7 +255,41 @@ def write_delta_table(
             error_message=str(e),
             error_details=traceback.format_exc(),
         )
+def _recreate_check(
+    spark: SparkSession,
+    schema_name: str,
+    table_name: str,
+    location: str):
+    """Return a boolean whether we need to drop and recreate a table or not.
 
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+     schema_name : str
+        Name of the schema/database for the table in the metastore.
+        Schema is created if it does not exist.
+    table_name : str
+        Name of the table in the metastore.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    """
+    
+    #Find if the table exists already
+    __table_exists = spark.catalog._jcatalog.tableExists(f"{schema_name}.{table_name}")
+    #Lambda function the splits the text in the path, this is used to compare current 'location' with actual 'location of the table'
+    path_split = lambda x: [x.lower() for x in os.path.normpath(x).split(os.sep)]
+    #Proceed with this check only if the table is already created
+    if __table_exists:
+        current_path = spark.sql(f"DESC DETAIL {schema_name}.{table_name}").select("location").collect()[0][0]
+        l_current_path = path_split(current_path)
+        l_new_path = path_split(location)
+        if l_current_path != l_new_path:
+            return True
+        else:
+            return False
+    else:
+        return False
 
 def _write_table_using_overwrite_table(
     spark: SparkSession,
