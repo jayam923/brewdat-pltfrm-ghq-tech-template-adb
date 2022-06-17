@@ -1,8 +1,8 @@
 from enum import Enum, unique
-
 from pyspark.sql import DataFrame, SparkSession
-
+from openpyxl import load_workbook
 from . import common_utils, transform_utils
+import pyspark.pandas as pd
 
 
 @unique
@@ -16,7 +16,9 @@ class RawFileFormat(str, Enum):
     PARQUET: Parquet format.
     ORC: ORC format.
     XML: XML format.
+    EXCEL : EXCEL format.
     """
+    
     AVRO = "AVRO"
     CSV = "CSV"
     DELTA = "DELTA"
@@ -24,6 +26,7 @@ class RawFileFormat(str, Enum):
     PARQUET = "PARQUET"
     ORC = "ORC"
     XML = "XML"
+    EXCEL = "EXCEL"
 
 
 def read_raw_dataframe(
@@ -31,11 +34,14 @@ def read_raw_dataframe(
     dbutils: object,
     file_format: RawFileFormat,
     location: str,
+    excel_sheet_name: str,
+    excel_has_headers: bool = True,
     cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
     csv_escape_character: str = "\"",
     xml_row_tag: str = "row",
+    json_has_multiline: bool = True,
     additional_options: dict = {},
 ) -> DataFrame:
     """Read a DataFrame from the Raw Layer.
@@ -51,6 +57,10 @@ def read_raw_dataframe(
     location : str
         Absolute Data Lake path for the physical location of this dataset.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
+    Excel_sheet_name : str
+        Sheet name for EXCEL file format.
+    Excel_has_headers : bool, default="True"
+        Whether the Excel file has a header row.
     cast_all_to_string : bool, default=True
         Whether to cast all non-string values to string.
         Useful to maximize schema compatibility in the Bronze layer.
@@ -71,31 +81,48 @@ def read_raw_dataframe(
         The PySpark DataFrame read from the Raw Layer.
     """
     try:
-        df_reader = (
+        if file_format != RawFileFormat.EXCEL:
+            df_reader = (
             spark.read
             .format(file_format.lower())
             .option("mergeSchema", True)
-        )
+            )
 
-        if file_format == RawFileFormat.CSV:
-            df_reader = (
+            if file_format == RawFileFormat.CSV:
+                df_reader = (
                 df_reader
                 .option("header", csv_has_headers)
                 .option("delimiter", csv_delimiter)
                 .option("escape", csv_escape_character)
             )
-        elif file_format == RawFileFormat.XML:
-            df_reader = (
+            elif file_format == RawFileFormat.XML:
+                df_reader = (
                 df_reader
                 .option("rowTag", xml_row_tag)
             )
-
-        df = (
-            df_reader
+            elif file_format == RawFileFormat.JSON:
+                df_reader = (
+                df_reader
+                .option("multiline", json_has_multiline)
+            )
+            elif file_format == RawFileFormat.AVRO:
+                df_reader = (
+                df_reader
+            )
+                      
+            df = (
+                df_reader
             .options(**additional_options)
             .load(location)
-        )
-
+            )
+        else : 
+            df = pd.read_excel(location,
+                               excel_sheet_name,
+                               header= 0,
+                               engine= "openpyxl"
+             ).to_spark()  
+        
+            
         if cast_all_to_string:
             df = transform_utils.cast_all_columns_to_string(dbutils, df)
 
@@ -103,3 +130,4 @@ def read_raw_dataframe(
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+
