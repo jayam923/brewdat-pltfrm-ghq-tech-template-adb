@@ -92,7 +92,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/csv/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
@@ -106,7 +106,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.AVRO,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/avro/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     excel_sheet_name = None
 )
 display(raw_df)
@@ -117,7 +117,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.JSON,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/json/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     excel_sheet_name = None
 )
 display(raw_df)
@@ -129,7 +129,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.XML,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/xml/*/*.xml",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/*/*.xml",
     xml_row_tag = "catalog_item",
     excel_sheet_name = None,
 )
@@ -142,7 +142,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.EXCEL,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/excel/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     excel_sheet_name = "testing",
 )
 raw_df = raw_df.withColumn("__ref_dt",regexp_extract(input_file_name(),'[0-9]+',0))
