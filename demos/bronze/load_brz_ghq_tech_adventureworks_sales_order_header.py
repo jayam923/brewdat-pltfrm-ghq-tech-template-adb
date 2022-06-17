@@ -92,13 +92,61 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/csv/",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
+    excel_sheet_name = None
 )
+display(raw_df)
 
-#display(raw_df)
+# COMMAND ----------
+
+raw_df = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.AVRO,
+    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/avro/",
+    excel_sheet_name = None
+)
+display(raw_df)
+
+# COMMAND ----------
+
+raw_df = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.JSON,
+    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/json/",
+    excel_sheet_name = None
+)
+display(raw_df)
+
+# COMMAND ----------
+
+from pyspark.sql.functions import regexp_extract, input_file_name
+raw_df = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.XML,
+    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/xml/*/*.xml",
+    xml_row_tag = "catalog_item",
+    excel_sheet_name = None,
+)
+raw_df = raw_df.withColumn("__ref_dt",regexp_extract(input_file_name(),'[0-9]+',0))
+display(raw_df)
+
+# COMMAND ----------
+
+raw_df = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.EXCEL,
+    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/excel/",
+    excel_sheet_name = "testing",
+)
+raw_df = raw_df.withColumn("__ref_dt",regexp_extract(input_file_name(),'[0-9]+',0))
+display(raw_df)
 
 # COMMAND ----------
 
