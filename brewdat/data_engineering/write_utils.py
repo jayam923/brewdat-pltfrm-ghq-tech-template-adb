@@ -1,3 +1,4 @@
+import os
 import traceback
 from enum import Enum, unique
 from typing import List
@@ -7,8 +8,6 @@ from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 
 from .common_utils import ReturnObject, RunStatus
-
-import os
 
 
 @unique
@@ -214,14 +213,13 @@ def write_delta_table(
         # Create the Hive database and table
         spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
 
-        # TODO: drop existing table if its location has changed
-        #The below recreate block is added by srivatsa.r@ab-inbev.com
-        #this is to check if a table has been wrongly created in a different location
-        #dropping the wrongly created table and rest of the code automatically points it to the right location
-        recreate_flag = _recreate_check(spark = spark, schema_name = schema_name, table_name = table_name, location = table_name)
-        if recreate_flag:
-            spark.sql(f"DROP TABLE IF EXISTS  `{schema_name}`.`{table_name}`")
-        
+        # Check if the table already exists with a different location
+        if _table_exists_in_different_location(spark, schema_name, table_name, location):
+            raise ValueError(
+                "Metastore table already exists with a different location."
+                f" To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`;"
+            )
+
         spark.sql(f"""
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
@@ -255,41 +253,45 @@ def write_delta_table(
             error_message=str(e),
             error_details=traceback.format_exc(),
         )
-def _recreate_check(
+
+
+def _table_exists_in_different_location(
     spark: SparkSession,
     schema_name: str,
     table_name: str,
-    location: str):
-    """Return a boolean whether we need to drop and recreate a table or not.
+    expected_location: str
+) -> bool:
+    """Return whether the metastore table already exists at a different location.
 
     Parameters
     ----------
     spark : SparkSession
         A Spark session.
-     schema_name : str
+    schema_name : str
         Name of the schema/database for the table in the metastore.
-        Schema is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
-    location : str
-        Absolute Delta Lake path for the physical location of this delta table.
+    expected_location : str
+        Absolute Delta Lake path for the expected physical location of this delta table.
+
+    Returns
+    -------
+    bool
+        True if table exists and its location is NOT the expected location.
     """
-    
-    #Find if the table exists already
-    __table_exists = spark.catalog._jcatalog.tableExists(f"{schema_name}.{table_name}")
-    #Lambda function the splits the text in the path, this is used to compare current 'location' with actual 'location of the table'
-    path_split = lambda x: [x.lower() for x in os.path.normpath(x).split(os.sep)]
-    #Proceed with this check only if the table is already created
-    if __table_exists:
-        current_path = spark.sql(f"DESC DETAIL {schema_name}.{table_name}").select("location").collect()[0][0]
-        l_current_path = path_split(current_path)
-        l_new_path = path_split(location)
-        if l_current_path != l_new_path:
-            return True
-        else:
-            return False
-    else:
+    # Check if the table exists
+    table_exists = spark.catalog._jcatalog.tableExists(f"{schema_name}.{table_name}")
+    if not table_exists:
         return False
+
+    # Compare current location and expected location
+    current_location = (
+        spark.sql(f"DESCRIBE DETAIL `{schema_name}`.`{table_name}`;")
+        .select("location")
+        .collect()[0][0]
+    )
+    return os.path.normpath(current_location) != os.path.normpath(expected_location)
+
 
 def _write_table_using_overwrite_table(
     spark: SparkSession,
