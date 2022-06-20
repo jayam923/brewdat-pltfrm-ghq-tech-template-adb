@@ -125,8 +125,18 @@ def write_delta_table(
     num_records_loaded = 0
 
     try:
-        # Count source records
-        num_records_read = df.count()
+        # Check if the table already exists with a different location
+        location_mismatch = _table_exists_in_different_location(
+            spark=spark,
+            schema_name=schema_name,
+            table_name=table_name,
+            expected_location=location,
+        )
+        if location_mismatch:
+            raise ValueError(
+                "Metastore table already exists with a different location."
+                f" To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`"
+            )
 
         # Table must exist if we are merging data
         if load_type != LoadType.APPEND_ALL and not DeltaTable.isDeltaTable(spark, location):
@@ -137,7 +147,10 @@ def write_delta_table(
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
 
-        # Set load_type options
+        # Count source records
+        num_records_read = df.count()
+
+        # Write data with the selected load_type
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
@@ -212,14 +225,6 @@ def write_delta_table(
 
         # Create the Hive database and table
         spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
-
-        # Check if the table already exists with a different location
-        if _table_exists_in_different_location(spark, schema_name, table_name, location):
-            raise ValueError(
-                "Metastore table already exists with a different location."
-                f" To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`;"
-            )
-
         spark.sql(f"""
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
