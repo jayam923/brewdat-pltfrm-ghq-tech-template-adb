@@ -113,12 +113,13 @@ def read_raw_dataframe(
         elif file_format == RawFileFormat.XML:
             df = (
                 spark.read
+                .format("xml")
                 .option("mergeSchema", True)
                 .option("attributePrefix", "")
                 .option("valueTag", "value")
                 .option("rowTag", xml_row_tag)
                 .options(**additional_options)
-                .xml(location)
+                .load(location)
             )
         else:
             df = (
