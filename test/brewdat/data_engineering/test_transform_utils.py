@@ -165,6 +165,7 @@ def test_flatten_struct_columns_except_for():
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
+
 def test_flatten_struct_columns_recursive():
     # ARRANGE
     original_schema = StructType(
@@ -207,7 +208,59 @@ def test_flatten_struct_columns_recursive():
     result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
 
     # ASSERT
-    result_df.printSchema()
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_struct_columns_recursive_deeply_nested():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StructType([
+                    StructField('name', StringType(), True),
+                    StructField('reference', StructType([
+                        StructField('code', StringType(), True),
+                        StructField('abbreviation', StringType(), True),
+                    ]), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "address": {
+                "city": "new york",
+                "country": {
+                    "name": "United States",
+                    "reference": {
+                        "code": "***",
+                        "abbreviation": "us"
+                    }
+                }
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address__city', StringType(), True),
+            StructField('address__country__name', StringType(), True),
+            StructField('address__country__reference__code', StringType(), True),
+            StructField('address__country__reference__abbreviation', StringType(), True)
+        ]
+    )
+
+    # ACT
+    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
+
+    # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
