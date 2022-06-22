@@ -311,6 +311,3 @@ def test_flatten_struct_columns_recursive_except_for():
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
-
-#TESTE COM ARRAY
-#TESTE RECURSIVO COM ARRAY

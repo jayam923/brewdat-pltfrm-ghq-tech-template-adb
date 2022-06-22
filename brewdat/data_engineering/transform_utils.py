@@ -232,23 +232,46 @@ def flatten_struct_columns(
     except_for: List[str] = [],
     recursive: bool = False
 ) -> DataFrame:
-    flat_cols = [c.name for c in df.schema
-                 if c.dataType.typeName() != 'struct' or c.name in except_for]
-    nested_cols = [c.name for c in df.schema
-                   if c.dataType.typeName() == 'struct' and c.name not in except_for]
-    unnested_cols = [F.col(f'{nc}.{c}').alias(f'{nc}__{c}')
-                     for nc in nested_cols
-                     for c in df.select(f'{nc}.*').columns]
+    """Recursively cast all DataFrame columns to string type, while
+    preserving the nested structure of array, map, and struct columns.
 
-    flat_df = df.select(flat_cols + unnested_cols)
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to flattened.
+    except_for : List[str], default=[]
+        List of columns to be ignored by flattening process.
+    recursive : bool, default=False
+        When true, struct fields nested inside structs fields will also be flattened.
 
-    remain_nested_cols = [c.name for c in flat_df.schema
-                          if c.dataType.typeName() == 'struct' and c.name not in except_for]
+    Returns
+    -------
+    DataFrame
+        The flattened PySpark DataFrame.
+    """
+    try:
+        flat_cols = [c.name for c in df.schema
+                     if c.dataType.typeName() != 'struct' or c.name in except_for]
+        nested_cols = [c.name for c in df.schema
+                       if c.dataType.typeName() == 'struct' and c.name not in except_for]
+        unnested_cols = [F.col(f'{nc}.{c}').alias(f'{nc}__{c}')
+                         for nc in nested_cols
+                         for c in df.select(f'{nc}.*').columns]
 
-    if recursive and remain_nested_cols:
-        return flatten_struct_columns(dbutils=dbutils, df=flat_df, except_for=except_for, recursive=recursive)
-    else:
-        return flat_df
+        flat_df = df.select(flat_cols + unnested_cols)
+
+        remain_nested_cols = [c.name for c in flat_df.schema
+                              if c.dataType.typeName() == 'struct' and c.name not in except_for]
+
+        if recursive and remain_nested_cols:
+            return flatten_struct_columns(dbutils=dbutils, df=flat_df, except_for=except_for, recursive=recursive)
+        else:
+            return flat_df
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
 
 
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:
