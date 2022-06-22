@@ -164,3 +164,54 @@ def test_flatten_struct_columns_except_for():
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
+
+def test_flatten_struct_columns_recursive():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StructType([
+                    StructField('name', StringType(), True),
+                    StructField('code', StringType(), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "address": {
+                "city": "new york",
+                "country": {
+                    "name": "United States",
+                    "code": "us"
+                }
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address__city', StringType(), True),
+            StructField('address__country__name', StringType(), True),
+            StructField('address__country__code', StringType(), True)
+        ]
+    )
+
+    # ACT
+    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
+
+    # ASSERT
+    result_df.printSchema()
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+#TESTE RECURSIVO
+#TESTE COM ARRAY
+#TESTE RECURSIVO COM ARRAY
+#TESTE RECURSIVO COM EXCEPT

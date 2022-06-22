@@ -229,17 +229,26 @@ def cast_all_columns_to_string(
 def flatten_struct_columns(
     dbutils: object,
     df: DataFrame,
-    except_for: List[str] = []
+    except_for: List[str] = [],
+    recursive: bool = False
 ) -> DataFrame:
-    flat_cols = [c.name for c in df.schema if c.dataType.typeName() != 'struct' or c.name in except_for]
-    nested_cols = [c.name for c in df.schema if c.dataType.typeName() == 'struct' and c.name not in except_for]
+    flat_cols = [c.name for c in df.schema
+                 if c.dataType.typeName() != 'struct' or c.name in except_for]
+    nested_cols = [c.name for c in df.schema
+                   if c.dataType.typeName() == 'struct' and c.name not in except_for]
     unnested_cols = [F.col(f'{nc}.{c}').alias(f'{nc}__{c}')
                      for nc in nested_cols
                      for c in df.select(f'{nc}.*').columns]
 
     flat_df = df.select(flat_cols + unnested_cols)
 
-    return flat_df
+    remain_nested_cols = [c.name for c in flat_df.schema
+                          if c.dataType.typeName() == 'struct' and c.name not in except_for]
+
+    if recursive and remain_nested_cols:
+        return flatten_struct_columns(dbutils=dbutils, df=flat_df, except_for=except_for, recursive=recursive)
+    else:
+        return flat_df
 
 
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:
