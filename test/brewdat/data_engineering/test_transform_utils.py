@@ -113,3 +113,54 @@ def test_flatten_struct_columns():
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
+
+
+def test_flatten_struct_columns_except_for():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True),
+            StructField('contact', StructType([
+                StructField('email', StringType(), True),
+                StructField('phone', StringType(), True)
+            ]), True)
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "address": {
+                "city": "new york",
+                "country": "us"
+            },
+            "contact": {
+                "email": "johndoe@ab-inbev.com",
+                "phone": "9999999"
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('contact', StructType([
+                StructField('email', StringType(), True),
+                StructField('phone', StringType(), True)
+            ]), True),
+            StructField('address__city', StringType(), True),
+            StructField('address__country', StringType(), True)
+        ]
+    )
+
+    # ACT
+    result_df = flatten_struct_columns(dbutils=None, df=df, except_for=["contact"])
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema

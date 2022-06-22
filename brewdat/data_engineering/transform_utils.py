@@ -231,8 +231,8 @@ def flatten_struct_columns(
     df: DataFrame,
     except_for: List[str] = []
 ) -> DataFrame:
-    flat_cols = [c.name for c in df.schema if c.dataType.typeName() != 'struct']
-    nested_cols = [c.name for c in df.schema if c.dataType.typeName() == 'struct']
+    flat_cols = [c.name for c in df.schema if c.dataType.typeName() != 'struct' or c.name in except_for]
+    nested_cols = [c.name for c in df.schema if c.dataType.typeName() == 'struct' and c.name not in except_for]
     unnested_cols = [F.col(f'{nc}.{c}').alias(f'{nc}__{c}')
                      for nc in nested_cols
                      for c in df.select(f'{nc}.*').columns]
