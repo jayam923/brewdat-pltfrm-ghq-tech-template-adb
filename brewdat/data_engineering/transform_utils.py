@@ -232,8 +232,7 @@ def flatten_struct_columns(
     except_for: List[str] = [],
     recursive: bool = False
 ) -> DataFrame:
-    """Recursively cast all DataFrame columns to string type, while
-    preserving the nested structure of array, map, and struct columns.
+    """Flattens all struct columns from a Pyspark dataframe.
 
     Parameters
     ----------
