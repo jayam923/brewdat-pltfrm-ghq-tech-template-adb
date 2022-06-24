@@ -235,6 +235,9 @@ def flatten_struct_columns(
 ) -> DataFrame:
     """Flatten all struct columns from a PySpark dataframe.
 
+    This function DOES NOT handle structs inside array columns nor map type.
+    In order to flatten structs inside array columns, explode the array before calling this function.
+
     Parameters
     ----------
     dbutils : object
