@@ -230,20 +230,24 @@ def flatten_struct_columns(
     dbutils: object,
     df: DataFrame,
     except_for: List[str] = [],
-    recursive: bool = False
+    recursive: bool = True,
+    column_name_separator: str = "__",
 ) -> DataFrame:
-    """Flattens all struct columns from a Pyspark dataframe.
+    """Flatten all struct columns from a PySpark dataframe.
 
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
     df : DataFrame
-        The PySpark DataFrame to flattened.
+        The PySpark DataFrame to flatten.
     except_for : List[str], default=[]
         List of columns to be ignored by flattening process.
-    recursive : bool, default=False
-        When true, struct fields nested inside structs fields will also be flattened.
+    recursive : bool, default=True
+        When true, struct fields nested inside other struct fields will also be flattened.
+        Otherwise, only top-level structs will be flatten and inner structs will keep their original form.
+    column_name_separator: str, default="__"
+        A string for separating struct column name and nested field names in the new flatten columns names.
 
     Returns
     -------
@@ -255,7 +259,7 @@ def flatten_struct_columns(
                      if c.dataType.typeName() != 'struct' or c.name in except_for]
         nested_cols = [c.name for c in df.schema
                        if c.dataType.typeName() == 'struct' and c.name not in except_for]
-        unnested_cols = [F.col(f'{nc}.{c}').alias(f'{nc}__{c}')
+        unnested_cols = [F.col(f'{nc}.{c}').alias(f'{nc}{column_name_separator}{c}')
                          for nc in nested_cols
                          for c in df.select(f'{nc}.*').columns]
 
@@ -265,9 +269,14 @@ def flatten_struct_columns(
                               if c.dataType.typeName() == 'struct' and c.name not in except_for]
 
         if recursive and remain_nested_cols:
-            return flatten_struct_columns(dbutils=dbutils, df=flat_df, except_for=except_for, recursive=recursive)
-        else:
-            return flat_df
+            return flatten_struct_columns(
+                dbutils=dbutils,
+                df=flat_df,
+                except_for=except_for,
+                recursive=recursive,
+                column_name_separator=column_name_separator)
+
+        return flat_df
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)

@@ -115,6 +115,55 @@ def test_flatten_struct_columns():
     assert expected_schema == result_df.schema
 
 
+def test_flatten_struct_columns_custom_separator():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True),
+            StructField('contact', StructType([
+                StructField('email', StringType(), True),
+                StructField('phone', StringType(), True)
+            ]), True)
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "address": {
+                "city": "new york",
+                "country": "us"
+            },
+            "contact": {
+                "email": "johndoe@ab-inbev.com",
+                "phone": "9999999"
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address___city', StringType(), True),
+            StructField('address___country', StringType(), True),
+            StructField('contact___email', StringType(), True),
+            StructField('contact___phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    result_df = flatten_struct_columns(dbutils=None, df=df, column_name_separator="___")
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
 def test_flatten_struct_columns_except_for():
     # ARRANGE
     original_schema = StructType(
@@ -206,6 +255,54 @@ def test_flatten_struct_columns_recursive():
 
     # ACT
     result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_struct_columns_not_recursive():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StructType([
+                    StructField('name', StringType(), True),
+                    StructField('code', StringType(), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "address": {
+                "city": "new york",
+                "country": {
+                    "name": "United States",
+                    "code": "us"
+                }
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address__city', StringType(), True),
+            StructField('address__country', StructType([
+                StructField('name', StringType(), True),
+                StructField('code', StringType(), True)
+            ]), True)
+        ]
+    )
+
+    # ACT
+    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=False)
 
     # ASSERT
     assert 1 == result_df.count()
