@@ -198,12 +198,12 @@ def test_flatten_struct_columns_except_for():
         [
             StructField('name', StringType(), True),
             StructField('surname', StringType(), True),
+            StructField('address__city', StringType(), True),
+            StructField('address__country', StringType(), True),
             StructField('contact', StructType([
                 StructField('email', StringType(), True),
                 StructField('phone', StringType(), True)
             ]), True),
-            StructField('address__city', StringType(), True),
-            StructField('address__country', StringType(), True)
         ]
     )
 
@@ -404,6 +404,62 @@ def test_flatten_struct_columns_recursive_except_for():
 
     # ACT
     result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True, except_for=['address__country'])
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_struct_columns_preserve_columns_order():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StructType([
+                    StructField('name', StringType(), True),
+                    StructField('reference', StructType([
+                        StructField('code', StringType(), True),
+                        StructField('abbreviation', StringType(), True),
+                    ]), True)
+                ]), True)
+            ]), True),
+            StructField('username', StringType(), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "address": {
+                "city": "new york",
+                "country": {
+                    "name": "United States",
+                    "reference": {
+                        "code": "***",
+                        "abbreviation": "us"
+                    }
+                }
+            },
+            "username": "john_doe"
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('address__city', StringType(), True),
+            StructField('address__country__name', StringType(), True),
+            StructField('address__country__reference__code', StringType(), True),
+            StructField('address__country__reference__abbreviation', StringType(), True),
+            StructField('username', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
