@@ -33,7 +33,6 @@ print(f"data_interval_end: {data_interval_end}")
 
 # COMMAND ----------
 
-import os
 import sys
 
 # Import BrewDat Library modules
@@ -45,30 +44,7 @@ help(read_utils)
 
 # COMMAND ----------
 
-# Gather standard Lakehouse environment variables
-lakehouse_raw_root = os.getenv("LAKEHOUSE_RAW_ROOT")
-lakehouse_bronze_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
-spn_access_for_adls_config = os.getenv("SPN_ACCESS_FOR_ADLS_TECH")
-
-# Ensure that all standard Lakehouse environment variables are set
-if None in [lakehouse_raw_root, lakehouse_bronze_root, spn_access_for_adls_config]:
-    raise Exception("This Databricks Workspace does not have necessary environment variables."
-        " Contact the admin team to set up the global init script and restart your cluster.")
-
-# COMMAND ----------
-
-import json
-
-spn_access_for_adls_config_dict = json.loads(spn_access_for_adls_config)
-
-common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=spn_access_for_adls_config_dict['storage_account_names'],
-        key_vault_name=spn_access_for_adls_config_dict['key_vault_name'],
-        spn_client_id=spn_access_for_adls_config_dict['spn_client_id'],
-        spn_secret_name=spn_access_for_adls_config_dict['spn_secret_name'],
-)
+# MAGIC %run ../demo_integration_context
 
 # COMMAND ----------
 
