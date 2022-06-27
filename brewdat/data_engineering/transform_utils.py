@@ -226,7 +226,7 @@ def cast_all_columns_to_string(
         common_utils.exit_with_last_exception(dbutils)
 
 
-def flatten_struct_columns(
+def flatten_dataframe(
     dbutils: object,
     df: DataFrame,
     except_for: List[str] = [],

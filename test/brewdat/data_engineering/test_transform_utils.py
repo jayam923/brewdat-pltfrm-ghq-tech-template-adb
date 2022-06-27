@@ -2,7 +2,7 @@ from test.spark_test import spark
 
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 
-from brewdat.data_engineering.transform_utils import clean_column_names, flatten_struct_columns
+from brewdat.data_engineering.transform_utils import clean_column_names, flatten_dataframe
 
 
 def test_clean_column_names():
@@ -43,7 +43,7 @@ def test_clean_column_names_except_for():
     assert "address 1" in result_df.columns
 
 
-def test_flatten_struct_columns_no_struct_columns():
+def test_flatten_dataframe_no_struct_columns():
     # ARRANGE
     df = spark.createDataFrame([
         {
@@ -59,14 +59,14 @@ def test_flatten_struct_columns_no_struct_columns():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df)
+    result_df = flatten_dataframe(dbutils=None, df=df)
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns():
+def test_flatten_dataframe():
     # ARRANGE
     original_schema = StructType(
         [
@@ -108,14 +108,14 @@ def test_flatten_struct_columns():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df)
+    result_df = flatten_dataframe(dbutils=None, df=df)
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_custom_separator():
+def test_flatten_dataframe_custom_separator():
     # ARRANGE
     original_schema = StructType(
         [
@@ -157,14 +157,14 @@ def test_flatten_struct_columns_custom_separator():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, column_name_separator="___")
+    result_df = flatten_dataframe(dbutils=None, df=df, column_name_separator="___")
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_except_for():
+def test_flatten_dataframe_except_for():
     # ARRANGE
     original_schema = StructType(
         [
@@ -208,14 +208,14 @@ def test_flatten_struct_columns_except_for():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, except_for=["contact"])
+    result_df = flatten_dataframe(dbutils=None, df=df, except_for=["contact"])
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_recursive():
+def test_flatten_dataframe_recursive():
     # ARRANGE
     original_schema = StructType(
         [
@@ -254,14 +254,14 @@ def test_flatten_struct_columns_recursive():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
+    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_not_recursive():
+def test_flatten_dataframe_not_recursive():
     # ARRANGE
     original_schema = StructType(
         [
@@ -302,14 +302,14 @@ def test_flatten_struct_columns_not_recursive():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=False)
+    result_df = flatten_dataframe(dbutils=None, df=df, recursive=False)
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_recursive_deeply_nested():
+def test_flatten_dataframe_recursive_deeply_nested():
     # ARRANGE
     original_schema = StructType(
         [
@@ -355,14 +355,14 @@ def test_flatten_struct_columns_recursive_deeply_nested():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
+    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_recursive_except_for():
+def test_flatten_dataframe_recursive_except_for():
     # ARRANGE
     original_schema = StructType(
         [
@@ -403,14 +403,14 @@ def test_flatten_struct_columns_recursive_except_for():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True, except_for=['address__country'])
+    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True, except_for=['address__country'])
 
     # ASSERT
     assert 1 == result_df.count()
     assert expected_schema == result_df.schema
 
 
-def test_flatten_struct_columns_preserve_columns_order():
+def test_flatten_dataframe_preserve_columns_order():
     # ARRANGE
     original_schema = StructType(
         [
@@ -459,7 +459,7 @@ def test_flatten_struct_columns_preserve_columns_order():
     )
 
     # ACT
-    result_df = flatten_struct_columns(dbutils=None, df=df, recursive=True)
+    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
