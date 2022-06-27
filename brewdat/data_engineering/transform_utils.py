@@ -274,7 +274,7 @@ def flatten_dataframe(
                               if c.dataType.typeName() == "struct" and c.name not in except_for]
 
         if recursive and remain_nested_cols:
-            return flatten_struct_columns(
+            return flatten_dataframe(
                 dbutils=dbutils,
                 df=flat_df,
                 except_for=except_for,
