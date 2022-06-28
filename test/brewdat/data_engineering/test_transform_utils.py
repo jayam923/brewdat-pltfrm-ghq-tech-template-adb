@@ -2,7 +2,7 @@ from test.spark_test import spark
 
 from datetime import datetime
 
-from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns
+from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, create_or_replace_business_key_column
 
 
 def test_clean_column_names():
@@ -86,22 +86,28 @@ def test_create_or_replace_audit_columns_already_exist():
     assert "__update_gmt_ts" in result_df.columns
     assert result_df.filter("__insert_gmt_ts is null").count() == 0
     assert result_df.filter("__update_gmt_ts is null").count() == 0
-    
+
+
 def test_create_or_replace_business_key_column():
     # ARRANGE
-    df=spark.createdataframe([
+    df = spark.createDataFrame([
          {
-            "phone  number": "00000000000",
-            "name (Complete)": "my name",
+            "name": "john",
+            "last_name": "doe",
             "address 1": "my address",
          }
     ])
     
-    #ACT
-    result_df = create_or_replace_business_key_column(dbutils=None, df=df, business_key_column_name='exact location', key_columns=["Hyd","Ameerpet"], separator: "__", check_null_values= True )
+    # ACT
+    result_df = create_or_replace_business_key_column(
+        dbutils=None,
+        df=df,
+        business_key_column_name='business_key_column_name',
+        key_columns=["name", "last_name"],
+        separator="__",
+        check_null_values=True,
+    )
     
     # ASSERT
-    assert "phone_number" in result_df.columns
-    assert "name_Complete_" in result_df.columns
-    assert "address 1" in result_df.columns
-    assert "business_key_column_name"  in result_df.columns
+    assert "business_key_column_name" in result_df.columns
+    assert 1 == result_df.filter("business_key_column_name = 'john__doe' ").count()
