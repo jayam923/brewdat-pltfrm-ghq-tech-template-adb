@@ -226,6 +226,68 @@ def cast_all_columns_to_string(
         common_utils.exit_with_last_exception(dbutils)
 
 
+def flatten_dataframe(
+    dbutils: object,
+    df: DataFrame,
+    except_for: List[str] = [],
+    recursive: bool = True,
+    column_name_separator: str = "__",
+) -> DataFrame:
+    """Flatten all struct columns from a PySpark dataframe.
+
+    This function DOES NOT handle structs inside array columns nor map type.
+    In order to flatten structs inside array columns, explode the array before calling this function.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to flatten.
+    except_for : List[str], default=[]
+        List of columns to be ignored by flattening process.
+    recursive : bool, default=True
+        When true, struct fields nested inside other struct fields will also be flattened.
+        Otherwise, only top-level structs will be flattened and inner structs will keep their original form.
+    column_name_separator: str, default="__"
+        A string for separating struct column name and nested field names in the new flattened columns names.
+
+    Returns
+    -------
+    DataFrame
+        The flattened PySpark DataFrame.
+    """
+    try:
+        expressions = []
+        for column in df.schema:
+            if column.dataType.typeName() == "struct" and column.name not in except_for:
+                nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
+                               for nc in df.select(f"{column.name}.*").columns]
+                expressions.extend(nested_cols)
+
+            else:
+                expressions.append(column.name)
+
+        flat_df = df.select(expressions)
+
+        remain_nested_cols = [c.name for c in flat_df.schema
+                              if c.dataType.typeName() == "struct" and c.name not in except_for]
+
+        if recursive and remain_nested_cols:
+            return flatten_dataframe(
+                dbutils=dbutils,
+                df=flat_df,
+                except_for=except_for,
+                recursive=recursive,
+                column_name_separator=column_name_separator,
+            )
+
+        return flat_df
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:
     """Returns a DDL representation of a Spark data type for casting purposes.
 
