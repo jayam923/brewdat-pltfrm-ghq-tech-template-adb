@@ -45,7 +45,7 @@ help(transform_utils)
 
 # COMMAND ----------
 
-# MAGIC %run ../../demo_context
+# MAGIC %run "../set_project_context"
 
 # COMMAND ----------
 
