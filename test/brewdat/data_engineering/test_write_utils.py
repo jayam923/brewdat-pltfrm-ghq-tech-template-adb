@@ -488,7 +488,7 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
         location=location,
         schema_name=schema_name,
         table_name=table_name,
-        key_columns=["id"],
+        key_columns=["id", "id2"],
         load_type=LoadType.TYPE_2_SCD,
     )
 

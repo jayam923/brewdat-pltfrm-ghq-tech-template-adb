@@ -572,15 +572,13 @@ def _write_table_using_scd2(
     """
     # TODO: refactor
     
-    #Adding necessary extra SCD2 columns
+    
     df = __generating_columns_for_scd(df)
-    #print("SCD2 columns generated")
-    #Finding the final DF to be worked on
     if DeltaTable.isDeltaTable(spark, location):
-        #print("Table already exists, filtering our records to be updated/inserted")
+    
         joined_df = spark.read.format("delta").option("path",location).load()
         df = __filter_for_scd2(df1=df,df2=joined_df,keys=key_columns)
-        #print("Row count after filtering: {}".format(df.count()))
+    
      
     df_writer = (
         df.write
@@ -588,7 +586,7 @@ def _write_table_using_scd2(
         .mode("append")
     )
     
-    # Set schema_evolution_mode options
+    
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
@@ -607,27 +605,14 @@ def _write_table_using_scd2(
 
    
     if DeltaTable.isDeltaTable(spark, location):
-        # Build merge condition
-        #print("MERGING start for SCD2")
         merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
         merge_condition = " AND ".join(merge_condition_parts)
         merge_condition = "{} AND target.`__active_flag` == True ".format(merge_condition)
-        #print(merge_condition)
-        
-
-        # Write to the delta table
         delta_table = DeltaTable.forPath(spark, location)
         (
             delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": F.current_date(),"__active_flag":'false'}).execute()
         )
-        #print("MERGING done for SCD2")
-    
-   
-    # Write to the delta table
-    #print("insert START for SCD2")
-    #print(df_writer)
     df_writer.save(location)
-    #print("insert END for SCD2")
     
 
 def __generating_columns_for_scd(df):
@@ -639,17 +624,13 @@ def __generating_columns_for_scd(df):
         PySpark DataFrame to modify
     """
     all_cols = [x for x in df.columns if not x.startswith("__")]
-    #Adding Hashkey_column
     df = df.withColumn('__row_checksum',F.md5(F.concat_ws('',*all_cols)))
     current_date = datetime.today().strftime("%Y-%m-%d")
-    #Adding start_date
     df = df.withColumn("__start_date",F.lit(current_date).astype("date"))
-    #Adding end_date
     df = df.withColumn("__end_date",F.lit(None).astype("date"))
-    #Adding act_fg
     df = df.withColumn("__active_flag",F.lit(True).astype("boolean"))
     return df
-#Filtering Has value joining
+
 def __filter_for_scd2(df1,df2,keys):
     """
     This function helps filter the data to be processed for SCD Type-2. Left outer join is performed and new checksum values(rows that have updates) and rows to be inserted are filtered. Rows that have same checksum are omitted 
