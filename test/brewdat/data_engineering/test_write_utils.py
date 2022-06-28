@@ -467,9 +467,9 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_updates_and_new_records"
+    location = f"{tmpdir}/test_write_scd_type_2_multiple_keys"
     schema_name = "test_schema"
-    table_name = "test_write_scd_type_2_updates_and_new_records"
+    table_name = "test_write_scd_type_2_multiple_keys"
 
     # ACT
     result = write_delta_table(
