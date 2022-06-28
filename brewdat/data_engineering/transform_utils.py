@@ -248,9 +248,9 @@ def flatten_dataframe(
         List of columns to be ignored by flattening process.
     recursive : bool, default=True
         When true, struct fields nested inside other struct fields will also be flattened.
-        Otherwise, only top-level structs will be flatten and inner structs will keep their original form.
+        Otherwise, only top-level structs will be flattened and inner structs will keep their original form.
     column_name_separator: str, default="__"
-        A string for separating struct column name and nested field names in the new flatten columns names.
+        A string for separating struct column name and nested field names in the new flattened columns names.
 
     Returns
     -------
@@ -261,8 +261,8 @@ def flatten_dataframe(
         expressions = []
         for column in df.schema:
             if column.dataType.typeName() == "struct" and column.name not in except_for:
-                nested_cols = [F.col(f'{column.name}.{nc}').alias(f'{column.name}{column_name_separator}{nc}')
-                               for nc in df.select(f'{column.name}.*').columns]
+                nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
+                               for nc in df.select(f"{column.name}.*").columns]
                 expressions.extend(nested_cols)
 
             else:
@@ -279,7 +279,8 @@ def flatten_dataframe(
                 df=flat_df,
                 except_for=except_for,
                 recursive=recursive,
-                column_name_separator=column_name_separator)
+                column_name_separator=column_name_separator,
+            )
 
         return flat_df
 
