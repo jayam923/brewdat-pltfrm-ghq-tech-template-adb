@@ -1,3 +1,5 @@
+import pytest
+
 from test.spark_test import spark
 from datetime import datetime
 from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, create_or_replace_business_key_column
@@ -535,8 +537,9 @@ def test_create_or_replace_business_key_column():
     # ASSERT
     assert "business_key_column_name" in result_df.columns
     assert 1 == result_df.filter("business_key_column_name = 'john__doe' ").count()
-    
- def test_business_key_column_isnull():
+
+
+def test_business_key_column_no_key_provided():
     # ARRANGE
     df = spark.createDataFrame([
          {
@@ -546,12 +549,38 @@ def test_create_or_replace_business_key_column():
          }
     ])
     # ACT
-    result_df = create_or_replace_business_key_column(
-        dbutils=None,
-        df=df,
-        business_key_column_name='business_key_column_name',
-        key_columns=[],
-        separator="__",
-        check_null_values=True,
-    )
-test_business_key_column_isnull()
+    with pytest.raises(Exception):
+        result_df = create_or_replace_business_key_column(
+            dbutils=None,
+            df=df,
+            business_key_column_name='business_key_column_name',
+            key_columns=[],
+            separator="__",
+            check_null_values=True,
+        )
+
+
+def test_business_key_column_keys_are_null():
+    # ARRANGE
+    df = spark.createDataFrame([
+         {
+            "name": 'elvin',
+            "last_name": "geroge",
+            "address 1": "street1212",
+         },
+        {
+            "name": None,
+            "last_name": "geroge",
+            "address 1": "street1212",
+        }
+    ])
+    # ACT
+    with pytest.raises(Exception):
+        result_df = create_or_replace_business_key_column(
+            dbutils=None,
+            df=df,
+            business_key_column_name='business_key_column_name',
+            key_columns=["name", "last_name"],
+            separator="__",
+            check_null_values=True,
+        )
