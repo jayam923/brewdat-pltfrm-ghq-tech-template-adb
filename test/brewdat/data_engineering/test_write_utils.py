@@ -684,3 +684,61 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
     result_df = spark.table(result.target_object)
     assert 3 == result_df.count()
     assert "address" in result_df.columns
+
+def test_write_scd_type_2_partition(tmpdir):
+    # ARRANGE
+    df1 = spark.createDataFrame([
+        {
+            "id": "111",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "id_series":"100"
+        },
+        {
+            "id": "222",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "id_series":"200"
+        }
+    ])
+    df2 = spark.createDataFrame([
+        {
+            "id": "111",
+            "phone_number": "00000000001",
+            "name": "my name",
+            "id_series":"100"
+        },
+        
+    ])
+    location = f"{tmpdir}/test_write_scd_type_2_partition"
+    schema_name = "test_schema"
+    table_name = "test_write_scd_type_2_partition"
+
+    # ACT
+    result = write_delta_table(
+        spark=spark,
+        df=df1,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        key_columns=["id"],
+        partition_columns=["id_series"],
+        load_type=LoadType.TYPE_2_SCD,
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
+    )
+    
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        key_columns=["id"],
+        partition_columns=["id_series"],
+        load_type=LoadType.TYPE_2_SCD,
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
+    )
+    
+    assert result.status == RunStatus.SUCCEEDED
+    assert 2 == spark.sql(f"show partitions {schema_name}.{table_name}").count()
+    assert 2 == spark.sql(f"select * from {schema_name}.{table_name} where id_series=100").count()

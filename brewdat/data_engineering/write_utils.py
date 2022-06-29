@@ -225,8 +225,7 @@ def write_delta_table(
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
             LOCATION '{location}';
-        """)
-        
+        """)        
         # Vacuum the delta table
         spark.sql(f"""
             ALTER TABLE `{schema_name}`.`{table_name}`
@@ -544,14 +543,14 @@ def _write_table_using_upsert(
         .whenNotMatchedInsertAll()
         .execute()
     )
-    
-    
+
 def _write_table_using_scd2(
     spark: SparkSession,
     df: DataFrame,
     location: str,
-    key_columns: List[str] = [],
-    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    key_columns: List[str]=[],
+    partition_columns: List[str]=[],
+    schema_evolution_mode: SchemaEvolutionMode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using SCD Type-2.
 
@@ -571,92 +570,83 @@ def _write_table_using_scd2(
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
     # TODO: refactor
-    
-    
-    df = __generating_columns_for_scd(df)
+    df=__generating_columns_for_scd(df)
     if DeltaTable.isDeltaTable(spark, location):
-    
-        joined_df = spark.read.format("delta").option("path",location).load()
-        df = __filter_for_scd2(df1=df,df2=joined_df,keys=key_columns)
-    
-     
-    df_writer = (
+        filtered_df=spark.read.format("delta").option("path", location).load()
+        df=__filter_for_scd2(df1=df, df2=filtered_df, keys=key_columns)
+    df_writer=(
         df.write
         .format("delta")
         .mode("append")
     )
-    
-    
+    # Set partition options
+    if partition_columns:
+        df_writer=df_writer.partitionBy(partition_columns)
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        df_writer = df_writer.option("mergeSchema", True)
+        df_writer=df_writer.option("mergeSchema", True)
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         if DeltaTable.isDeltaTable(spark, location):
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in df.columns if col not in table_columns]
-            df = df.drop(*new_df_columns)
+            table_columns=DeltaTable.forPath(spark, location).toDF().columns
+            new_df_columns=[col for col in df.columns if col not in table_columns]
+            df=df.drop(*new_df_columns)
     elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        df_writer = df_writer.option("overwriteSchema", True)
+        df_writer=df_writer.option("overwriteSchema", True)
     elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
         raise NotImplementedError
     else:
         raise NotImplementedError
-
-   
     if DeltaTable.isDeltaTable(spark, location):
-        merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
-        merge_condition = " AND ".join(merge_condition_parts)
-        merge_condition = "{} AND target.`__active_flag` == True ".format(merge_condition)
-        delta_table = DeltaTable.forPath(spark, location)
-        (
-            delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": F.current_date(),"__active_flag":'false'}).execute()
-        )
+        current_ts=F.current_timestamp()
+        merge_condition_parts=[f"source.`{col}`=target.`{col}`" for col in key_columns]
+        merge_condition_tmp=" AND ".join(merge_condition_parts)
+        merge_condition=f"{merge_condition_tmp} AND target.`__active_flag` == True "
+        delta_table=DeltaTable.forPath(spark, location)
+        (delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":False}).execute())
     df_writer.save(location)
     
 
 def __generating_columns_for_scd(df):
     """
-    We need to generate __start_date,__end_date,__row_checsum to be used as surrogate key and __active_flag
+    We need to generate __start_date, __end_date, __row_checsum to be used as surrogate key and __active_flag
     Parameters
     ----------
     df : DataFrame
         PySpark DataFrame to modify
     """
-    all_cols = [x for x in df.columns if not x.startswith("__")]
-    df = df.withColumn('__row_checksum',F.md5(F.concat_ws('',*all_cols)))
-    current_date = datetime.today().strftime("%Y-%m-%d")
-    df = df.withColumn("__start_date",F.lit(current_date).astype("date"))
-    df = df.withColumn("__end_date",F.lit(None).astype("date"))
-    df = df.withColumn("__active_flag",F.lit(True).astype("boolean"))
+    all_cols=[x for x in df.columns if not x.startswith("__")]
+    df=df.withColumn('__row_checksum', F.md5(F.concat_ws('', *all_cols)))
+    current_ts=F.current_timestamp()
+    df=df.withColumn("__start_date", current_ts)
+    df=df.withColumn("__end_date", F.lit(None).astype("date"))
+    df=df.withColumn("__active_flag", F.lit(True).astype("boolean"))
     return df
 
-def __filter_for_scd2(df1,df2,keys):
+def __filter_for_scd2(df1, df2, keys):
     """
-    This function helps filter the data to be processed for SCD Type-2. Left outer join is performed and new checksum values(rows that have updates) and rows to be inserted are filtered. Rows that have same checksum are omitted 
-    
+    This function helps filter the data to be processed for SCD Type-2.
+    Left outer join is performed and new checksum values(rows that have updates)
+    and rows to be inserted are filtered.
+    Rows that have same checksum are omitted
     Parameters
     ----------
     df1 : DataFrame
         PySpark DataFrame to modify
-    
     df2 : DataFrame
-        PySpark DataFrame to modify        
+        PySpark DataFrame to modify
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record the table.
-        Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types. 
+        Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
     """
-    cond = [F.col(f"t1.{x}") == F.col(f"t2.{x}")  for x in keys]
-    df2 = df2.filter(F.col("__active_flag") == 'true')
-    return (df1.
-            alias("t1").
-            join(df2.alias("t2"),cond,how="left_outer").
-            filter(
-                (F.col("t2.__row_checksum").isNull())
-                |
-                (F.col("t2.__row_checksum") != F.col("t1.__row_checksum"))
-            ).select("t1.*")
-           )
-                                
-                                
-                                
+    cond=[F.col(f"t1.{x}") == F.col(f"t2.{x}")  for x in keys]
+    df2=df2.filter(F.col("__active_flag") == 'true')
+    return (
+        df1.alias("t1").
+        join(df2.alias("t2"),cond,how="left_outer").
+        filter(
+            (F.col("t2.__row_checksum").isNull())
+            |
+            (F.col("t2.__row_checksum") != F.col("t1.__row_checksum"))).
+        select("t1.*"))
+    
