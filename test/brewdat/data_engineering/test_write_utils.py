@@ -597,6 +597,7 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
     assert 3 == result_df.count()
     assert "address" in result_df.columns
 
+
 def test_write_scd_type_2_partition(tmpdir):
     # ARRANGE
     df1 = spark.createDataFrame([

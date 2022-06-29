@@ -599,7 +599,7 @@ def _write_table_using_scd2(
         raise NotImplementedError
     else:
         raise NotImplementedError
-        
+
     if DeltaTable.isDeltaTable(spark, location):
         current_ts=F.current_timestamp()
         merge_condition_parts=[f"source.`{col}`=target.`{col}`" for col in key_columns]
@@ -607,9 +607,9 @@ def _write_table_using_scd2(
         merge_condition=f"{merge_condition_tmp} AND target.`__active_flag` == True "
         delta_table=DeltaTable.forPath(spark, location)
         (delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":"false"}).execute())
-        
+
     df_writer.save(location)
-    
+
 def __generating_columns_for_scd(df):
     """
     We need to generate __start_date, __end_date, __row_checsum to be used as surrogate key and __active_flag
