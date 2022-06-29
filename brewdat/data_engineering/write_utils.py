@@ -196,11 +196,12 @@ def write_delta_table(
         elif load_type == LoadType.TYPE_2_SCD:
             if not key_columns:
                 raise ValueError("No key column was given")
-
+                
             _write_table_using_scd2(
                 spark = spark,
                 df = df,
                 location= location,
+                partition_columns=partition_columns,
                 key_columns = key_columns,
                 schema_evolution_mode=schema_evolution_mode
             )
@@ -220,12 +221,11 @@ def write_delta_table(
         spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
 
         # TODO: drop existing table if its location has changed
-
         spark.sql(f"""
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
             LOCATION '{location}';
-        """)        
+            """)        
         # Vacuum the delta table
         spark.sql(f"""
             ALTER TABLE `{schema_name}`.`{table_name}`
@@ -553,7 +553,6 @@ def _write_table_using_scd2(
     schema_evolution_mode: SchemaEvolutionMode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using SCD Type-2.
-
     Parameters
     ----------
     spark : SparkSession
@@ -565,6 +564,8 @@ def _write_table_using_scd2(
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
@@ -582,6 +583,7 @@ def _write_table_using_scd2(
     # Set partition options
     if partition_columns:
         df_writer=df_writer.partitionBy(partition_columns)
+        
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
@@ -597,16 +599,17 @@ def _write_table_using_scd2(
         raise NotImplementedError
     else:
         raise NotImplementedError
+        
     if DeltaTable.isDeltaTable(spark, location):
         current_ts=F.current_timestamp()
         merge_condition_parts=[f"source.`{col}`=target.`{col}`" for col in key_columns]
         merge_condition_tmp=" AND ".join(merge_condition_parts)
         merge_condition=f"{merge_condition_tmp} AND target.`__active_flag` == True "
         delta_table=DeltaTable.forPath(spark, location)
-        (delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":False}).execute())
+        (delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":"false"}).execute())
+        
     df_writer.save(location)
     
-
 def __generating_columns_for_scd(df):
     """
     We need to generate __start_date, __end_date, __row_checsum to be used as surrogate key and __active_flag
@@ -616,10 +619,10 @@ def __generating_columns_for_scd(df):
         PySpark DataFrame to modify
     """
     all_cols=[x for x in df.columns if not x.startswith("__")]
-    df=df.withColumn('__row_checksum', F.md5(F.concat_ws('', *all_cols)))
+    df=df.withColumn('__hash_key', F.md5(F.concat_ws('', *all_cols)))
     current_ts=F.current_timestamp()
     df=df.withColumn("__start_date", current_ts)
-    df=df.withColumn("__end_date", F.lit(None).astype("date"))
+    df=df.withColumn("__end_date", F.lit(None).astype("timestamp"))
     df=df.withColumn("__active_flag", F.lit(True).astype("boolean"))
     return df
 
@@ -645,8 +648,8 @@ def __filter_for_scd2(df1, df2, keys):
         df1.alias("t1").
         join(df2.alias("t2"),cond,how="left_outer").
         filter(
-            (F.col("t2.__row_checksum").isNull())
+            (F.col("t2.__hash_key").isNull())
             |
-            (F.col("t2.__row_checksum") != F.col("t1.__row_checksum"))).
+            (F.col("t2.__hash_key") != F.col("t1.__hash_key"))).
         select("t1.*"))
     
