@@ -198,12 +198,12 @@ def write_delta_table(
                 raise ValueError("No key column was given")
                 
             _write_table_using_scd2(
-                spark = spark,
-                df = df,
-                location= location,
+                spark=spark,
+                df=df,
+                location=location,
                 partition_columns=partition_columns,
-                key_columns = key_columns,
-                schema_evolution_mode=schema_evolution_mode
+                key_columns=key_columns,
+                schema_evolution_mode=schema_evolution_mode,
             )
         else:
             raise NotImplementedError
