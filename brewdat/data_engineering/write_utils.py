@@ -129,7 +129,7 @@ def write_delta_table(
         num_records_read = df.count()
 
         # Table must exist if we are merging data
-        if load_type not in (LoadType.APPEND_ALL,LoadType.TYPE_2_SCD) and not DeltaTable.isDeltaTable(spark, location):
+        if load_type not in (LoadType.APPEND_ALL, LoadType.TYPE_2_SCD) and not DeltaTable.isDeltaTable(spark, location):
             print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
             load_type = LoadType.APPEND_ALL
 
@@ -196,7 +196,7 @@ def write_delta_table(
         elif load_type == LoadType.TYPE_2_SCD:
             if not key_columns:
                 raise ValueError("No key column was given")
-                
+                   
             _write_table_using_scd2(
                 spark=spark,
                 df=df,
@@ -225,7 +225,8 @@ def write_delta_table(
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
             LOCATION '{location}';
-            """)        
+            """)
+        
         # Vacuum the delta table
         spark.sql(f"""
             ALTER TABLE `{schema_name}`.`{table_name}`
@@ -544,6 +545,7 @@ def _write_table_using_upsert(
         .execute()
     )
 
+
 def _write_table_using_scd2(
     spark: SparkSession,
     df: DataFrame,
@@ -573,8 +575,8 @@ def _write_table_using_scd2(
     # TODO: refactor
     df=__generating_columns_for_scd(df)
     if DeltaTable.isDeltaTable(spark, location):
-        filtered_df=spark.read.format("delta").option("path", location).load()
-        df=__filter_for_scd2(df1=df, df2=filtered_df, keys=key_columns)
+        table_df=spark.read.format("delta").option("path", location).load()
+        df=__filter_for_scd2(current_df=df, table_df=table_df, keys=key_columns)
     df_writer=(
         df.write
         .format("delta")
@@ -606,27 +608,41 @@ def _write_table_using_scd2(
         merge_condition_tmp=" AND ".join(merge_condition_parts)
         merge_condition=f"{merge_condition_tmp} AND target.`__active_flag` == True "
         delta_table=DeltaTable.forPath(spark, location)
-        (delta_table.alias("target").merge(df.alias("source"), merge_condition).whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":"false"}).execute())
+        (
+            delta_table.alias("target").
+            merge(df.alias("source"), merge_condition).
+            whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":"false"}).
+            execute()
+            )
 
     df_writer.save(location)
 
-def __generating_columns_for_scd(df):
+
+def __generating_columns_for_scd(
+    df: DataFrame,
+    ):
     """
-    We need to generate __start_date, __end_date, __row_checsum to be used as surrogate key and __active_flag
+    We need to generate __start_date, __end_date,
+    __hash_key to be used as surrogate key and __active_flag
     Parameters
     ----------
     df : DataFrame
         PySpark DataFrame to modify
     """
     all_cols=[x for x in df.columns if not x.startswith("__")]
-    df=df.withColumn('__hash_key', F.md5(F.concat_ws('', *all_cols)))
+    df=df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
     current_ts=F.current_timestamp()
     df=df.withColumn("__start_date", current_ts)
     df=df.withColumn("__end_date", F.lit(None).astype("timestamp"))
     df=df.withColumn("__active_flag", F.lit(True).astype("boolean"))
     return df
 
-def __filter_for_scd2(df1, df2, keys):
+
+def __filter_for_scd2(
+    current_df: DataFrame,
+    table_df: DataFrame,
+    keys: List[str]=[],
+    ):
     """
     This function helps filter the data to be processed for SCD Type-2.
     Left outer join is performed and new checksum values(rows that have updates)
@@ -634,22 +650,21 @@ def __filter_for_scd2(df1, df2, keys):
     Rows that have same checksum are omitted
     Parameters
     ----------
-    df1 : DataFrame
+    current_df : DataFrame
         PySpark DataFrame to modify
-    df2 : DataFrame
+    table_df : DataFrame
         PySpark DataFrame to modify
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
     """
     cond=[F.col(f"t1.{x}") == F.col(f"t2.{x}")  for x in keys]
-    df2=df2.filter(F.col("__active_flag") == 'true')
+    table_df=table_df.filter(F.col("__active_flag") == "true")
     return (
-        df1.alias("t1").
-        join(df2.alias("t2"),cond,how="left_outer").
+        current_df.alias("t1").
+        join(table_df.alias("t2"), cond, how="left_outer").
         filter(
             (F.col("t2.__hash_key").isNull())
             |
             (F.col("t2.__hash_key") != F.col("t1.__hash_key"))).
         select("t1.*"))
-    
