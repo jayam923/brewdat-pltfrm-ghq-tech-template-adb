@@ -1,3 +1,4 @@
+import re
 from . import common_utils
 
 
@@ -38,6 +39,10 @@ def generate_bronze_table_location(
         params_list = [lakehouse_bronze_root, target_zone, target_business_domain, source_system, table_name]
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
+
+        check_zone(target_zone)
+        check_business_domain(target_business_domain)
+        check_table_name(table_name)
 
         return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
@@ -82,6 +87,10 @@ def generate_silver_table_location(
         params_list = [lakehouse_silver_root, target_zone, target_business_domain, source_system, table_name]
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
+
+        check_zone(target_zone)
+        check_business_domain(target_business_domain)
+        check_table_name(table_name)
 
         return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
@@ -130,7 +139,49 @@ def generate_gold_table_location(
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
 
+        check_zone(target_zone)
+        check_business_domain(target_business_domain)
+        check_table_name(table_name)
+
         return f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+
+
+def check_zone(zone):
+    """Checks if informed zone is valid.
+
+    Parameters
+    ----------
+    zone : str
+        Zone of the target dataset.
+    """
+    expected_zone = ["afr", "apac", "eur", "ghq", "maz", "naz", "saz"]
+    if zone not in expected_zone:
+        raise ValueError("Zone does not have expected value.")
+
+
+def check_business_domain(business_domain):
+    """Checks if informed business domain is valid.
+
+    Parameters
+    ----------
+    business_domain : str
+        Business domain of the target dataset.
+    """
+    expected_domain = ["compliance", "finance", "marketing", "people", "sales", "supply", "tech"]
+    if business_domain not in expected_domain:
+        raise ValueError("Domain does not have expected value.")
+
+
+def check_table_name(table_name):
+    """Checks table name compliance to expected table name pattern.
+
+    Parameters
+    ----------
+    table_name : str
+        Name of the target table in the metastore.
+    """
+    if not bool(re.match('[a-zA-Z0-9][a-zA-Z0-9\.\_\-]+$', table_name)):
+        raise ValueError("Folder should start with alphanumeric characters.")
