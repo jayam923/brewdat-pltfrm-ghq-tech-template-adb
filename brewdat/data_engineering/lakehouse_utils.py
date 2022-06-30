@@ -156,8 +156,6 @@ def check_zone(target_zone):
     ----------
     target_zone : str
         Zone of the target dataset.
-        
-
     """
     expected_zone=["afr", "apac", "eur", "ghq", "maz", "naz", "saz"]
     if target_zone not in expected_zone:
@@ -171,8 +169,6 @@ def check_domain(target_business_domain):
     ----------
     target_business_domain : str
         Business domain of the target dataset.
-        
-
     """
     expected_domain=["compliance","finance","marketing","people","sales","supply","tech"]
     if target_business_domain not in expected_domain:
@@ -186,8 +182,6 @@ def check_table(table_name):
     ----------
     table_name : str
         Name of the target table in the metastore.
-        
-
     """
     if bool(re.match('[a-zA-Z0-9][a-zA-Z0-9\.\_\-]+$', table_name)) !=True:
         raise ValueError("Folder should start with alphanumeric characters.")
