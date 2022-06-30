@@ -1,5 +1,5 @@
-from . import common_utils
 import re
+from . import common_utils
 
 
 def generate_bronze_table_location(
@@ -44,7 +44,6 @@ def generate_bronze_table_location(
         check_domain(target_business_domain)
         check_table(table_name)
         
-
         return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
     except Exception:
@@ -150,25 +149,46 @@ def generate_gold_table_location(
         common_utils.exit_with_last_exception(dbutils)
         
 
-        
-    
 def check_zone(target_zone):
+    """Check the standard table_name.
+
+    Parameters
+    ----------
+    target_zone : str
+        Zone of the target dataset.
+        
+
+    """
     expected_zone=["afr", "apac", "eur", "ghq", "maz", "naz", "saz"]
     if target_zone not in expected_zone:
         raise ValueError("Zone does not have expected value.")
 
 
-
-
-
 def check_domain(target_business_domain):
+    """Check the standard table_name.
+
+    Parameters
+    ----------
+    target_business_domain : str
+        Business domain of the target dataset.
+        
+
+    """
     expected_domain=["compliance","finance","marketing","people","sales","supply","tech"]
     if target_business_domain not in expected_domain:
         raise ValueError("Domain does not have expected value.")
         
 
-
 def check_table(table_name):
+    """Check the standard table_name.
+
+    Parameters
+    ----------
+    table_name : str
+        Name of the target table in the metastore.
+        
+
+    """
     if bool(re.match('[a-zA-Z0-9][a-zA-Z0-9\.\_\-]+$', table_name)) !=True:
         raise ValueError("Folder should start with alphanumeric characters.")
         
