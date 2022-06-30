@@ -36,8 +36,7 @@ def generate_bronze_table_location(
     """
     try:
         # Check that no parameter is None or empty string
-        params_list = [lakehouse_bronze_root, target_zone, target_business_domain,
-                       source_system, table_name]
+        params_list = [lakehouse_bronze_root, target_zone, target_business_domain, source_system, table_name]
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
 
