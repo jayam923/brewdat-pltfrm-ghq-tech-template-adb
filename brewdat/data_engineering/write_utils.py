@@ -1,7 +1,6 @@
 import traceback
 from enum import Enum, unique
 from typing import List
-from datetime import datetime
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -573,28 +572,28 @@ def _write_table_using_scd2(
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
     # TODO: refactor
-    df=__generating_columns_for_scd(df)
+    df = __generating_columns_for_scd(df)
     if DeltaTable.isDeltaTable(spark, location):
-        table_df=spark.read.format("delta").option("path", location).load()
-        df=__filter_for_scd2(current_df=df, table_df=table_df, keys=key_columns)
-    df_writer=(
+        table_df = spark.read.format("delta").option("path", location).load()
+        df = __filter_for_scd2(current_df=df, table_df=table_df, keys=key_columns)
+    df_writer = (
         df.write
         .format("delta")
         .mode("append")
     )
     # Set partition options
     if partition_columns:
-        df_writer=df_writer.partitionBy(partition_columns)
-        
+        df_writer = df_writer.partitionBy(partition_columns)
+    
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        df_writer=df_writer.option("mergeSchema", True)
+        df_writer = df_writer.option("mergeSchema", True)
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         if DeltaTable.isDeltaTable(spark, location):
-            table_columns=DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns=[col for col in df.columns if col not in table_columns]
-            df=df.drop(*new_df_columns)
+            table_columns = DeltaTable.forPath(spark, location).toDF().columns
+            new_df_columns = [col for col in df.columns if col not in table_columns]
+            df = df.drop(*new_df_columns)
     elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
         df_writer=df_writer.option("overwriteSchema", True)
     elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
@@ -603,10 +602,10 @@ def _write_table_using_scd2(
         raise NotImplementedError
 
     if DeltaTable.isDeltaTable(spark, location):
-        current_ts=F.current_timestamp()
-        merge_condition_parts=[f"source.`{col}`=target.`{col}`" for col in key_columns]
-        merge_condition_tmp=" AND ".join(merge_condition_parts)
-        merge_condition=f"{merge_condition_tmp} AND target.`__active_flag` == True "
+        current_ts = F.current_timestamp()
+        merge_condition_parts = [f"source.`{col}`=target.`{col}`" for col in key_columns]
+        merge_condition_tmp = " AND ".join(merge_condition_parts)
+        merge_condition = f"{merge_condition_tmp} AND target.`__active_flag` == True "
         delta_table=DeltaTable.forPath(spark, location)
         (
             delta_table.alias("target").
@@ -629,12 +628,12 @@ def __generating_columns_for_scd(
     df : DataFrame
         PySpark DataFrame to modify
     """
-    all_cols=[x for x in df.columns if not x.startswith("__")]
-    df=df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
-    current_ts=F.current_timestamp()
-    df=df.withColumn("__start_date", current_ts)
-    df=df.withColumn("__end_date", F.lit(None).astype("timestamp"))
-    df=df.withColumn("__active_flag", F.lit(True).astype("boolean"))
+    all_cols = [x for x in df.columns if not x.startswith("__")]
+    df = df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
+    current_ts = F.current_timestamp()
+    df = df.withColumn("__start_date", current_ts)
+    df = df.withColumn("__end_date", F.lit(None).astype("timestamp"))
+    df = df.withColumn("__active_flag", F.lit(True).astype("boolean"))
     return df
 
 
@@ -658,8 +657,8 @@ def __filter_for_scd2(
         The names of the columns used to uniquely identify each record the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
     """
-    cond=[F.col(f"t1.{x}") == F.col(f"t2.{x}")  for x in keys]
-    table_df=table_df.filter(F.col("__active_flag") == "true")
+    cond = [F.col(f"t1.{x}") == F.col(f"t2.{x}")  for x in keys]
+    table_df = table_df.filter(F.col("__active_flag") == "true")
     return (
         current_df.alias("t1").
         join(table_df.alias("t2"), cond, how="left_outer").
