@@ -2,7 +2,6 @@ import os
 import traceback
 from enum import Enum, unique
 from typing import List
-from datetime import datetime
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -594,28 +593,28 @@ def _write_table_using_upsert(
         .whenNotMatchedInsertAll()
         .execute()
     )
-    
+
 
 def _write_table_using_scd2(
     spark: SparkSession,
     df: DataFrame,
     location: str,
-    key_columns: List[str]=[],
-    partition_columns: List[str]=[],
-    schema_evolution_mode: SchemaEvolutionMode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    key_columns: List[str] = [],
+    partition_columns: List[str] = [],
+    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using SCD Type-2.
+
     Parameters
     ----------
     spark : SparkSession
         A Spark session.
     df : DataFrame
-        PySpark DataFrame to modify.
+        PySpark DataFrame to write.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record the table.
-        Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
     partition_columns : List[str], default=[]
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
@@ -623,10 +622,10 @@ def _write_table_using_scd2(
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
     # TODO: refactor
-    df = __generating_columns_for_scd(df)
+    df = __generate_scd2_metadata_columns(df)
     if DeltaTable.isDeltaTable(spark, location):
         table_df = spark.read.format("delta").option("path", location).load()
-        df = __filter_for_scd2(current_df=df, table_df=table_df, keys=key_columns)
+        df = __prepare_df_for_scd2_merge(source_df=df, target_df=table_df, key_columns=key_columns)
     df_writer = (
         df.write
         .format("delta")
@@ -635,11 +634,11 @@ def _write_table_using_scd2(
     # Set partition options
     if partition_columns:
         df_writer = df_writer.partitionBy(partition_columns)
-    
+
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        spark.sql("SET spark.databricks.delta.schema.autoMerge.enabled = true") 
+        spark.sql("SET spark.databricks.delta.schema.autoMerge.enabled = true")
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         if DeltaTable.isDeltaTable(spark, location):
             table_columns = DeltaTable.forPath(spark, location).toDF().columns
@@ -653,74 +652,82 @@ def _write_table_using_scd2(
         raise NotImplementedError
 
     if DeltaTable.isDeltaTable(spark, location):
-        current_ts = F.current_timestamp()
         merge_condition = "source.__hash_key ==  target.__hash_key"
         update_condition = "target.__active_flag == True and source.__active_flag = False"
-        delta_table=DeltaTable.forPath(spark, location)
+        delta_table = DeltaTable.forPath(spark, location)
         (
-            delta_table.alias("target").
-            merge(df.alias("source"), merge_condition).
-            whenMatchedUpdate(
+            delta_table.alias("target")
+            .merge(df.alias("source"), merge_condition)
+            .whenMatchedUpdate(
                 condition=update_condition,
-                set={"__end_date": current_ts, "__active_flag":"false"}).
-            whenNotMatchedInsertAll().
-            execute()
-            )
+                set={"__end_date": F.current_timestamp(), "__active_flag": F.lit(False)})
+            .whenNotMatchedInsertAll()
+            .execute()
+        )
     else:
         df_writer.save(location)
-        
 
 
-def __generating_columns_for_scd(
+def __generate_scd2_metadata_columns(
     df: DataFrame,
-    ):
+) -> DataFrame:
     """
-    We need to generate __start_date, __end_date,
-    __hash_key to be used as surrogate key and __active_flag
+    Adds SCD type 2 metadata columns to dataframe. Those columns are __start_date, __end_date,
+    __hash_key (to be used as surrogate key) and __active_flag.
+
     Parameters
     ----------
     df : DataFrame
         PySpark DataFrame to modify
+
+    Returns
+    -------
+    Dataframe
+        Pyspark Dataframe with new SCD Type 2 metadata columns.
     """
-    all_cols=[x for x in df.columns if not x.startswith("__")]
-    df=df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
-    current_ts=F.current_timestamp()
-    df=df.withColumn("__start_date", current_ts)
-    df=df.withColumn("__end_date", F.lit(None).astype("timestamp"))
-    df=df.withColumn("__active_flag", F.lit(True).astype("boolean"))
+    all_cols = [x for x in df.columns if not x.startswith("__")]
+    df = df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
+    df = df.withColumn("__start_date", F.current_timestamp())
+    df = df.withColumn("__end_date", F.lit(None).astype("timestamp"))
+    df = df.withColumn("__active_flag", F.lit(True).astype("boolean"))
     return df
 
-def __filter_for_scd2(
-    current_df: DataFrame,
-    table_df: DataFrame,
-    keys: List[str]=[],
-    ):
+
+def __prepare_df_for_scd2_merge(
+    source_df: DataFrame,
+    target_df: DataFrame,
+    key_columns: List[str] = [],
+) -> DataFrame:
     """
     This function helps filter the data to be processed for SCD Type-2.
     Left outer join is performed and new checksum values(rows that have updates)
     and rows to be inserted are filtered.
     Rows that have same checksum are omitted
+
     Parameters
     ----------
-    current_df : DataFrame
-        PySpark DataFrame to modify
-    table_df : DataFrame
-        PySpark DataFrame to modify
+    source_df : DataFrame
+        PySpark DataFrame with new records for updating the target table.
+    target_df : DataFrame
+        PySpark DataFrame containing target table records.
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record the table.
-        Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+
+    Returns
+    -------
+    Dataframe
+        Pyspark Dataframe ready to be merged into target table.
     """
-    cond_1 = [F.col(f"target.{x}") == F.col(f"source.{x}")  for x in keys]
+    cond_1 = [F.col(f"target.{x}") == F.col(f"source.{x}") for x in key_columns]
     cond = cond_1 + [F.col("target.__hash_key") != F.col("source.__hash_key")]
-    table_df = table_df.filter(F.col("__active_flag") == "true")
+    target_df = target_df.filter(F.col("__active_flag"))
     update_df = (
-        table_df.alias("target").
-        join(
-            current_df.alias("source"),
+        target_df.alias("target")
+        .join(
+            source_df.alias("source"),
             on=cond,
             how="left_semi",
-             )
-    ).withColumn("__active_flag",F.lit(False)
-                )
-    merge_df = update_df.unionByName(current_df, allowMissingColumns=True)
+        )
+    ).withColumn("__active_flag", F.lit(False))
+    merge_df = update_df.unionByName(source_df, allowMissingColumns=True)
     return merge_df
