@@ -67,7 +67,10 @@ def exit_with_object(dbutils: object, results: ReturnObject):
         Object containing the results of a write operation.
     """
     results_json = json.dumps(results, default=vars)
-    dbutils.notebook.exit(results_json)
+    if dbutils:
+        dbutils.notebook.exit(results_json)
+    else:
+        raise Exception(results_json)
 
 
 def exit_with_last_exception(dbutils: object):

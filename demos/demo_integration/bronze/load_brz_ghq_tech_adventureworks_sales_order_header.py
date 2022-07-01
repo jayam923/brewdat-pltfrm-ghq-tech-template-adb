@@ -33,7 +33,6 @@ print(f"data_interval_end: {data_interval_end}")
 
 # COMMAND ----------
 
-import os
 import sys
 
 # Import BrewDat Library modules
@@ -45,45 +44,17 @@ help(read_utils)
 
 # COMMAND ----------
 
-# Gather standard Lakehouse environment variables
-environment = os.getenv("ENVIRONMENT")
-lakehouse_raw_root = os.getenv("LAKEHOUSE_RAW_ROOT")
-lakehouse_bronze_root = os.getenv("LAKEHOUSE_BRONZE_ROOT")
-
-# Ensure that all standard Lakehouse environment variables are set
-if None in [environment, lakehouse_raw_root, lakehouse_bronze_root]:
-    raise Exception("This Databricks Workspace does not have necessary environment variables."
-        " Contact the admin team to set up the global init script and restart your cluster.")
+# MAGIC %run "../set_project_context"
 
 # COMMAND ----------
 
-# Configure SPN for all ADLS access using AKV-backed secret scope
-if environment == "dev":
-    common_utils.configure_spn_access_for_adls(
+common_utils.configure_spn_access_for_adls(
         spark=spark,
         dbutils=dbutils,
-        storage_account_names=["brewdatpltfrmrawbrzd"],
-        key_vault_name="brewdatpltfrmghqtechakvd",
-        spn_client_id="1d3aebfe-929c-4cc1-a988-31c040d2b798",
-        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-d",
-    )
-elif environment == "qa":
-    common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=["brewdatpltfrmrawbrzq"],
-        key_vault_name="brewdatpltfrmghqtechakvq",
-        spn_client_id="12345678-1234-1234-1234-123456789999",
-        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-q",
-    )
-elif environment == "prod":
-    common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=["brewdatpltfrmrawbrzp"],
-        key_vault_name="brewdatpltfrmghqtechakvp",
-        spn_client_id="12345678-1234-1234-1234-123456789999",
-        spn_secret_name="brewdat-spn-pltfrm-ghq-tech-template-rw-p",
+        storage_account_names=[adls_raw_bronze_storage_account_name],
+        key_vault_name=key_vault_name,
+        spn_client_id=spn_client_id,
+        spn_secret_name=spn_secret_name,
     )
 
 # COMMAND ----------
@@ -96,57 +67,9 @@ raw_df = read_utils.read_raw_dataframe(
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
-    excel_sheet_name = None
 )
-display(raw_df)
 
-# COMMAND ----------
-
-raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.AVRO,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    excel_sheet_name = None
-)
-display(raw_df)
-
-# COMMAND ----------
-
-raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.JSON,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    excel_sheet_name = None
-)
-display(raw_df)
-
-# COMMAND ----------
-
-from pyspark.sql.functions import regexp_extract, input_file_name
-raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.XML,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/*/*.xml",
-    xml_row_tag = "catalog_item",
-    excel_sheet_name = None,
-)
-raw_df = raw_df.withColumn("__ref_dt",regexp_extract(input_file_name(),'[0-9]+',0))
-display(raw_df)
-
-# COMMAND ----------
-
-raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.EXCEL,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    excel_sheet_name = "testing",
-)
-raw_df = raw_df.withColumn("__ref_dt",regexp_extract(input_file_name(),'[0-9]+',0))
-display(raw_df)
+#display(raw_df)
 
 # COMMAND ----------
 

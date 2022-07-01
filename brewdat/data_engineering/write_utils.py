@@ -1,3 +1,4 @@
+import os
 import traceback
 from enum import Enum, unique
 from typing import List
@@ -125,8 +126,18 @@ def write_delta_table(
     num_records_loaded = 0
 
     try:
-        # Count source records
-        num_records_read = df.count()
+        # Check if the table already exists with a different location
+        location_mismatch = _table_exists_in_different_location(
+            spark=spark,
+            schema_name=schema_name,
+            table_name=table_name,
+            expected_location=location,
+        )
+        if location_mismatch:
+            raise ValueError(
+                "Metastore table already exists with a different location."
+                f" To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`"
+            )
 
         # Table must exist if we are merging data
         if load_type not in (LoadType.APPEND_ALL, LoadType.TYPE_2_SCD) and not DeltaTable.isDeltaTable(spark, location):
@@ -137,7 +148,10 @@ def write_delta_table(
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
 
-        # Set load_type options
+        # Count source records
+        num_records_read = df.count()
+
+        # Write data with the selected load_type
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
@@ -219,8 +233,6 @@ def write_delta_table(
 
         # Create the Hive database and table
         spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
-
-        # TODO: drop existing table if its location has changed
         spark.sql(f"""
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
@@ -254,6 +266,44 @@ def write_delta_table(
             error_message=str(e),
             error_details=traceback.format_exc(),
         )
+
+
+def _table_exists_in_different_location(
+    spark: SparkSession,
+    schema_name: str,
+    table_name: str,
+    expected_location: str
+) -> bool:
+    """Return whether the metastore table already exists at a different location.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    schema_name : str
+        Name of the schema/database for the table in the metastore.
+    table_name : str
+        Name of the table in the metastore.
+    expected_location : str
+        Absolute Delta Lake path for the expected physical location of this delta table.
+
+    Returns
+    -------
+    bool
+        True if table exists and its location is NOT the expected location.
+    """
+    # Check if the table exists
+    table_exists = spark.catalog._jcatalog.tableExists(f"{schema_name}.{table_name}")
+    if not table_exists:
+        return False
+
+    # Compare current location and expected location
+    current_location = (
+        spark.sql(f"DESCRIBE DETAIL `{schema_name}`.`{table_name}`;")
+        .select("location")
+        .collect()[0][0]
+    )
+    return os.path.normpath(current_location) != os.path.normpath(expected_location)
 
 
 def _write_table_using_overwrite_table(
