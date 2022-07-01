@@ -26,12 +26,15 @@ def test_check_table_name_invalid_name3():
         check_table_name("new_table_ç")
  
 
-
 def test_generate_bronze_table_location():
-    # ARRANGE
-    
     # ACT
-    result = generate_bronze_table_location(dbutils=None,lakehouse_bronze_root= "data"/{"target_zone"}/{"target_business_domain"}/{"source_system"}/{"table_name"})
+    result = generate_bronze_table_location(dbutils=None,
+                                            lakehouse_bronze_root="abfss://bronze@storage_account.dfs.core.windows.net",
+                                            target_zone="ghq",
+                                            target_business_domain="tech",
+                                            source_system="sap_tech",
+                                            table_name="extraction_table"
+                                            )
     
     # ASSERT
-    assert "lakehouse_bronze_root" in result.columns
+    assert result == "abfss://bronze@storage_account.dfs.core.windows.net/data/ghq/tech/sap_tech/extraction_table"
