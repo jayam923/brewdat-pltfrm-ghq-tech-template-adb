@@ -1,6 +1,7 @@
 import traceback
 from enum import Enum, unique
 from typing import List
+from datetime import datetime
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -543,7 +544,7 @@ def _write_table_using_upsert(
         .whenNotMatchedInsertAll()
         .execute()
     )
-
+    
 
 def _write_table_using_scd2(
     spark: SparkSession,
@@ -588,14 +589,14 @@ def _write_table_using_scd2(
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        df_writer = df_writer.option("mergeSchema", True)
+        spark.sql("SET spark.databricks.delta.schema.autoMerge.enabled = true") 
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         if DeltaTable.isDeltaTable(spark, location):
             table_columns = DeltaTable.forPath(spark, location).toDF().columns
             new_df_columns = [col for col in df.columns if col not in table_columns]
             df = df.drop(*new_df_columns)
     elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        df_writer=df_writer.option("overwriteSchema", True)
+        raise ValueError("OVERWRITE_SCHEMA is not supported in SCD2 load type")
     elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
         raise NotImplementedError
     else:
@@ -603,18 +604,21 @@ def _write_table_using_scd2(
 
     if DeltaTable.isDeltaTable(spark, location):
         current_ts = F.current_timestamp()
-        merge_condition_parts = [f"source.`{col}`=target.`{col}`" for col in key_columns]
-        merge_condition_tmp = " AND ".join(merge_condition_parts)
-        merge_condition = f"{merge_condition_tmp} AND target.`__active_flag` == True "
+        merge_condition = "source.__hash_key ==  target.__hash_key"
+        update_condition = "target.__active_flag == True and source.__active_flag = False"
         delta_table=DeltaTable.forPath(spark, location)
         (
             delta_table.alias("target").
             merge(df.alias("source"), merge_condition).
-            whenMatchedUpdate(set ={"__end_date": current_ts, "__active_flag":"false"}).
+            whenMatchedUpdate(
+                condition=update_condition,
+                set={"__end_date": current_ts, "__active_flag":"false"}).
+            whenNotMatchedInsertAll().
             execute()
             )
-
-    df_writer.save(location)
+    else:
+        df_writer.save(location)
+        
 
 
 def __generating_columns_for_scd(
@@ -628,14 +632,13 @@ def __generating_columns_for_scd(
     df : DataFrame
         PySpark DataFrame to modify
     """
-    all_cols = [x for x in df.columns if not x.startswith("__")]
-    df = df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
-    current_ts = F.current_timestamp()
-    df = df.withColumn("__start_date", current_ts)
-    df = df.withColumn("__end_date", F.lit(None).astype("timestamp"))
-    df = df.withColumn("__active_flag", F.lit(True).astype("boolean"))
+    all_cols=[x for x in df.columns if not x.startswith("__")]
+    df=df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
+    current_ts=F.current_timestamp()
+    df=df.withColumn("__start_date", current_ts)
+    df=df.withColumn("__end_date", F.lit(None).astype("timestamp"))
+    df=df.withColumn("__active_flag", F.lit(True).astype("boolean"))
     return df
-
 
 def __filter_for_scd2(
     current_df: DataFrame,
@@ -657,13 +660,17 @@ def __filter_for_scd2(
         The names of the columns used to uniquely identify each record the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
     """
-    cond = [F.col(f"t1.{x}") == F.col(f"t2.{x}")  for x in keys]
+    cond_1 = [F.col(f"target.{x}") == F.col(f"source.{x}")  for x in keys]
+    cond = cond_1 + [F.col("target.__hash_key") != F.col("source.__hash_key")]
     table_df = table_df.filter(F.col("__active_flag") == "true")
-    return (
-        current_df.alias("t1").
-        join(table_df.alias("t2"), cond, how="left_outer").
-        filter(
-            (F.col("t2.__hash_key").isNull())
-            |
-            (F.col("t2.__hash_key") != F.col("t1.__hash_key"))).
-        select("t1.*"))
+    update_df = (
+        table_df.alias("target").
+        join(
+            current_df.alias("source"),
+            on=cond,
+            how="left_semi",
+             )
+    ).withColumn("__active_flag",F.lit(False)
+                )
+    merge_df = update_df.unionByName(current_df, allowMissingColumns=True)
+    return merge_df
