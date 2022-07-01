@@ -1,5 +1,6 @@
-import pytest
 from test.spark_test import spark
+
+from pyspark.sql.types import StructType, StructField, StringType
 
 from brewdat.data_engineering.write_utils import LoadType, write_delta_table, SchemaEvolutionMode
 from brewdat.data_engineering.common_utils import RunStatus
@@ -582,6 +583,82 @@ def test_write_scd_type_2_partition(tmpdir):
     assert 2 == spark.sql(f"show partitions {schema_name}.{table_name}").count()
     assert 2 == spark.sql(f"select * from {schema_name}.{table_name} where id_series=100").count()
 
-# TODO test struct column and arrays
-# TODO test OVERWRITE_SCHEMA
-# TODO test IGNORE_NEW_COLUMNS
+
+def test_write_scd_type_2_struct_types(tmpdir):
+    # ARRANGE
+    df_schema = StructType(
+        [
+            StructField('id', StringType(), True),
+            StructField('phone_number', StringType(), True),
+            StructField('name', StringType(), True),
+            StructField('address', StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True),
+        ]
+    )
+    df1 = spark.createDataFrame([
+        {
+            "id": "111",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": {
+                "city": "london",
+                "country": "uk"
+            }
+        },
+        {
+            "id": "222",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": {
+                "city": "london",
+                "country": "uk"
+            }
+        }
+    ], schema=df_schema)
+    df2 = spark.createDataFrame([
+        {
+            "id": "333",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": {
+                "city": "london",
+                "country": "uk"
+            }
+        },
+    ], schema=df_schema)
+    location = f"file:{tmpdir}/test_write_scd_type_2_struct_types"
+    schema_name = "test_schema"
+    table_name = "test_write_scd_type_2_struct_types"
+
+    # ACT
+    result = write_delta_table(
+        spark=spark,
+        df=df1,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        key_columns=["id"],
+        load_type=LoadType.TYPE_2_SCD,
+    )
+
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        key_columns=["id"],
+        load_type=LoadType.TYPE_2_SCD,
+    )
+
+    # ASSERT
+    print(result.error_details)
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
+    assert 3 == result_df.count()
+    assert 1 == result_df.filter("id = '111' "
+                                 "and __active_flag = true "
+                                 "and __start_date is not null "
+                                 "and __end_date is null").count()

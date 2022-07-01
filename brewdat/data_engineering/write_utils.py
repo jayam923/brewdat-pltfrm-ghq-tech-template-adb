@@ -684,7 +684,7 @@ def __generate_scd2_metadata_columns(
         Pyspark Dataframe with new SCD Type 2 metadata columns.
     """
     all_cols = [x for x in df.columns if not x.startswith("__")]
-    df = df.withColumn("__hash_key", F.md5(F.concat_ws("", *all_cols)))
+    df = df.withColumn("__hash_key", F.md5(F.to_json(F.struct(*all_cols))))
     df = df.withColumn("__start_date", F.current_timestamp())
     df = df.withColumn("__end_date", F.lit(None).astype("timestamp"))
     df = df.withColumn("__active_flag", F.lit(True).astype("boolean"))
