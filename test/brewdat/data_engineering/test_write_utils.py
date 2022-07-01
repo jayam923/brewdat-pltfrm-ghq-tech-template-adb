@@ -1,6 +1,7 @@
+import pytest
 from test.spark_test import spark
 
-from brewdat.data_engineering.write_utils import LoadType, write_delta_table
+from brewdat.data_engineering.write_utils import LoadType, write_delta_table, SchemaEvolutionMode
 from brewdat.data_engineering.common_utils import RunStatus
 
 
@@ -13,7 +14,7 @@ def test_write_delta_table_append_all(tmpdir):
             "address": "my address"
         }
     ])
-    location = f"{tmpdir}/test_write_delta_table_append_all"
+    location = f"file://{tmpdir}/test_write_delta_table_append_all"
     schema_name = "test_schema"
     table_name = "test_write_delta_table_append_all"
 
@@ -53,7 +54,7 @@ def test_location_already_exists(tmpdir):
         load_type=LoadType.APPEND_ALL,
     )
     
-    new_location = f"{tmpdir}/test_location_exists_new_location"
+    new_location = f"file://{tmpdir}/test_location_exists_new_location"
     
     result_1 = write_delta_table(
         spark=spark,
@@ -66,6 +67,8 @@ def test_location_already_exists(tmpdir):
     
     assert result_1.status == RunStatus.FAILED
     assert result_1.error_message == f"Metastore table already exists with a different location. To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`"
+
+
 def test_write_scd_type_2_first_write(tmpdir):
     # ARRANGE
     df = spark.createDataFrame([
@@ -82,7 +85,7 @@ def test_write_scd_type_2_first_write(tmpdir):
             "address": "my address"
         }
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_first_write"
+    location = f"file://{tmpdir}/test_write_scd_type_2_first_write"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_first_write"
 
@@ -131,7 +134,7 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_only_new_ids"
+    location = f"file:{tmpdir}/test_write_scd_type_2_only_new_ids"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_only_new_ids"
 
@@ -157,6 +160,7 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
     )
 
     # ASSERT
+    print(result.error_details)
     assert result.status == RunStatus.SUCCEEDED
     result_df = spark.table(result.target_object)
     assert 3 == result_df.count()
@@ -190,7 +194,7 @@ def test_write_scd_type_2_only_updates(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_only_updates"
+    location = f"file://{tmpdir}/test_write_scd_type_2_only_updates"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_only_updates"
 
@@ -257,7 +261,7 @@ def test_write_scd_type_2_same_id_same_data(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_same_id_same_data"
+    location = f"file://{tmpdir}/test_write_scd_type_2_same_id_same_data"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_same_id_same_data"
 
@@ -332,7 +336,7 @@ def test_write_scd_type_2_updates_and_new_records(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_updates_and_new_records"
+    location = f"file://{tmpdir}/test_write_scd_type_2_updates_and_new_records"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_updates_and_new_records"
 
@@ -413,7 +417,7 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_multiple_keys"
+    location = f"file://{tmpdir}/test_write_scd_type_2_multiple_keys"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_multiple_keys"
 
@@ -464,118 +468,6 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
                                  "and __end_date is not null").count()
 
 
-# TODO should this scenario raise an error?
-@pytest.mark.skip(reason="test case is undefined")
-def test_write_scd_type_2_first_write_duplicated_records(tmpdir):
-    # ARRANGE
-    df = spark.createDataFrame([
-        {
-            "id": "111",
-            "phone_number": "00000000000",
-            "name": "my name",
-            "address": "my address"
-        },
-        {
-            "id": "111",
-            "phone_number": "00000000000",
-            "name": "my name",
-            "address": "my address"
-        },
-    ])
-    location = f"{tmpdir}/test_write_scd_type_2_first_write_duplicated_records"
-    schema_name = "test_schema"
-    table_name = "test_write_scd_type_2_first_write_duplicated_records"
-
-    # ACT
-    result = write_delta_table(
-        spark=spark,
-        df=df,
-        location=location,
-        schema_name=schema_name,
-        table_name=table_name,
-        key_columns=["id"],
-        load_type=LoadType.TYPE_2_SCD,
-    )
-
-    # ASSERT
-    assert result.status == RunStatus.SUCCEEDED
-    result_df = spark.table(result.target_object)
-    assert 1 == result_df.count()
-    assert 1 == result_df.filter("id = '111' "
-                                 "and __active_flag = true "
-                                 "and __start_date is not null "
-                                 "and __end_date is null").count()
-
-
-# TODO should this scenario raise an error?
-@pytest.mark.skip(reason="test case is undefined")
-def test_write_scd_type_2_multiple_records_same_id(tmpdir):
-    # ARRANGE
-    df1 = spark.createDataFrame([
-        {
-            "id": "111",
-            "phone_number": "00000000000",
-            "name": "my name",
-            "address": "my address"
-        },
-        {
-            "id": "222",
-            "phone_number": "00000000000",
-            "name": "my name",
-            "address": "my address"
-        }
-    ])
-    df2 = spark.createDataFrame([
-        {
-            "id": "111",
-            "phone_number": "00000000000",
-            "name": "my name",
-            "address": "my address"
-        },
-        {
-            "id": "111",
-            "phone_number": "11111111111",
-            "name": "my name",
-            "address": "my address"
-        },
-        {
-            "id": "111",
-            "phone_number": "222222222222",
-            "name": "my name",
-            "address": "my address"
-        },
-    ])
-    location = f"{tmpdir}/test_write_scd_type_2_multiple_records_same_id"
-    schema_name = "test_schema"
-    table_name = "test_write_scd_type_2_multiple_records_same_id"
-
-    # ACT
-    result = write_delta_table(
-        spark=spark,
-        df=df1,
-        location=location,
-        schema_name=schema_name,
-        table_name=table_name,
-        key_columns=["id"],
-        load_type=LoadType.TYPE_2_SCD,
-    )
-
-    result = write_delta_table(
-        spark=spark,
-        df=df2,
-        location=location,
-        schema_name=schema_name,
-        table_name=table_name,
-        key_columns=["id"],
-        load_type=LoadType.TYPE_2_SCD,
-    )
-
-    # ASSERT
-    assert result.status == RunStatus.SUCCEEDED
-    result_df = spark.table(result.target_object)
-    assert False
-
-
 def test_write_scd_type_2_schema_evolution(tmpdir):
     # ARRANGE
     df1 = spark.createDataFrame([
@@ -598,7 +490,7 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
             "address": "my address"
         },
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_schema_evolution"
+    location = f"file://{tmpdir}/test_write_scd_type_2_schema_evolution"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_schema_evolution"
 
@@ -657,7 +549,7 @@ def test_write_scd_type_2_partition(tmpdir):
         },
         
     ])
-    location = f"{tmpdir}/test_write_scd_type_2_partition"
+    location = f"file://{tmpdir}/test_write_scd_type_2_partition"
     schema_name = "test_schema"
     table_name = "test_write_scd_type_2_partition"
 
