@@ -13,9 +13,9 @@ current_ts = datetime.strftime(datetime.utcnow(),'%Y%m%d%H%M%S')
 
 # COMMAND ----------
 
-tmpdir = f"dbfs:/tmp/test_scd_2/{current_ts}"
-dbutils.fs.rm("dbfs:/tmp/test_scd_2/",recurse=True)
-spark.sql("drop database if exists test_schema CASCADE")
+tmpdir = f"/dbfs/tmp/test_scd_2/{current_ts}"
+dbutils.fs.rm("dbfs:/tmp/test_scd_2/", recurse=True)
+spark.sql("DROP DATABASE IF EXISTS test_schema CASCADE")
 dbutils.fs.mkdirs(tmpdir)
 
 # COMMAND ----------
