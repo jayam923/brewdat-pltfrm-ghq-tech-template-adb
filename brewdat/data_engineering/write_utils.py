@@ -208,7 +208,7 @@ def write_delta_table(
         elif load_type == LoadType.TYPE_2_SCD:
             if not key_columns:
                 raise ValueError("No key column was given")
-                   
+
             _write_table_using_type_2_scd(
                 spark=spark,
                 df=df,
@@ -235,8 +235,8 @@ def write_delta_table(
             CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
             USING DELTA
             LOCATION '{location}';
-            """)
-        
+        """)
+
         # Vacuum the delta table
         spark.sql(f"""
             ALTER TABLE `{schema_name}`.`{table_name}`
