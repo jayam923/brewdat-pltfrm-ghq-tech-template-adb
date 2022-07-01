@@ -603,7 +603,7 @@ def _write_table_using_scd2(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
-    """Write the DataFrame using SCD Type-2.
+    """Write the DataFrame using TYPE_2_SCD.
 
     Parameters
     ----------
@@ -621,37 +621,28 @@ def _write_table_using_scd2(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor
     df = __generate_scd2_metadata_columns(df)
+
     if DeltaTable.isDeltaTable(spark, location):
+
         table_df = spark.read.format("delta").option("path", location).load()
         df = __prepare_df_for_scd2_merge(source_df=df, target_df=table_df, key_columns=key_columns)
-    df_writer = (
-        df.write
-        .format("delta")
-        .mode("append")
-    )
-    # Set partition options
-    if partition_columns:
-        df_writer = df_writer.partitionBy(partition_columns)
 
-    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-        pass
-    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        spark.sql("SET spark.databricks.delta.schema.autoMerge.enabled = true")
-    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-        if DeltaTable.isDeltaTable(spark, location):
+        if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+            pass
+        elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
+            spark.sql("SET spark.databricks.delta.schema.autoMerge.enabled = true")
+        elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
             table_columns = DeltaTable.forPath(spark, location).toDF().columns
             new_df_columns = [col for col in df.columns if col not in table_columns]
             df = df.drop(*new_df_columns)
-    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        raise ValueError("OVERWRITE_SCHEMA is not supported in SCD2 load type")
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
+        elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
+            raise ValueError("OVERWRITE_SCHEMA is not supported in SCD2 load type")
+        elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
 
-    if DeltaTable.isDeltaTable(spark, location):
         merge_condition = "source.__hash_key ==  target.__hash_key"
         update_condition = "target.__active_flag == True and source.__active_flag = False"
         delta_table = DeltaTable.forPath(spark, location)
@@ -664,8 +655,15 @@ def _write_table_using_scd2(
             .whenNotMatchedInsertAll()
             .execute()
         )
+
     else:
-        df_writer.save(location)
+        _write_table_using_append_all(
+            spark=spark,
+            df=df,
+            location=location,
+            partition_columns=partition_columns,
+            schema_evolution_mode=schema_evolution_mode
+        )
 
 
 def __generate_scd2_metadata_columns(

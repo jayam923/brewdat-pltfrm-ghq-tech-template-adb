@@ -583,3 +583,5 @@ def test_write_scd_type_2_partition(tmpdir):
     assert 2 == spark.sql(f"select * from {schema_name}.{table_name} where id_series=100").count()
 
 # TODO test struct column and arrays
+# TODO test OVERWRITE_SCHEMA
+# TODO test IGNORE_NEW_COLUMNS
