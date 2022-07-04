@@ -260,9 +260,24 @@ def flatten_dataframe(
     try:
         expressions = []
         for column in df.schema:
-            if column.dataType.typeName() == "struct" and column.name not in except_for:
+
+            if column.name in except_for:
+                expressions.append(column.name)
+
+            elif column.dataType.typeName() == "struct":
                 nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
                                for nc in df.select(f"{column.name}.*").columns]
+                expressions.extend(nested_cols)
+
+            elif column.dataType.typeName() == "map":
+                map_keys = (
+                    df
+                        .select(F.explode(F.map_keys(column.name)).alias("__map_key"))
+                        .select(F.collect_set("__map_key"))
+                        .first()[0]
+                )
+                nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
+                               for nc in map_keys]
                 expressions.extend(nested_cols)
 
             else:

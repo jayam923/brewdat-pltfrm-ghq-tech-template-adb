@@ -7,7 +7,6 @@ from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, flatten_dataframe
 
 
-
 def test_clean_column_names():
     # ARRANGE
     df = spark.createDataFrame([
@@ -463,6 +462,44 @@ def test_flatten_dataframe_preserve_columns_order():
 
     # ACT
     result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_dataframe_map_type():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "address": {
+                "city": "new york",
+                "country": "us"
+            },
+            "contact": {
+                "email": "johndoe@ab-inbev.com",
+                "phone": "9999999"
+            },
+            "name": "john",
+            "surname": "doe",
+        }
+    ])
+    df.printSchema()
+
+    expected_schema = StructType(
+        [
+            StructField('address__city', StringType(), True),
+            StructField('address__country', StringType(), True),
+            StructField('contact__email', StringType(), True),
+            StructField('contact__phone', StringType(), True),
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df.show()
 
     # ASSERT
     assert 1 == result_df.count()
