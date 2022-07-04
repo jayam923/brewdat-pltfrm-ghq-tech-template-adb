@@ -506,6 +506,87 @@ def test_flatten_dataframe_map_type():
     assert expected_schema == result_df.schema
 
 
+def test_flatten_dataframe_array_explode_disabled():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('addresses', ArrayType(StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "addresses": [
+                {
+                    "city": "new york",
+                    "country": "us"
+                },
+                {
+                    "city": "london",
+                    "country": "uk"
+                }
+            ]
+        }], schema=original_schema)
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df, explode_arrays=False)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert original_schema == result_df.schema
+
+
+def test_flatten_dataframe_array_of_structs():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('addresses', ArrayType(StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "addresses": [
+                {
+                    "city": "new york",
+                    "country": "us"
+                },
+                {
+                    "city": "london",
+                    "country": "uk"
+                }
+            ]
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('addresses__city', StringType(), True),
+            StructField('addresses__country', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+
+    # ASSERT
+    assert 2 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
 def test_create_or_replace_audit_columns():
     # ARRANGE
     df = spark.createDataFrame([

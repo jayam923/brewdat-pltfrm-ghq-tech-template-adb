@@ -232,6 +232,7 @@ def flatten_dataframe(
     except_for: List[str] = [],
     recursive: bool = True,
     column_name_separator: str = "__",
+    explode_arrays: bool = True,
 ) -> DataFrame:
     """Flatten all struct columns from a PySpark dataframe.
 
@@ -251,6 +252,8 @@ def flatten_dataframe(
         Otherwise, only top-level structs will be flattened and inner structs will keep their original form.
     column_name_separator: str, default="__"
         A string for separating struct column name and nested field names in the new flattened columns names.
+    explode_arrays : bool, default=True
+        When true, all array columns will be exploded.
 
     Returns
     -------
@@ -279,6 +282,10 @@ def flatten_dataframe(
                 nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
                                for nc in map_keys]
                 expressions.extend(nested_cols)
+
+            elif column.dataType.typeName() == "array" and explode_arrays:
+                df = df.withColumn(column.name, F.explode_outer(column.name))
+                expressions.append(column.name)
 
             else:
                 expressions.append(column.name)
