@@ -1,4 +1,5 @@
 import re
+
 from . import common_utils
 
 
@@ -40,9 +41,11 @@ def generate_bronze_table_location(
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
 
-        check_zone(target_zone)
-        check_business_domain(target_business_domain)
-        check_table_name(table_name)
+        # Check that all parameters are valid
+        assert_valid_zone(target_zone)
+        assert_valid_business_domain(target_business_domain)
+        assert_valid_folder_name(source_system)
+        assert_valid_folder_name(table_name)
 
         return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
@@ -88,9 +91,11 @@ def generate_silver_table_location(
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
 
-        check_zone(target_zone)
-        check_business_domain(target_business_domain)
-        check_table_name(table_name)
+        # Check that all parameters are valid
+        assert_valid_zone(target_zone)
+        assert_valid_business_domain(target_business_domain)
+        assert_valid_folder_name(source_system)
+        assert_valid_folder_name(table_name)
 
         return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
@@ -139,9 +144,12 @@ def generate_gold_table_location(
         if any(x is None or len(x) == 0 for x in params_list):
             raise ValueError("Location would contain null or empty values.")
 
-        check_zone(target_zone)
-        check_business_domain(target_business_domain)
-        check_table_name(table_name)
+        # Check that all parameters are valid
+        assert_valid_zone(target_zone)
+        assert_valid_business_domain(target_business_domain)
+        assert_valid_folder_name(project)
+        assert_valid_folder_name(database_name)
+        assert_valid_folder_name(table_name)
 
         return f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}/{project}/{database_name}/{table_name}".lower()
 
@@ -149,39 +157,56 @@ def generate_gold_table_location(
         common_utils.exit_with_last_exception(dbutils)
 
 
-def check_zone(zone):
-    """Checks if informed zone is valid.
+def assert_valid_zone(zone):
+    """Assert that given zone is valid.
+
+    Valid zones include: afr, apac, eur, ghq, maz, naz, saz.
 
     Parameters
     ----------
     zone : str
         Zone of the target dataset.
     """
-    expected_zone = ["afr", "apac", "eur", "ghq", "maz", "naz", "saz"]
-    if zone not in expected_zone:
-        raise ValueError("Zone does not have expected value.")
+    valid_zones = ["afr", "apac", "eur", "ghq", "maz", "naz", "saz"]
+    if zone not in valid_zones:
+        raise ValueError(
+            f"Invalid value for zone: {zone}."
+            f" Must be one of: {', '.join(valid_zones)}"
+        )
 
 
-def check_business_domain(business_domain):
-    """Checks if informed business domain is valid.
+def assert_valid_business_domain(business_domain):
+    """Assert that given business domain is valid.
+
+    Valid business domains include: compliance, finance, marketing, people, sales, supply, tech.
 
     Parameters
     ----------
     business_domain : str
         Business domain of the target dataset.
     """
-    expected_domain = ["compliance", "finance", "marketing", "people", "sales", "supply", "tech"]
-    if business_domain not in expected_domain:
-        raise ValueError("Domain does not have expected value.")
+    valid_domains = ["compliance", "finance", "marketing", "people", "sales", "supply", "tech"]
+    if business_domain not in valid_domains:
+        raise ValueError(
+            f"Invalid value for business domain: {business_domain}."
+            f" Must be one of: {', '.join(valid_domains)}"
+        )
 
 
-def check_table_name(table_name):
-    """Checks table name compliance to expected table name pattern.
+def assert_valid_folder_name(folder_name):
+    """Assert that given folder name is valid.
+
+    Folder names must start with an alphanumeric character, and must only
+    contain alphanumeric characters, dash (-), dot (.), or underscore (_).
 
     Parameters
     ----------
-    table_name : str
-        Name of the target table in the metastore.
+    folder_name : str
+        Name of a folder in the target dataset's path.
     """
-    if not bool(re.match('[a-zA-Z0-9][a-zA-Z0-9\.\_\-]+$', table_name)):
-        raise ValueError("Folder should start with alphanumeric characters.")
+    if not re.fullmatch("[a-zA-Z0-9][a-zA-Z0-9-._]*", folder_name):
+        raise ValueError(
+            f"Invalid value for folder name: {folder_name}."
+            " Must start with an alphanumeric character and must only contain"
+            " alphanumeric characters, dash (-), dot (.), or underscore (_)"
+        )
