@@ -542,6 +542,38 @@ def test_flatten_dataframe_array_explode_disabled():
     assert original_schema == result_df.schema
 
 
+def test_flatten_dataframe_array():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('countries', ArrayType(StringType()), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "countries": ["us", "uk"]
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('countries', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+
+    # ASSERT
+    assert 2 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
 def test_flatten_dataframe_array_of_structs():
     # ARRANGE
     original_schema = StructType(
