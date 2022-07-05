@@ -2,9 +2,8 @@ import pytest
 
 from test.spark_test import spark
 from datetime import datetime
-from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, create_or_replace_business_key_column
-from pyspark.sql.types import StructType, StructField, StringType, ArrayType
-from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, flatten_dataframe
+from pyspark.sql.types import BooleanType, IntegerType, StructType, StructField, StringType, ArrayType
+from brewdat.data_engineering.transform_utils import *
 
 
 def test_clean_column_names():
@@ -616,6 +615,50 @@ def test_flatten_dataframe_array_of_structs():
 
     # ASSERT
     assert 2 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_dataframe_misc_data_types():
+
+    # ARRANGE
+    data = [
+        (1, "Alice", ["manager", "user"],
+         {"age": 35, "hobbies": ["reading", "traveling"], "addresses": [{"street": "Rodeo Drive", "number": 123}]},
+         {"sleepy": False}),
+        (2, "Bob", ["user"], {"age": 28}, {"sleepy": True, "hungry": False}),
+        (3, "Charlie", [], {"age": 23, "hobbies": ["music", "games"], "lotto_numbers": [4, 8, 15, 16, 23, 42]}, {}),
+    ]
+    schema = """
+        id INT,
+        name STRING,
+        roles ARRAY<STRING>,
+        extra_info STRUCT<age INT, hobbies ARRAY<STRING>, addresses ARRAY<STRUCT<street STRING, number INT>>, lotto_numbers ARRAY<INT>>,
+        state MAP<STRING, BOOLEAN>
+        """
+    df = spark.createDataFrame(data, schema)
+
+    expected_schema = StructType(
+        [
+            StructField('id', IntegerType(), True),
+            StructField('name', StringType(), True),
+            StructField('roles', StringType(), True),
+            StructField('extra_info__age', IntegerType(), True),
+            StructField('extra_info__hobbies', StringType(), True),
+            StructField('extra_info__addresses__street', StringType(), True),
+            StructField('extra_info__addresses__number', IntegerType(), True),
+            StructField('extra_info__lotto_numbers', IntegerType(), True),
+            StructField('state__sleepy', BooleanType(), True),
+            StructField('state__hungry', BooleanType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+
+    # ASSERT
+    assert 4 == result_df.filter("id = 1").count()
+    assert 1 == result_df.filter("id = 2").count()
+    assert 12 == result_df.filter("id = 3").count()
     assert expected_schema == result_df.schema
 
 
