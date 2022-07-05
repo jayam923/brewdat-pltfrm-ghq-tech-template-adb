@@ -230,9 +230,9 @@ def flatten_dataframe(
     dbutils: object,
     df: DataFrame,
     except_for: List[str] = [],
+    explode_arrays: bool = True,
     recursive: bool = True,
     column_name_separator: str = "__",
-    explode_arrays: bool = True,
 ) -> DataFrame:
     """Flatten all struct/map columns from a PySpark DataFrame, optionally exploding array columns.
 
@@ -244,14 +244,14 @@ def flatten_dataframe(
         The PySpark DataFrame to flatten.
     except_for : List[str], default=[]
         List of columns to be ignored by flattening process.
-    recursive : bool, default=True
-        When true, struct fields nested inside other struct fields will also be flattened.
-        Otherwise, only top-level structs will be flattened and inner structs will keep their original form.
-    column_name_separator: str, default="__"
-        A string for separating struct column name and nested field names in the new flattened columns names.
     explode_arrays : bool, default=True
         When true, all array columns will be exploded.
-        Be careful when processing dataframes with multiple array columns as it may result in Out-of-Memory (OOM) error.
+        Be careful when processing DataFrames with multiple array columns as it may result in Out-of-Memory (OOM) error.
+    recursive : bool, default=True
+        When true, struct/map/array columns nested inside other struct/map/array columns will also be flattened.
+        Otherwise, only top-level complex columns will be flattened and inner columns will keep their original types.
+    column_name_separator: str, default="__"
+        A string for separating parent and nested column names in the new flattened columns.
 
     Returns
     -------
@@ -259,24 +259,30 @@ def flatten_dataframe(
         The flattened PySpark DataFrame.
     """
     try:
+        while True:
+            # Process struct and map columns
+            # And optionally array columns, too
+            should_process = any(
+                col.name not in except_for
+                and (
+                    col.dataType.typeName() in ["struct", "map"]
+                    or explode_arrays and col.dataType.typeName() == "array"
+                )
+                for col in df.schema
+            )
 
-        while [c.name for c in df.schema
-               if (c.name not in except_for
-                   and (c.dataType.typeName() in ["struct", "map"]
-                        or c.dataType.typeName() == "array" and explode_arrays))
-               ]:
+            if not should_process:
+                break
 
+            # Flatten complex data types
             expressions = []
             for column in df.schema:
-
                 if column.name in except_for:
                     expressions.append(column.name)
-
                 elif column.dataType.typeName() == "struct":
                     nested_cols = [F.col(f"`{column.name}`.`{nc}`").alias(f"{column.name}{column_name_separator}{nc}")
                                    for nc in df.select(f"`{column.name}`.*").columns]
                     expressions.extend(nested_cols)
-
                 elif column.dataType.typeName() == "map":
                     map_keys = (
                         df
@@ -287,14 +293,11 @@ def flatten_dataframe(
                     nested_cols = [F.col(f"`{column.name}`.`{nc}`").alias(f"{column.name}{column_name_separator}{nc}")
                                    for nc in map_keys]
                     expressions.extend(nested_cols)
-
                 elif column.dataType.typeName() == "array" and explode_arrays:
                     df = df.withColumn(column.name, F.explode_outer(column.name))
                     expressions.append(column.name)
-
                 else:
                     expressions.append(column.name)
-
             df = df.select(expressions)
 
             if not recursive:
