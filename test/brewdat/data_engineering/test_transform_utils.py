@@ -2,10 +2,8 @@ import pytest
 
 from test.spark_test import spark
 from datetime import datetime
-from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, create_or_replace_business_key_column
-from pyspark.sql.types import StructType, StructField, StringType, ArrayType
-from brewdat.data_engineering.transform_utils import clean_column_names, create_or_replace_audit_columns, flatten_dataframe
-
+from pyspark.sql.types import BooleanType, IntegerType, StructType, StructField, StringType, ArrayType
+from brewdat.data_engineering.transform_utils import *
 
 
 def test_clean_column_names():
@@ -466,6 +464,201 @@ def test_flatten_dataframe_preserve_columns_order():
 
     # ASSERT
     assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_dataframe_map_type():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "address": {
+                "city": "new york",
+                "country": "us"
+            },
+            "contact": {
+                "email": "johndoe@ab-inbev.com",
+                "phone": "9999999"
+            },
+            "name": "john",
+            "surname": "doe",
+        }
+    ])
+    df.printSchema()
+
+    expected_schema = StructType(
+        [
+            StructField('address__city', StringType(), True),
+            StructField('address__country', StringType(), True),
+            StructField('contact__email', StringType(), True),
+            StructField('contact__phone', StringType(), True),
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df.show()
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_dataframe_array_explode_disabled():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('addresses', ArrayType(StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "addresses": [
+                {
+                    "city": "new york",
+                    "country": "us"
+                },
+                {
+                    "city": "london",
+                    "country": "uk"
+                }
+            ]
+        }], schema=original_schema)
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df, explode_arrays=False)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert original_schema == result_df.schema
+
+
+def test_flatten_dataframe_array():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('countries', ArrayType(StringType()), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "countries": ["us", "uk"]
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('countries', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+
+    # ASSERT
+    assert 2 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_dataframe_array_of_structs():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('addresses', ArrayType(StructType([
+                StructField('city', StringType(), True),
+                StructField('country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "name": "john",
+            "surname": "doe",
+            "addresses": [
+                {
+                    "city": "new york",
+                    "country": "us"
+                },
+                {
+                    "city": "london",
+                    "country": "uk"
+                }
+            ]
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('surname', StringType(), True),
+            StructField('addresses__city', StringType(), True),
+            StructField('addresses__country', StringType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+
+    # ASSERT
+    assert 2 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_flatten_dataframe_misc_data_types():
+
+    # ARRANGE
+    data = [
+        (1, "Alice", ["manager", "user"],
+         {"age": 35, "hobbies": ["reading", "traveling"], "addresses": [{"street": "Rodeo Drive", "number": 123}]},
+         {"sleepy": False}),
+        (2, "Bob", ["user"], {"age": 28}, {"sleepy": True, "hungry": False}),
+        (3, "Charlie", [], {"age": 23, "hobbies": ["music", "games"], "lotto_numbers": [4, 8, 15, 16, 23, 42]}, {}),
+    ]
+    schema = """
+        id INT,
+        name STRING,
+        roles ARRAY<STRING>,
+        extra_info STRUCT<age INT, hobbies ARRAY<STRING>, addresses ARRAY<STRUCT<street STRING, number INT>>, lotto_numbers ARRAY<INT>>,
+        state MAP<STRING, BOOLEAN>
+        """
+    df = spark.createDataFrame(data, schema)
+
+    expected_schema = StructType(
+        [
+            StructField('id', IntegerType(), True),
+            StructField('name', StringType(), True),
+            StructField('roles', StringType(), True),
+            StructField('extra_info__age', IntegerType(), True),
+            StructField('extra_info__hobbies', StringType(), True),
+            StructField('extra_info__addresses__street', StringType(), True),
+            StructField('extra_info__addresses__number', IntegerType(), True),
+            StructField('extra_info__lotto_numbers', IntegerType(), True),
+            StructField('state__sleepy', BooleanType(), True),
+            StructField('state__hungry', BooleanType(), True),
+        ]
+    )
+
+    # ACT
+    result_df = flatten_dataframe(dbutils=None, df=df)
+
+    # ASSERT
+    assert 4 == result_df.filter("id = 1").count()
+    assert 1 == result_df.filter("id = 2").count()
+    assert 12 == result_df.filter("id = 3").count()
     assert expected_schema == result_df.schema
 
 
