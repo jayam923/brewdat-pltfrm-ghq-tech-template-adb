@@ -234,10 +234,7 @@ def flatten_dataframe(
     column_name_separator: str = "__",
     explode_arrays: bool = True,
 ) -> DataFrame:
-    """Flatten all struct columns from a PySpark dataframe.
-
-    This function DOES NOT handle structs inside array columns nor map type.
-    In order to flatten structs inside array columns, explode the array before calling this function.
+    """Flatten all struct/map columns from a PySpark DataFrame, optionally exploding array columns.
 
     Parameters
     ----------
@@ -254,6 +251,7 @@ def flatten_dataframe(
         A string for separating struct column name and nested field names in the new flattened columns names.
     explode_arrays : bool, default=True
         When true, all array columns will be exploded.
+        Be careful when processing dataframes with multiple array columns as it may result in Out-of-Memory (OOM) error.
 
     Returns
     -------
@@ -268,18 +266,18 @@ def flatten_dataframe(
                 expressions.append(column.name)
 
             elif column.dataType.typeName() == "struct":
-                nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
-                               for nc in df.select(f"{column.name}.*").columns]
+                nested_cols = [F.col(f"`{column.name}`.`{nc}`").alias(f"{column.name}{column_name_separator}{nc}")
+                               for nc in df.select(f"`{column.name}`.*").columns]
                 expressions.extend(nested_cols)
 
             elif column.dataType.typeName() == "map":
                 map_keys = (
                     df
-                        .select(F.explode(F.map_keys(column.name)).alias("__map_key"))
-                        .select(F.collect_set("__map_key"))
-                        .first()[0]
+                    .select(F.explode(F.map_keys(column.name)).alias("__map_key"))
+                    .select(F.collect_set("__map_key"))
+                    .first()[0]
                 )
-                nested_cols = [F.col(f"{column.name}.{nc}").alias(f"{column.name}{column_name_separator}{nc}")
+                nested_cols = [F.col(f"`{column.name}`.`{nc}`").alias(f"{column.name}{column_name_separator}{nc}")
                                for nc in map_keys]
                 expressions.extend(nested_cols)
 
@@ -293,7 +291,12 @@ def flatten_dataframe(
         flat_df = df.select(expressions)
 
         remain_nested_cols = [c.name for c in flat_df.schema
-                              if c.dataType.typeName() == "struct" and c.name not in except_for]
+                              if (c.name not in except_for
+                                  and (
+                                          c.dataType.typeName() in ["struct", "map"]
+                                          or c.dataType.typeName() == "array" and explode_arrays)
+                                  )
+                              ]
 
         if recursive and remain_nested_cols:
             return flatten_dataframe(
@@ -302,6 +305,7 @@ def flatten_dataframe(
                 except_for=except_for,
                 recursive=recursive,
                 column_name_separator=column_name_separator,
+                explode_arrays=explode_arrays
             )
 
         return flat_df
