@@ -11,12 +11,19 @@ class RawFileFormat(str, Enum):
     """Supported raw file formats.
 
     AVRO: Avro format.
+
     CSV: Delimited text format.
+
     DELTA: Delta format.
+
     EXCEL: EXCEL formats.
+
     JSON: JSON format.
+
     PARQUET: Parquet format.
+
     ORC: ORC format.
+
     XML: XML format.
     """
     AVRO = "AVRO"
