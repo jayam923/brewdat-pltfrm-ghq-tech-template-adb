@@ -1,4 +1,4 @@
-# common_utils
+# common_utils module
 
 
 ### _class_ brewdat.data_engineering.common_utils.ReturnObject(status: brewdat.data_engineering.common_utils.RunStatus, target_object: str, num_records_read: int = 0, num_records_loaded: int = 0, error_message: str = '', error_details: str = '')
@@ -68,8 +68,13 @@ Detailed error message or stack trace for the above error.
 ### _class_ brewdat.data_engineering.common_utils.RunStatus(value)
 Available run statuses.
 
-SUCCEEDED: Represents a succeeded run status.
-FAILED: Represents a failed run status.
+
+#### FAILED(_ = 'FAILED_ )
+Represents a failed run status.
+
+
+#### SUCCEEDED(_ = 'SUCCEEDED_ )
+Represents a succeeded run status.
 
 
 ### brewdat.data_engineering.common_utils.configure_spn_access_for_adls(spark: pyspark.sql.session.SparkSession, dbutils: object, storage_account_names: List[str], key_vault_name: str, spn_client_id: str, spn_secret_name: str, spn_tenant_id: str = 'cef04b19-7776-4a94-b89b-375c77a8f936')

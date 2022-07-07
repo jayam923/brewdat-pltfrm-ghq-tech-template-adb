@@ -1,24 +1,40 @@
-# read_utils
+# read_utils module
 
 
 ### _class_ brewdat.data_engineering.read_utils.RawFileFormat(value)
 Supported raw file formats.
 
-AVRO: Avro format.
 
-CSV: Delimited text format.
+#### AVRO(_ = 'AVRO_ )
+Avro format.
 
-DELTA: Delta format.
 
-EXCEL: EXCEL formats.
+#### CSV(_ = 'CSV_ )
+Delimited text format.
 
-JSON: JSON format.
 
-PARQUET: Parquet format.
+#### DELTA(_ = 'DELTA_ )
+Delta format.
 
-ORC: ORC format.
 
-XML: XML format.
+#### EXCEL(_ = 'EXCEL_ )
+EXCEL formats.
+
+
+#### JSON(_ = 'JSON_ )
+JSON format.
+
+
+#### ORC(_ = 'ORC_ )
+ORC format.
+
+
+#### PARQUET(_ = 'PARQUET_ )
+Parquet format.
+
+
+#### XML(_ = 'XML_ )
+XML format.
 
 
 ### brewdat.data_engineering.read_utils.read_raw_dataframe(spark: pyspark.sql.session.SparkSession, dbutils: object, file_format: brewdat.data_engineering.read_utils.RawFileFormat, location: str, cast_all_to_string: bool = True, csv_has_headers: bool = True, csv_delimiter: str = ',', csv_escape_character: str = '"', excel_sheet_name: Optional[str] = None, excel_has_headers: bool = True, json_is_multiline: bool = True, xml_row_tag: str = 'row', additional_options: dict = {})

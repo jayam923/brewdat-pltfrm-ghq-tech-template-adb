@@ -1,4 +1,4 @@
-# lakehouse_utils
+# lakehouse_utils module
 
 
 ### brewdat.data_engineering.lakehouse_utils.assert_valid_business_domain(business_domain)

@@ -9,31 +9,23 @@ from . import common_utils, transform_utils
 @unique
 class RawFileFormat(str, Enum):
     """Supported raw file formats.
-
-    AVRO: Avro format.
-
-    CSV: Delimited text format.
-
-    DELTA: Delta format.
-
-    EXCEL: EXCEL formats.
-
-    JSON: JSON format.
-
-    PARQUET: Parquet format.
-
-    ORC: ORC format.
-
-    XML: XML format.
     """
     AVRO = "AVRO"
+    """Avro format."""
     CSV = "CSV"
+    """Delimited text format."""
     DELTA = "DELTA"
+    """Delta format."""
     EXCEL = "EXCEL"
+    """EXCEL formats."""
     JSON = "JSON"
+    """JSON format."""
     PARQUET = "PARQUET"
+    """Parquet format."""
     ORC = "ORC"
+    """ORC format."""
     XML = "XML"
+    """XML format."""
 
 
 def read_raw_dataframe(

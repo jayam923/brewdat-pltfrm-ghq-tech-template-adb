@@ -1,47 +1,69 @@
-# write_utils
+# write_utils module
 
 
 ### _class_ brewdat.data_engineering.write_utils.LoadType(value)
 Specifies the way in which the table should be loaded.
 
-OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
-Avoid whenever possible, as this is not good for large tables.
-This deletes records that are not present in the DataFrame.
 
-OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
+#### APPEND_ALL(_ = 'APPEND_ALL_ )
+Load type where all records in the DataFrame are written into an table.
+*Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
+
+
+#### APPEND_NEW(_ = 'APPEND_NEW_ )
+Load type where only new records in the DataFrame are written into an existing table.
+Records for which the key already exists in the table are ignored.
+
+
+#### OVERWRITE_PARTITION(_ = 'OVERWRITE_PARTITION_ )
+Load type for overwriting a single partition based on partitionColumns.
 This deletes records that are not present in the DataFrame for the chosen partition.
 The df must be filtered such that it contains a single partition.
 
-APPEND_ALL: Load type where all records in the DataFrame are written into an table.
-*Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
 
-APPEND_NEW: Load type where only new records in the DataFrame are written into an existing table.
-Records for which the key already exists in the table are ignored.
+#### OVERWRITE_TABLE(_ = 'OVERWRITE_TABLE_ )
+Load type where the entire table is rewritten in every execution.
+Avoid whenever possible, as this is not good for large tables.
+This deletes records that are not present in the DataFrame.
 
-UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
-This does NOT delete existing records that are not included in the DataFrame.
 
-TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+#### TYPE_2_SCD(_ = 'TYPE_2_SCD_ )
+Load type that implements the standard type-2 Slowly Changing Dimension implementation.
 This essentially uses an upsert that keeps track of all previous versions of each record.
 For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension)
+
+
+#### UPSERT(_ = 'UPSERT_ )
+Load type where records of a df are appended as new records or update existing records based on the key.
+This does NOT delete existing records that are not included in the DataFrame.
 
 
 ### _class_ brewdat.data_engineering.write_utils.SchemaEvolutionMode(value)
 Specifies the way in which schema mismatches should be handled.
 
-FAIL_ON_SCHEMA_MISMATCH: Fail if the table’s schema is not compatible with the DataFrame’s.
-This is the default Spark behavior when no option is given.
 
-ADD_NEW_COLUMNS: Schema evolution through adding new columns to the target table.
+#### ADD_NEW_COLUMNS(_ = 'ADD_NEW_COLUMNS_ )
+Schema evolution through adding new columns to the target table.
 This is the same as using the option “mergeSchema”.
 
-IGNORE_NEW_COLUMNS: Drop DataFrame columns that do not exist in the table’s schema.
+
+#### FAIL_ON_SCHEMA_MISMATCH(_ = 'FAIL_ON_SCHEMA_MISMATCH_ )
+Fail if the table’s schema is not compatible with the DataFrame’s.
+This is the default Spark behavior when no option is given.
+
+
+#### IGNORE_NEW_COLUMNS(_ = 'IGNORE_NEW_COLUMNS_ )
+Drop DataFrame columns that do not exist in the table’s schema.
 Does nothing if the table does not yet exist in the Hive metastore.
 
-OVERWRITE_SCHEMA: Overwrite the table’s schema with the DataFrame’s schema.
+
+#### OVERWRITE_SCHEMA(_ = 'OVERWRITE_SCHEMA_ )
+Overwrite the table’s schema with the DataFrame’s schema.
 This is the same as using the option “overwriteSchema”.
 
-RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
+
+#### RESCUE_NEW_COLUMNS(_ = 'RESCUE_NEW_COLUMNS_ )
+Create a new struct-type column to collect data for new columns.
 This is the same strategy used in AutoLoader’s rescue mode.
 For more information: [https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution](https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution)
 *Attention*: This schema evolution mode is not implemented on this library yet!
