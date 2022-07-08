@@ -69,7 +69,7 @@ For more information: [https://docs.databricks.com/spark/latest/structured-strea
 *Attention*: This schema evolution mode is not implemented on this library yet!
 
 
-### brewdat.data_engineering.write_utils.write_delta_table(spark: pyspark.sql.session.SparkSession, df: pyspark.sql.dataframe.DataFrame, location: str, schema_name: str, table_name: str, load_type: brewdat.data_engineering.write_utils.LoadType, key_columns: List[str] = [], partition_columns: List[str] = [], schema_evolution_mode: brewdat.data_engineering.write_utils.SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS, time_travel_retention_days: int = 30)
+### brewdat.data_engineering.write_utils.write_delta_table(spark: pyspark.sql.session.SparkSession, df: pyspark.sql.dataframe.DataFrame, location: str, schema_name: str, table_name: str, load_type: brewdat.data_engineering.write_utils.LoadType, key_columns: List[str] = [], partition_columns: List[str] = [], schema_evolution_mode: brewdat.data_engineering.write_utils.SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS, time_travel_retention_days: int = 30, auto_broadcast_join_threshold: int = 52428800)
 Write the DataFrame as a delta table.
 
 
@@ -110,6 +110,10 @@ Write the DataFrame as a delta table.
     * **time_travel_retention_days** (*int**, **default=30*) – Number of days for retaining time travel data in the Delta table.
     Used to limit how many old snapshots are preserved during the VACUUM operation.
     For more information: [https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch](https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch)
+
+
+    * **auto_broadcast_join_threshold** (*int**, **default=52428800*) – Configures the maximum size in bytes for a table that will be broadcast to all worker
+    nodes when performing a join. Default value in bytes represents 50 MB.
 
 
 

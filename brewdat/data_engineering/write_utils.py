@@ -71,6 +71,7 @@ def write_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
+    auto_broadcast_join_threshold:int = 52428800,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -102,6 +103,9 @@ def write_delta_table(
         Number of days for retaining time travel data in the Delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
         For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+    auto_broadcast_join_threshold : int, default=52428800
+        Configures the maximum size in bytes for a table that will be broadcast to all worker
+        nodes when performing a join. Default value in bytes represents 50 MB.
 
     Returns
     -------
@@ -134,6 +138,9 @@ def write_delta_table(
         # Use optimized writes to create less small files
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
+
+        # Set maximum size in bytes for a table that will be broadcast to all worker nodes when performing a join.
+        spark.conf.set("spark.sql.autoBroadcastJoinThreshold", auto_broadcast_join_threshold)
 
         # Count source records
         num_records_read = df.count()
