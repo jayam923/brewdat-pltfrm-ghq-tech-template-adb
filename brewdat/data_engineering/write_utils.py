@@ -653,6 +653,7 @@ def _write_table_using_type_2_scd(
         )
 
     else:
+        print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         _write_table_using_append_all(
             spark=spark,
             df=df,
