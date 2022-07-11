@@ -2,6 +2,7 @@ import os
 import traceback
 from enum import Enum, unique
 from typing import List
+from py4j.protocol import Py4JJavaError
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -253,6 +254,15 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
+        )
+    except Py4JJavaError as e:
+        return ReturnObject(
+            status=RunStatus.FAILED,
+            target_object=f"{schema_name}.{table_name}",
+            num_records_read=num_records_read,
+            num_records_loaded=num_records_loaded,
+            error_message=str(e.java_exception).replace("\n", " "),
+            error_details=traceback.format_exc(),
         )
 
     except Exception as e:

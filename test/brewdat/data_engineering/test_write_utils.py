@@ -682,3 +682,68 @@ def test_write_scd_type_2_struct_types(tmpdir):
                                  "and __is_active = true "
                                  "and __start_date is not null "
                                  "and __end_date is null").count()
+
+
+def test_write_duplicated_data_for_upsert(tmpdir):
+    # ARRANGE
+    df1 = spark.createDataFrame([
+        {
+            "id": "111",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "id_series": "100"
+        },
+    ])
+    df2 = spark.createDataFrame([
+        {
+            "id": "111",
+            "phone_number": "00000000000",
+            "name": "my name",
+            "id_series": "200"
+        },
+        {
+            "id": "111",
+            "phone_number": "00000000001",
+            "name": "my name",
+            "id_series": "300"
+        },
+
+    ])
+    location = f"file://{tmpdir}/test_write_duplicated_data_for_upsert"
+    schema_name = "test_schema"
+    table_name = "test_write_duplicated_data_for_upsert"
+
+    expected_message = "java.lang.UnsupportedOperationException: Cannot perform Merge as multiple source rows " \
+                       "matched and attempted to modify the same target row in the Delta table in possibly " \
+                       "conflicting ways. By SQL semantics of Merge, when multiple source rows match on the same " \
+                       "target row, the result may be ambiguous as it is unclear which source row should be " \
+                       "used to update or delete the matching target row. You can preprocess the source table to " \
+                       "eliminate the possibility of multiple matches. Please refer to " \
+                       "https://docs.delta.io/latest/delta-update.html#upsert-into-a-table-using-merge"
+
+    # ACT
+    result = write_delta_table(
+        spark=spark,
+        df=df1,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        key_columns=["id"],
+        load_type=LoadType.UPSERT,
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
+    )
+
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        key_columns=["id"],
+        load_type=LoadType.UPSERT,
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
+    )
+    print(vars(result))
+
+    assert result.status == RunStatus.FAILED
+    assert result.error_message == expected_message
