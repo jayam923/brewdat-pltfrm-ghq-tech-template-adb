@@ -93,14 +93,7 @@ data_quality_utils.dq_validate_column_unique_values(dbutils= dbutils, col_name =
 # COMMAND ----------
 
 data_quality_utils.save_expectation_suite_in_validator(dbutils= dbutils,validator =validator_t)
-
-# COMMAND ----------
-
 results =data_quality_utils.get_dq_checkpoint_result(dbutils= dbutils,validator =validator_t,context = contextval, batch_request =batch_request_t )
-
-# COMMAND ----------
-
-print(results)
 
 # COMMAND ----------
 
