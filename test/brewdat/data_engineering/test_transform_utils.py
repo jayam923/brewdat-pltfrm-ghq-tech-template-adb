@@ -88,6 +88,103 @@ def test_clean_column_names_struct():
     assert expected_schema == result_df.schema
 
 
+def test_clean_column_names_struct_nested_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:address', StructType([
+                StructField('ws:city', StringType(), True),
+                StructField('ws:country', StructType([
+                    StructField('ws:name', StringType(), True),
+                    StructField('ws:code', StringType(), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:address": {
+                "ws:city": "new york",
+                "ws:country": {
+                    "ws:name": "United States",
+                    "ws:code": "us"
+                }
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_address', StructType([
+                StructField('ws_city', StringType(), True),
+                StructField('ws_country', StructType([
+                    StructField('ws_name', StringType(), True),
+                    StructField('ws_code', StringType(), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_clean_column_names_array_of_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:addresses', ArrayType(StructType([
+                StructField('ws:city', StringType(), True),
+                StructField('ws:country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:addresses": [
+                {
+                    "ws:city": "new york",
+                    "ws:country": "us"
+                },
+                {
+                    "ws:city": "london",
+                    "ws:country": "uk"
+                }
+            ]
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_addresses', ArrayType(StructType([
+                StructField('ws_city', StringType(), True),
+                StructField('ws_country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
 def test_flatten_dataframe_no_struct_columns():
     # ARRANGE
     df = spark.createDataFrame([
