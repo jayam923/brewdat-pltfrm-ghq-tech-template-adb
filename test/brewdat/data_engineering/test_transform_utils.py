@@ -44,6 +44,50 @@ def test_clean_column_names_except_for():
     assert "address 1" in result_df.columns
 
 
+def test_clean_column_names_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:address', StructType([
+                StructField('ws:city', StringType(), True),
+                StructField('ws:country', StringType(), True),
+                StructField('ws:code', IntegerType(), True)
+            ]), True)
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:address": {
+                "ws:city": "new york",
+                "ws:country": "us",
+                "ws:code": 100
+            },
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_address', StructType([
+                StructField('ws_city', StringType(), True),
+                StructField('ws_country', StringType(), True),
+                StructField('ws_code', IntegerType(), True)
+            ]), True)
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
 def test_flatten_dataframe_no_struct_columns():
     # ARRANGE
     df = spark.createDataFrame([

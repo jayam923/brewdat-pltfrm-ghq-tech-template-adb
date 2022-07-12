@@ -35,16 +35,16 @@ def clean_column_names(
         The modified PySpark DataFrame with renamed columns.
     """
     try:
-        column_names = df.schema.names
-        for column_name in column_names:
-            if column_name in except_for:
+        for column in df.schema:
+            if column.name in except_for:
                 continue  # Skip
 
-            # \W is "anything that is not alphanumeric or underscore"
-            # Equivalent to [^A-Za-z0-9_]
-            new_column_name = re.sub(r"\W+", "_", column_name.strip())
-            if column_name != new_column_name:
-                df = df.withColumnRenamed(column_name, new_column_name)
+            new_column_name = _clean_column_name(column.name)
+            if column.name != new_column_name:
+                df = df.withColumnRenamed(column.name, new_column_name)
+
+            df = df.withColumn(new_column_name,
+                               F.col(new_column_name).cast(_spark_type_clean_column_name_recurse(column.dataType)))
         return df
 
     except Exception:
@@ -340,3 +340,49 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
             new_field_types.append(f"`{name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
     return "string"
+
+
+def _clean_column_name(column_name: str) -> str:
+    """Returns column name formatted into proper pattern.
+
+    Parameters
+    ----------
+    column_name : str
+        Column name to be formatted.
+
+    Returns
+    -------
+    str
+        Formatted column name.
+    """
+    # \W is "anything that is not alphanumeric or underscore"
+    # Equivalent to [^A-Za-z0-9_]
+    return re.sub(r"\W+", "_", column_name.strip())
+
+
+def _spark_type_clean_column_name_recurse(spark_type: DataType) -> str:
+    """Returns a DDL representation of a Spark data type for casting purposes.
+
+    All field names from struct types are replaced by a new name  _clean_column_name.
+
+    Parameters
+    ----------
+    spark_type : DataType
+        DataType object to be recursively cast to string.
+
+    Returns
+    -------
+    str
+        DDL representation of the new Datatype.
+    """
+    if spark_type.typeName() == "array":
+        new_element_type = _spark_type_clean_column_name_recurse(spark_type.elementType)
+        return f"array<{new_element_type}>"
+    if spark_type.typeName() == "struct":
+        new_field_types = []
+        for name in spark_type.fieldNames():
+            new_field_type = _spark_type_clean_column_name_recurse(spark_type[name].dataType)
+            new_name = _clean_column_name(name)
+            new_field_types.append(f"`{new_name}`: {new_field_type}")
+        return "struct<" + ", ".join(new_field_types) + ">"
+    return spark_type.typeName()
