@@ -43,8 +43,10 @@ def clean_column_names(
             if column.name != new_column_name:
                 df = df.withColumnRenamed(column.name, new_column_name)
 
-            df = df.withColumn(new_column_name,
-                               F.col(new_column_name).cast(_spark_type_clean_column_name_recurse(column.dataType)))
+            if column.dataType.typeName() in ["struct", "array"]:
+                df = df.withColumn(new_column_name,
+                                   F.col(new_column_name).cast(_spark_type_clean_column_name_recurse(column.dataType)))
+
         return df
 
     except Exception:
