@@ -742,7 +742,6 @@ def test_write_duplicated_data_for_upsert(tmpdir):
         load_type=LoadType.UPSERT,
         schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
     )
-    print(vars(result))
-
+    
     assert result.status == RunStatus.FAILED
     assert result.error_message.startswith(expected_message_start)
