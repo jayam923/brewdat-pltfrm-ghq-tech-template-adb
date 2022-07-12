@@ -50,13 +50,13 @@ help(transform_utils)
 # COMMAND ----------
 
 common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=[adls_raw_bronze_storage_account_name, adls_silver_gold_storage_account_name],
-        key_vault_name=key_vault_name,
-        spn_client_id=spn_client_id,
-        spn_secret_name=spn_secret_name,
-    )
+    spark=spark,
+    dbutils=dbutils,
+    storage_account_names=[adls_raw_bronze_storage_account_name, adls_silver_gold_storage_account_name],
+    key_vault_name=key_vault_name,
+    spn_client_id=spn_client_id,
+    spn_secret_name=spn_secret_name,
+)
 
 # COMMAND ----------
 
