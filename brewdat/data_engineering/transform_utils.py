@@ -44,8 +44,8 @@ def clean_column_names(
                 df = df.withColumnRenamed(column.name, new_column_name)
 
             if column.dataType.typeName() in ["struct", "array"]:
-                df = df.withColumn(new_column_name,
-                                   F.col(new_column_name).cast(_spark_type_clean_column_name_recurse(column.dataType)))
+                new_data_type = _spark_type_clean_field_names_from_structs_recurse(column.dataType)
+                df = df.withColumn(new_column_name, F.col(new_column_name).cast(new_data_type))
 
         return df
 
@@ -347,6 +347,9 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
 def _clean_column_name(column_name: str) -> str:
     """Returns column name formatted into proper pattern.
 
+    Uses BrewDat's standard approach as seen in other Notebooks.
+    Improved to also trim (strip) whitespaces.
+
     Parameters
     ----------
     column_name : str
@@ -362,10 +365,10 @@ def _clean_column_name(column_name: str) -> str:
     return re.sub(r"\W+", "_", column_name.strip())
 
 
-def _spark_type_clean_column_name_recurse(spark_type: DataType) -> str:
+def _spark_type_clean_field_names_from_structs_recurse(spark_type: DataType) -> str:
     """Returns a DDL representation of a Spark data type for casting purposes.
 
-    All field names from struct types are replaced by a new name  _clean_column_name.
+    All field names from struct types are replaced by their formatted name.
 
     Parameters
     ----------
@@ -378,12 +381,12 @@ def _spark_type_clean_column_name_recurse(spark_type: DataType) -> str:
         DDL representation of the new Datatype.
     """
     if spark_type.typeName() == "array":
-        new_element_type = _spark_type_clean_column_name_recurse(spark_type.elementType)
+        new_element_type = _spark_type_clean_field_names_from_structs_recurse(spark_type.elementType)
         return f"array<{new_element_type}>"
     if spark_type.typeName() == "struct":
         new_field_types = []
         for name in spark_type.fieldNames():
-            new_field_type = _spark_type_clean_column_name_recurse(spark_type[name].dataType)
+            new_field_type = _spark_type_clean_field_names_from_structs_recurse(spark_type[name].dataType)
             new_name = _clean_column_name(name)
             new_field_types.append(f"`{new_name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
