@@ -109,7 +109,30 @@ def Create_expectation_suite(
         return validator
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+        
+        
+def dq_validate_column_exist(
+    dbutils: object, 
+    validator: Validator,
+    col_name: str):
+    """Create function to Assert if column exist in the table .
 
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+
+    """
+    try:
+        validator.expect_column_to_exist(col_name, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
+        
 def dq_validate_column_type(
     dbutils: object,
     validator: Validator,
@@ -127,8 +150,6 @@ def dq_validate_column_type(
         Name of the column on which 
     col_type : str
         col type to be in set of valid types.
-
-
     """
     try:
         validator.expect_column_values_to_be_of_type(col_name, col_type, result_format = "SUMMARY", include_config=True)
@@ -154,6 +175,190 @@ def dq_validate_column_nulls_values(
         validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+        
+        
+def dq_validate_column_min_values_between(
+    dbutils: object, 
+    validator: Validator, 
+    col_name : str,
+    min_value: int,
+    max_value : int
+    ):
+    """Create function to Assert column value is not null.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which
+    min_value : int
+        minimum value range for minimum number start from 
+    max_value : int
+        maximum value range for minimum number end to
+    """
+    try:
+        validator.expect_column_min_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)  
+        
+    
+def dq_validate_column_max_values_between(
+    dbutils: object, 
+    validator: Validator, 
+    col_name : str,
+    min_value: int,
+    max_value : int
+    ):
+    """Create function to Assert column value is not null.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which
+    min_value : int
+        minimum value range for minimum number start from 
+    max_value : int
+        maximum value range for minimum number end to
+    """
+    try:
+        validator.expect_column_max_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils) 
+        
+        
+        
+def dq_validate_column_range_values(
+    dbutils: object, 
+    validator: Validator, 
+    col_name: str, 
+    min_value : int, 
+    max_value: int):
+    """Create function to Assert if column values are in range.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    min_value : int
+        minimum value for the column
+    max_value : int
+        maximum value for the column
+    """
+    try:
+        validator.expect_column_values_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
+        
+        
+def dq_validate_column_values_to_be_in_set(
+    dbutils: object, 
+    validator: Validator, 
+    col_name: str, 
+    col_values : list = []):
+    """Create function to Assert if column values are present .
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    min_value : int
+        minimum value for the column
+    max_value : int
+        maximum value for the column
+    """
+    try:
+        validator.expect_column_values_to_be_in_set(col_name, col_values, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
+        
+def dq_validate_column_values_not_to_be_in_set(
+    dbutils: object, 
+    validator: Validator, 
+    col_name: str, 
+    col_values : list = []):
+    """Create function to Assert if values in list are not present in column.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    col_values : List
+        minimum value for the column
+    """
+    try:
+        validator.expect_column_values_to_not_be_in_set(col_name, col_values, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
+        
+def dq_validate_column_values_to_not_match_regex(
+    dbutils: object, 
+    validator: Validator, 
+    col_name: str, 
+    reg_exp : str):
+    """Create function to Assert if values in list are not present in column.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    col_values : List
+        minimum value for the column
+    """
+    try:
+        validator.expect_column_values_to_not_match_regex(col_name, reg_exp, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+                
+            
+def dq_validate_column_values_to_match_regex(
+    dbutils: object, 
+    validator: Validator, 
+    col_name: str, 
+    reg_exp : str):
+    """Create function to Assert if values in list are not present in column.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    col_values : List
+        minimum value for the column
+    """
+    try:
+        validator.expect_column_values_to_match_regex(col_name, reg_exp, result_format = "SUMMARY")
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+                            
 
 def dq_validate_column_unique_values(
     dbutils: object, 
@@ -175,31 +380,6 @@ def dq_validate_column_unique_values(
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
-def dq_validate_column_range_values(
-    dbutils: object, 
-    validator: Validator, 
-    col_name, 
-    min_value, 
-    max_value):
-    """Create function to Assert if column values are in range.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    validator : Validator
-        Name of the Validator object.
-    col_name : str
-        Name of the column on which 
-    min_value : int
-        minimum value for the column
-    max_value : int
-        maximum value for the column
-    """
-    try:
-        validator.expect_column_values_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
         
 def dq_validate_column_lengths(
     dbutils: object, 
@@ -244,18 +424,39 @@ def dq_validate_row_count(
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
-def dq_validate_column_exist(
+def dq_validate_column_values_to_not_be_null(
     dbutils: object, 
     validator: Validator,
     col_name):
+    """Create function to Assert if column values are in range.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    row_count : int
+        count of the row in the table
+    """
     try:
-        validator.expect_column_to_exist(col_name, result_format = "SUMMARY")
+        validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY") 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-
+        
+        
 def save_expectation_suite_in_validator(
     dbutils: object,
     validator: Validator):
+    """Create function to get the result from the validations.
+
+        Parameters
+        ----------
+        dbutils : object
+            A Databricks utils object.
+        validator : Validator
+            Name of the Validator object.
+    """
     try:
         test_config=validator.get_expectation_suite()
         validator.save_expectation_suite(discard_failed_expectations=False)
@@ -263,11 +464,24 @@ def save_expectation_suite_in_validator(
         common_utils.exit_with_last_exception(dbutils)
 
 def get_dq_checkpoint_result(
-        dbutils: object,
-        validator: Validator,
-        context: BaseDataContext,
-        batch_request: RuntimeBatchRequest
-        ):
+    dbutils: object,
+    validator: Validator,
+    context: BaseDataContext,
+    batch_request: RuntimeBatchRequest
+    ):
+    """Create function to get the result from the validations.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    context : BaseDataContext
+        Name of the context object.
+    batch_request : RuntimeBatchRequest
+        Name of the batch_request object.
+    """
     try:
         checkpoint_config = {
         "name": "check_point_name",

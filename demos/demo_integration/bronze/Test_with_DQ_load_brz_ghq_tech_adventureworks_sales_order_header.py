@@ -59,11 +59,12 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
+print(lakehouse_raw_root)
 raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/csv/",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
@@ -79,27 +80,49 @@ display(clean_df)
 
 # COMMAND ----------
 
+# DBTITLE 1,Entry point for data quality to create, configure and access the expectations and checkpoints
 contextval = data_quality_utils.configure_data_context()
 batch_request_t = data_quality_utils.Create_batch_request(dbutils= dbutils, df=clean_df, context = contextval )
 validator_t = data_quality_utils.Create_expectation_suite(dbutils= dbutils, df=clean_df, context = contextval, batch_request =batch_request_t)
 
 # COMMAND ----------
 
+data_quality_utils.dq_validate_column_exist (dbutils= dbutils, col_name = "SalesOrderNumber",validator =validator_t)
+
+# COMMAND ----------
+
+
+
+# COMMAND ----------
+
+# DBTITLE 1,calling few data quality validation rule on few columns just for the demo
+data_quality_utils.dq_validate_column_exist (dbutils= dbutils, col_name = "SalesOrderNumber",validator =validator_t)
 data_quality_utils.dq_validate_column_type(dbutils= dbutils, col_name = "SalesOrderNumber", col_type = "IntegerType",validator =validator_t )
 data_quality_utils.dq_validate_column_nulls_values(dbutils= dbutils, col_name = "SalesOrderID", validator =validator_t )
+#data_quality_utils.dq_validate_column_min_values_between (dbutils= dbutils, col_name="Freight", min_value=600, max_value=650, validator =validator_t )
+#data_quality_utils.dq_validate_column_max_values_between (dbutils= dbutils, col_name="ShipToAddressID", min_value=1000, max_value=1050, validator =validator_t )
+data_quality_utils.dq_validate_column_values_to_be_in_set(dbutils= dbutils,col_name= "ShipMethod",col_values = ['CARGO TRANSPORT 5'] ,validator =validator_t )
+data_quality_utils.dq_validate_column_values_to_not_match_regex(dbutils= dbutils,col_name= "ShipMethod",reg_exp = "['CARGO TRANSPORT 5']" ,validator =validator_t )
 data_quality_utils.dq_validate_column_unique_values(dbutils= dbutils, col_name = "SalesOrderID", validator =validator_t )
 
 
 # COMMAND ----------
 
+
+
+# COMMAND ----------
+
+# DBTITLE 1,After methods which are required to save and collect all the results from the validation
 data_quality_utils.save_expectation_suite_in_validator(dbutils= dbutils,validator =validator_t)
 results =data_quality_utils.get_dq_checkpoint_result(dbutils= dbutils,validator =validator_t,context = contextval, batch_request =batch_request_t )
 
 # COMMAND ----------
 
+# DBTITLE 1,fetching few required values from the results of each dq check 
 for x in results['run_results']:
     validation_rule  = results['run_results'][x]['validation_result']['results']
     for result in range(len(validation_rule)):
+        print("")
         print("--------result for each of the validation-------------")
         print("Result_success --> " + str(validation_rule[result]['success']))
         print("exception_info--> raised_exception--->" + str(validation_rule[result]['exception_info']['raised_exception']))
@@ -128,7 +151,7 @@ display(transformed_df)
 
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
 
-#display(audit_df)
+display(audit_df)
 
 # COMMAND ----------
 
@@ -151,8 +174,26 @@ results = write_utils.write_delta_table(
     partition_columns=["__ref_dt"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
-
+print(target_location)
 print(vars(results))
+
+# COMMAND ----------
+
+dbults.fs.ls(target_location)
+
+# COMMAND ----------
+
+from delta.tables import *
+deltaTable = DeltaTable.forPath(spark, target_location)
+fullHistoryDF = deltaTable.history()
+display(fullHistoryDF)
+
+# COMMAND ----------
+
+df = spark.read.format("delta").option("version", "40").load(target_location)
+display(df)
+
+#display(Sampledata)
 
 # COMMAND ----------
 
