@@ -777,3 +777,35 @@ def test_business_key_column_keys_are_null():
             separator="__",
             check_null_values=True,
         )
+
+
+def test_deduplicate_records():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2019-21-22",
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-21-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2021-11-21",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-21-22'").count()
+    
+   
