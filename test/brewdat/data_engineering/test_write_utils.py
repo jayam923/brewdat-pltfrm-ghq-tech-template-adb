@@ -674,14 +674,21 @@ def test_write_scd_type_2_struct_types(tmpdir):
     print(vars(result))
 
     # ASSERT
-    print(result.error_details)
-    assert result.status == RunStatus.SUCCEEDED
     result_df = spark.table(result.target_object)
+    assert result.status == RunStatus.SUCCEEDED
     assert 3 == result_df.count()
     assert 1 == result_df.filter("id = '111' "
                                  "and __is_active = true "
                                  "and __start_date is not null "
                                  "and __end_date is null").count()
+
+
+expected_message_for_merging_duplicated_records = "java.lang.UnsupportedOperationException: Cannot perform Merge as " \
+        "multiple source rows matched and attempted to modify the same target row in the Delta table in possibly " \
+        "conflicting ways. By SQL semantics of Merge, when multiple source rows match on the same " \
+        "target row, the result may be ambiguous as it is unclear which source row should be " \
+        "used to update or delete the matching target row. You can preprocess the source table to " \
+        "eliminate the possibility of multiple matches. Please refer to "
 
 
 def test_write_duplicated_data_for_upsert(tmpdir):
@@ -707,18 +714,17 @@ def test_write_duplicated_data_for_upsert(tmpdir):
             "name": "my name",
             "id_series": "300"
         },
+        {
+            "id": "222",
+            "phone_number": "00000000001",
+            "name": "my name",
+            "id_series": "300"
+        },
 
     ])
     location = f"file://{tmpdir}/test_write_duplicated_data_for_upsert"
     schema_name = "test_schema"
     table_name = "test_write_duplicated_data_for_upsert"
-
-    expected_message_start = "java.lang.UnsupportedOperationException: Cannot perform Merge as multiple source rows " \
-                       "matched and attempted to modify the same target row in the Delta table in possibly " \
-                       "conflicting ways. By SQL semantics of Merge, when multiple source rows match on the same " \
-                       "target row, the result may be ambiguous as it is unclear which source row should be " \
-                       "used to update or delete the matching target row. You can preprocess the source table to " \
-                       "eliminate the possibility of multiple matches. Please refer to " \
 
     # ACT
     result = write_delta_table(
@@ -742,6 +748,10 @@ def test_write_duplicated_data_for_upsert(tmpdir):
         load_type=LoadType.UPSERT,
         schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
     )
-    
+
+    # ASSERT
+    result_df = spark.table(result.target_object)
     assert result.status == RunStatus.FAILED
-    assert result.error_message.startswith(expected_message_start)
+    assert result.error_message.startswith(expected_message_for_merging_duplicated_records)
+    assert 1 == result_df.count()
+
