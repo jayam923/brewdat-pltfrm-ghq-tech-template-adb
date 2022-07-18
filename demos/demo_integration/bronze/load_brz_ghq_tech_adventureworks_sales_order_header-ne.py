@@ -37,10 +37,10 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, dq_utils_1
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, dataquality_utils, QC_utils, qualityCheck_utils
 
 # Print a module's help
-help(dq_utils_1)
+help(QC_utils)
 
 # COMMAND ----------
 
@@ -63,7 +63,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/delta/",
+    location="dbfs:/FileStore/dataquality/DQData.csv",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
@@ -79,60 +79,47 @@ display(clean_df)
 
 # COMMAND ----------
 
-contextval = dq_utils_1.configure_data_context(dbutils= dbutils, df=clean_df)
-print(contextval[0])
-print(contextval[1])
-print(contextval[2])
-print(type(contextval))
-# batch_request_t = data_quality_utils.Create_batch_request(dbutils= dbutils, df=clean_df, context = contextval )
-# validator_t = data_quality_utils.Create_expectation_suite(dbutils= dbutils, df=clean_df, context = contextval, batch_request =batch_request_t)
-
-# COMMAND ----------
-
-
-results = dq_utils_1.dq_validate_column_type(dbutils= dbutils, col_name = "SalesOrderNumber", col_type = "IntegerType",validator =contextval[2] )
-print(type(results))
-
-
-# COMMAND ----------
-
-contextval = data_quality_utils.configure_data_context()
-batch_request_t = data_quality_utils.Create_batch_request(dbutils= dbutils, df=clean_df, context = contextval )
-validator_t = data_quality_utils.Create_expectation_suite(dbutils= dbutils, df=clean_df, context = contextval, batch_request =batch_request_t)
-
-# COMMAND ----------
-
-data_quality_utils.dq_validate_column_type(dbutils= dbutils, col_name = "SalesOrderNumber", col_type = "IntegerType",validator =validator_t )
-
-
-# COMMAND ----------
-
-
-
-# COMMAND ----------
-
-from pyspark.sql import functions as F
-
-transformed_df = (
-    clean_df
-    .filter(F.col("__ref_dt").between(
-        F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
-        F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
-    ))
-    .withColumn("__src_file", F.input_file_name())
+from pyspark.sql.functions import col
+df = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.JSON,
+    location="dbfs:/FileStore/dataquality/config_rule.json",
 )
+temp = transform_utils.flatten_dataframe(
+    df= df, 
+    dbutils=dbutils)
+display(temp)
 
-display(transformed_df)
 
-# COMMAND ----------
-
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
-
-#display(audit_df)
 
 # COMMAND ----------
 
-print(target_location)
+logic_df= temp.select(col('Metadata__tag__DataType').alias("DataType"),
+    col('Metadata__tag__FieldName').alias("FieldName"),
+    col('Metadata__tag__FileName').alias("FileName"),
+    col('Metadata__tag__IsNull').alias("IsNull"),
+    col('Metadata__tag__Maximum_Length').alias("Maximum_Length"),
+    col('Metadata__tag__Minimum_Length').alias("Minimum_Length"),
+    col('Metadata__tag__Maximum_value').alias("Maximum_value"),
+    col('Metadata__tag__Minimum_value').alias("Minimum_value"),
+    col('Metadata__tag__PK').alias("PK"),
+    col('Metadata__tag__Valid_Regular_Expression').alias("Valid_Regular_Expression"),
+    col('Metadata__tag__Valid_Values').alias("Valid_Values"),
+    col('Metadata__tag__Invalid_Values').alias("Invalid_Values"))
+
+# COMMAND ----------
+
+try:
+    err, temp =qualityCheck_utils.run_validation(file_name = "test",src_df = clean_df ,file_path_rules = logic_df ,reject_Path =None)
+    display(err)
+    display(temp)
+except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
@@ -145,18 +132,6 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     table_name=target_hive_table,
 )
 
-results = write_utils.write_delta_table(
-    spark=spark,
-    df=audit_df,
-    location=target_location,
-    schema_name=target_hive_database,
-    table_name=target_hive_table,
-    load_type=write_utils.LoadType.APPEND_ALL,
-    partition_columns=["__ref_dt"],
-    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
-)
-
-print(results)
 
 
 # COMMAND ----------
@@ -168,10 +143,26 @@ display(fullHistoryDF)
 
 # COMMAND ----------
 
-df = spark.read.format("delta").option("version", "31").load(target_location)
-display(df)
+#temp = fullHistoryDF.filter(fullHistoryDF.operation == "WRITE").select("operationParameters")
+temp = fullHistoryDF.filter(fullHistoryDF.operation == "WRITE").select("operationParameters")
+display(temp)
+print(type(temp))
 
-#display(Sampledata)
+
+# COMMAND ----------
+
+import pyspark.sql.functions as F
+temp = fullHistoryDF.filter(fullHistoryDF.operation == "VACUUM END").select(F.max("version")).first()[0]
+print(temp)
+
+# COMMAND ----------
+
+df1 = spark.read.format("delta").option("versionAsOf", 39).load(target_location)
+df2 = spark.read.format("delta").option("versionAsOf", 35).load(target_location)
+df3= df1.subtract(df2)
+print(df3.count())
+
+
 
 # COMMAND ----------
 

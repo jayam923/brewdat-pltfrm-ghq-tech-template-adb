@@ -64,7 +64,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/old_manish_files/csv/",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
@@ -190,7 +190,7 @@ display(fullHistoryDF)
 
 # COMMAND ----------
 
-df = spark.read.format("delta").option("version", "40").load(target_location)
+df = spark.read.format("delta").option("version", "19").load(target_location)
 display(df)
 
 #display(Sampledata)
