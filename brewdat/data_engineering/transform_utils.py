@@ -373,7 +373,7 @@ def _spark_type_clean_field_names_from_structs_recurse(spark_type: DataType) -> 
     Parameters
     ----------
     spark_type : DataType
-        DataType object to be recursively cast to string.
+        DataType object that should have its field names cleaned.
 
     Returns
     -------
