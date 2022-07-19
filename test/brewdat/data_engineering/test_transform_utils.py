@@ -12,7 +12,10 @@ def test_clean_column_names():
         {
             "phone  number": "00000000000",
             "name (Complete)": "my name",
-            "address 1": "my address"
+            "address 1": "my address",
+            "address##2": "my address",
+            "(address 3)": "my address",
+            "__ingestion_date": "2022-07-19"
          }
     ])
 
@@ -21,8 +24,11 @@ def test_clean_column_names():
 
     # ASSERT
     assert "phone_number" in result_df.columns
-    assert "name_Complete_" in result_df.columns
+    assert "name_Complete" in result_df.columns
     assert "address_1" in result_df.columns
+    assert "address_2" in result_df.columns
+    assert "address_3" in result_df.columns
+    assert "__ingestion_date" in result_df.columns
 
 
 def test_clean_column_names_except_for():
@@ -40,7 +46,7 @@ def test_clean_column_names_except_for():
 
     # ASSERT
     assert "phone_number" in result_df.columns
-    assert "name_Complete_" in result_df.columns
+    assert "name_Complete" in result_df.columns
     assert "address 1" in result_df.columns
 
 

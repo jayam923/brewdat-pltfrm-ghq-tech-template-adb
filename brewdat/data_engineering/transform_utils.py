@@ -362,7 +362,10 @@ def _clean_column_name(column_name: str) -> str:
     """
     # \W is "anything that is not alphanumeric or underscore"
     # Equivalent to [^A-Za-z0-9_]
-    return re.sub(r"\W+", "_", column_name.strip())
+    new_column_name = re.sub(r"\W+", "_", column_name.strip())
+    # Removes leading/trailing underscores, keeping leading double underscores as this is represents metadata columns.
+    new_column_name = re.sub(r"^_(?!_)|_$", "", new_column_name)
+    return new_column_name
 
 
 def _spark_type_clean_field_names_from_structs_recurse(spark_type: DataType) -> str:
