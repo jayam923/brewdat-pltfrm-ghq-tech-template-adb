@@ -43,7 +43,7 @@ def clean_column_names(
             if column.name != new_column_name:
                 df = df.withColumnRenamed(column.name, new_column_name)
 
-            if column.dataType.typeName() in ["struct", "array"]:
+            if column.dataType.typeName() in ["struct", "array", "map"]:
                 new_data_type = _spark_type_clean_field_names_from_structs_recurse(column.dataType)
                 df = df.withColumn(new_column_name, F.col(new_column_name).cast(new_data_type))
 
@@ -393,4 +393,8 @@ def _spark_type_clean_field_names_from_structs_recurse(spark_type: DataType) -> 
             new_name = _clean_column_name(name)
             new_field_types.append(f"`{new_name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
+    if spark_type.typeName() == "map":
+        new_key_type = _spark_type_clean_field_names_from_structs_recurse(spark_type.keyType)
+        new_value_type = _spark_type_clean_field_names_from_structs_recurse(spark_type.valueType)
+        return f"map<{new_key_type},{new_value_type}>"
     return spark_type.typeName()
