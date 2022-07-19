@@ -777,3 +777,214 @@ def test_business_key_column_keys_are_null():
             separator="__",
             check_null_values=True,
         )
+
+
+def test_deduplicate_records():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2019-11-22",
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2021-11-21",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-11-22'").count()
+
+
+
+def test_deduplicate_records_same_date():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-11-22'").count()
+
+
+def test_deduplicate_records_null_date():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-11-22'").count()
+    
+
+def test_deduplicate_records_null_key():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+def test_deduplicate_records_different_keys():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+        
+        {
+            "name": "joao",
+            "last name": "abreu2",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+def test_deduplicate_records_without_watermark_column():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+        
+        {
+            "name": "joao",
+            "last name": "abreu2",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"])
+    #result_df.show()
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+def test_deduplicate_records_without_key_columns():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+        
+        {
+            "name": "joao",
+            "last name": "abreu2",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df, watermark_column = "date")
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+
+    
+    
+   
