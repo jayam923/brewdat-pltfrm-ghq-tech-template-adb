@@ -980,6 +980,8 @@ def test_deduplicate_records_without_key_columns():
     ])
     # ACT
     result_df = deduplicate_records(dbutils=None, df=df, watermark_column = "date")
+    # ASSERT
+    assert 2 == result_df.count()
 
 
 
