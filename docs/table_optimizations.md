@@ -7,15 +7,14 @@ This document showcases some of those features as well as how they fit into CSA 
 
 ## DATA SKIPPING
 
-Data Skipping is a performance optimization that aims at speeding up queries that contain filters (WHERE clauses).
-As new data is inserted into a Databricks Delta table, file-level min/max statistics are collected for all columns (including nested ones) of supported types. Then, when there’s a lookup query against the table, Databricks Delta first consults these statistics to determine which files can safely be skipped.
+Data Skipping is a performance optimization that aims at speeding up queries that contain filters (WHERE clauses). As new data is inserted into a Delta table, file-level min/max statistics are collected for all columns (including nested ones) of supported types. Then, when there’s a lookup query against the table, Delta first consults these statistics to determine which files can safely be skipped.
 
 **This is done automatically** and no specific commands are required.
 
 
 ## PARTITION BY
 
-Spark is designed to process large datasets 100x faster than traditional processing, this wouldn’t have been possible without partitions. Below are some of the advantages of using Spark partitions on memory or on disk.
+Spark is designed to process large datasets 100x faster than traditional processing, this wouldn’t have been possible without partitions. Below are some of the advantages of using partitions.
 
 * Fast accessed to the data.
 * Provides the ability to perform an operation on a smaller dataset.
@@ -26,7 +25,7 @@ All writing functions from [brewdat library](https://github.com/BrewDat/brewdat-
 
 *Choosing the right partition column*
 
-You can partition a Delta table by a column. The most commonly used partition column is date. Follow these two rules of thumb for deciding on what column to partition by:
+You can partition a Delta table by a column. The most commonly used partition column is some date column. Follow these two rules of thumb for deciding on what column to partition by:
 
 * If the cardinality of a column will be very high, do not use that column for partitioning. For example, if you partition by a column userId and if there can be 1M distinct user IDs, then that is a bad partitioning strategy.
 * Amount of data in each partition: You can partition by a column if you expect data in that partition to be at least 1 GB.
@@ -56,7 +55,7 @@ Databricks dynamically optimizes Apache Spark partition sizes based on the actua
 After an individual write, Databricks checks if files can further be compacted, and runs an OPTIMIZE job (with 128 MB file sizes instead of the 1 GB file size used in the standard OPTIMIZE) to further compact files for partitions that have the most number of small files.
 
 
-All writing functions from [brewdat library](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb/releases) have **auto optimize already tuned on**.
+All writing functions from [brewdat library](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adb/releases) have **auto optimize already turned on**.
 
 For more information on auto optimize, click [here](https://docs.microsoft.com/en-us/azure/databricks/delta/optimizations/auto-optimize).
 
@@ -74,7 +73,7 @@ OPTIMIZE events
 
 *ZORDER BY*
 
-Colocate column information in the same set of files. 
+Colocates column information in the same set of files. 
 
 If you expect a column to be commonly used in query predicates and if that column has high cardinality (that is, a large number of distinct values), then you can use ZORDER BY. This is option is meant to colocate column information in the same set of files. Co-locality is used by Delta Lake data-skipping algorithms to dramatically reduce the amount of data that needs to be read. You can specify multiple columns for ZORDER BY as a comma-separated list. However, the effectiveness of the locality drops with each additional column.
 
@@ -107,7 +106,7 @@ With this partition strategy, the process that reads data from bronze and increm
 *When command OPTIMIZE should be executed?*
 Since AUTO OPTIMIZE is turned on, in most cases this is not necessary. 
 Regarding performance on jobs that loads data from bronze to silver layer, there is not much of a improvement since only new data is processed. 
-For tables bigger than 10 TB of data, running OPTMIZE can help to reduce the storage costs. However, it is not recomended to execute OPTMIZE on every write to the table or in a excessive way once this could be a performance hit and the cost on computing might not cover the storage cost. In this case, a job could be created specically for optimization. This new job should be scheduled in a way that matches the growth pace of the table.
+For tables bigger than 10 TB of data, running OPTIMIZE can help to reduce the storage costs. However, it is not recomended to execute OPTMIZE on every write to the table or in a excessive way once this could be a performance hit and the cost on computing might not cover the storage cost. In this case, a job could be created specically for optimization. This new job should be scheduled in a way that matches the growth pace of the table.
 Bronze layer is not a consumption layer, so ZORDER BY doesn't make much sense here. 
 
 
@@ -117,11 +116,12 @@ Silver and gold are consumption ready layers, so the optimization strategy for t
 
 ```mermaid
 graph TD;
-    A[Is table volume known to be small?]-- Yes -->B[Is there any low cardinality <br> column commonly used on queries <br>executed against this table?];
+    A[Is table volume known to be small?]-- No -->B[Is there any low cardinality <br> column commonly used on queries <br>executed against this table?];
     B-- Yes -->D[Are the values on this <br> column well distributed?];
-    A-- No -->C[No need for partitions.];
+    A-- Yes -->C[No need for partitions.];
     D-- Yes -->F[Use this column as partition.];
-    D-- No -->G[Use insert date or <br>any low cardinality column <br> as partition.];
+    B -- No -->G[Use insert date or <br>any low cardinality column <br> as partition.];
+    D-- No -->G
 ```
 
 A good partition column has the following characteristics:
@@ -129,7 +129,7 @@ A good partition column has the following characteristics:
 * Low cardinality;
 * Data is well distributed (balanced).
 
-Regarding cardinality, if a high cardinality column is selected as partition column, the table might end up having excessive number of partitions and lots of small files (which Spark engine doesn't handle very well) and the overall performance of reading data from table could acctually be worst than having no partition at all.
+Regarding cardinality, if a high cardinality column is selected as partition column, the table might end up having excessive number of partitions and lots of small files (which Spark engine doesn't handle very well) and the overall performance of reading data from table could actually be worst than having no partition at all.
 
 Data distribution is another important aspect. If most of data is bucketed inside the same (or just a few) partition(s), then there is no real benefit on having partitions set.
 
@@ -137,14 +137,14 @@ Data distribution is another important aspect. If most of data is bucketed insid
 
 Usually, it is recommended to set only one column as partition for a table. However, it is possible to set multiple partitions if this has the potential for improving performance. In those cases, it is recomended to set the lowest cardinality column as first partition.
 
-Be aware thoug that excessive number of partitions and small files should be avoided.
+Be aware though that excessive number of partitions and small files should be avoided.
 
 E.g.:
-- Table X holds orders data from all ABI zone.
+- Table X holds orders data from all ABI zones.
 - The expected amount of data is huge. 
 - Every query should filter by zone and a period of time (creation date).
 - Zone and creation date are well distributed columns.
-- Then, zone and creation date could be used as partitions, respecting this order once zone cardinality is lower than creation date.
+- Then, zone and creation date could be used as partitions(respecting this order once zone cardinality is lower than creation date).
 
 
 *OPTIMIZE and ZORDER*
@@ -152,8 +152,6 @@ E.g.:
 Since AUTO OPTIMIZE is turned on, in most cases this is not necessary.
 
 For tables bigger than 10 TB of data, running OPTMIZE can help to reduce the storage costs. However, it is not recomended to execute OPTMIZE on every write to the table or in a excessive way once this could be a performance hit and the cost on computing might not cover the storage cost. In this case, a job could be created specically for optimization. This new job should be scheduled in a way that matches the growth pace of the table.
-
-In case you need better performance on queries that filter some high cardinality column, you can optimize with ZORDER. 
 
 If you expect a column to be commonly used in query predicates and if that column has high cardinality (that is, a large number of distinct values), then you can use ZORDER BY. You can also specify multiple columns for ZORDER BY. However, the effectiveness of the locality drops with each additional column.
 
