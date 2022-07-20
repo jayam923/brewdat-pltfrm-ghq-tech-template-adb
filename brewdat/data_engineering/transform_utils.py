@@ -17,8 +17,8 @@ def clean_column_names(
 ) -> DataFrame:
     """Normalize the name of all the columns in a given DataFrame.
 
-    Uses BrewDat's standard approach as seen in other Notebooks.
-    Improved to also trim (strip) whitespaces.
+    Replaces non-alphanumeric characters with underscore and
+    strips leading/trailing underscores, except in metadata columns.
 
     Parameters
     ----------
@@ -43,8 +43,8 @@ def clean_column_names(
             if column.name != new_column_name:
                 df = df.withColumnRenamed(column.name, new_column_name)
 
-            if column.dataType.typeName() in ["struct", "array", "map"]:
-                new_data_type = _spark_type_clean_field_names_from_structs_recurse(column.dataType)
+            if column.dataType.typeName() in ["array", "map", "struct"]:
+                new_data_type = _spark_type_clean_field_names_recurse(column.dataType)
                 df = df.withColumn(new_column_name, F.col(new_column_name).cast(new_data_type))
 
         return df
@@ -311,6 +311,67 @@ def flatten_dataframe(
         common_utils.exit_with_last_exception(dbutils)
 
 
+def _clean_column_name(column_name: str) -> str:
+    """Returns column name formatted into proper pattern.
+
+    Replaces non-alphanumeric characters with underscore and
+    strips leading/trailing underscores, except in metadata columns.
+
+    Parameters
+    ----------
+    column_name : str
+        Column name to be formatted.
+
+    Returns
+    -------
+    str
+        Formatted column name.
+    """
+    # Replace anything that is not alphanumeric or underscore with underscore
+    new_column_name = re.sub(r"[^A-Za-z0-9_]+", "_", column_name)
+
+    # Remove leading/trailing underscores
+    # Except for leading double underscores in metadata columns
+    if new_column_name.startswith("_") and not new_column_name.startswith("__"):
+        new_column_name = new_column_name.strip("_")
+    else:
+        new_column_name = new_column_name.rstrip("_")
+
+    return new_column_name
+
+
+def _spark_type_clean_field_names_recurse(spark_type: DataType) -> str:
+    """Returns a DDL representation of a Spark data type for casting purposes.
+
+    All field names from complex types are replaced with clean field names.
+
+    Parameters
+    ----------
+    spark_type : DataType
+        DataType object that should have its field names cleaned.
+
+    Returns
+    -------
+    str
+        DDL representation of the new Datatype.
+    """
+    if spark_type.typeName() == "array":
+        new_element_type = _spark_type_clean_field_names_recurse(spark_type.elementType)
+        return f"array<{new_element_type}>"
+    if spark_type.typeName() == "map":
+        new_key_type = _spark_type_clean_field_names_recurse(spark_type.keyType)
+        new_value_type = _spark_type_clean_field_names_recurse(spark_type.valueType)
+        return f"map<{new_key_type},{new_value_type}>"
+    if spark_type.typeName() == "struct":
+        new_field_types = []
+        for name in spark_type.fieldNames():
+            new_field_type = _spark_type_clean_field_names_recurse(spark_type[name].dataType)
+            new_name = _clean_column_name(name)
+            new_field_types.append(f"`{new_name}`: {new_field_type}")
+        return "struct<" + ", ".join(new_field_types) + ">"
+    return spark_type.typeName()
+
+
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:
     """Returns a DDL representation of a Spark data type for casting purposes.
 
@@ -342,59 +403,3 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
             new_field_types.append(f"`{name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
     return "string"
-
-
-def _clean_column_name(column_name: str) -> str:
-    """Returns column name formatted into proper pattern.
-
-    Uses BrewDat's standard approach as seen in other Notebooks.
-    Improved to also trim (strip) whitespaces.
-
-    Parameters
-    ----------
-    column_name : str
-        Column name to be formatted.
-
-    Returns
-    -------
-    str
-        Formatted column name.
-    """
-    # \W is "anything that is not alphanumeric or underscore"
-    # Equivalent to [^A-Za-z0-9_]
-    new_column_name = re.sub(r"\W+", "_", column_name.strip())
-    # Removes leading/trailing underscores, keeping leading double underscores as this is represents metadata columns.
-    new_column_name = re.sub(r"^_(?!_)|_$", "", new_column_name)
-    return new_column_name
-
-
-def _spark_type_clean_field_names_from_structs_recurse(spark_type: DataType) -> str:
-    """Returns a DDL representation of a Spark data type for casting purposes.
-
-    All field names from struct types are replaced by their formatted name.
-
-    Parameters
-    ----------
-    spark_type : DataType
-        DataType object that should have its field names cleaned.
-
-    Returns
-    -------
-    str
-        DDL representation of the new Datatype.
-    """
-    if spark_type.typeName() == "array":
-        new_element_type = _spark_type_clean_field_names_from_structs_recurse(spark_type.elementType)
-        return f"array<{new_element_type}>"
-    if spark_type.typeName() == "struct":
-        new_field_types = []
-        for name in spark_type.fieldNames():
-            new_field_type = _spark_type_clean_field_names_from_structs_recurse(spark_type[name].dataType)
-            new_name = _clean_column_name(name)
-            new_field_types.append(f"`{new_name}`: {new_field_type}")
-        return "struct<" + ", ".join(new_field_types) + ">"
-    if spark_type.typeName() == "map":
-        new_key_type = _spark_type_clean_field_names_from_structs_recurse(spark_type.keyType)
-        new_value_type = _spark_type_clean_field_names_from_structs_recurse(spark_type.valueType)
-        return f"map<{new_key_type},{new_value_type}>"
-    return spark_type.typeName()
