@@ -104,6 +104,7 @@ Since bronze layer is usually an append only layer and it is meant for tracking 
 With this partition strategy, the process that reads data from bronze and incrementally writes it to silver layer can then filter the date partition and skip older files/partitions.
 
 *When command OPTIMIZE should be executed?*
+
 Since AUTO OPTIMIZE is turned on, in most cases this is not necessary. 
 Regarding performance on jobs that loads data from bronze to silver layer, there is not much of a improvement since only new data is processed. 
 For tables bigger than 10 TB of data, running OPTIMIZE can help to reduce the storage costs. However, it is not recomended to execute OPTMIZE on every write to the table or in a excessive way once this could be a performance hit and the cost on computing might not cover the storage cost. In this case, a job could be created specically for optimization. This new job should be scheduled in a way that matches the growth pace of the table.
