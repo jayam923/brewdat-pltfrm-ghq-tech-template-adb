@@ -93,12 +93,14 @@ For more information about OPTIMIZE command, click [here](https://docs.microsoft
 ## CSA LAKEHOUSE
 
 ### raw
+
 Once this data layer is usually not on Delta Lake format, optmizations mentioned before don't apply except partitioning.
 Extract data to this layer partitioning by date (current date).
 The process that reads raw data and writes it to bronze layer can then filter based on this date (e.g: current_date - 1) and make use of this partition to skip older files.
 All [ADF pipeline templates for extraction](https://github.com/BrewDat/brewdat-pltfrm-ghq-tech-template-adf/releases) provided by CSA platform team already implement this partitioning strategy. On these templates, the partition column name is `__ref_dt` and adopted date format is `yyyyMMdd`.
 
 ### bronze
+
 Since bronze layer is usually an append only layer and it is meant for tracking historical data, data should be partitioned by ingestion/extraction date. If data was extracted through some CSA ADF template, the same `__ref_df` date could be used for partitioning.
 With this partition strategy, the process that reads data from bronze and incrementally writes it to silver layer can then filter the date partition and skip older files/partitions.
 
@@ -110,6 +112,7 @@ Bronze layer is not a consumption layer, so ZORDER BY doesn't make much sense he
 
 
 ### silver and gold
+
 Silver and gold are consumption ready layers, so the optimization strategy for tables on these layers should take in consideration the data profile and the scenarios where this table is being used. The following decision tree can help identifying the proper partition column.
 
 ```mermaid
@@ -118,8 +121,7 @@ graph TD;
     B-- Yes -->D[Are the values on this <br> column well distributed?];
     A-- No -->C[No need for partitions.];
     D-- Yes -->F[Use this column as partition.];
-    D-- No -->G[Use insert date or <br>any low cardinality column <br> as partition];
-    F-- No -->G
+    D-- No -->G[Use insert date or <br>any low cardinality column <br> as partition.];
 ```
 
 A good partition column has the following characteristics:
@@ -131,9 +133,31 @@ Regarding cardinality, if a high cardinality column is selected as partition col
 
 Data distribution is another important aspect. If most of data is bucketed inside the same (or just a few) partition(s), then there is no real benefit on having partitions set.
 
+*Multiple columns as partitions*
 
-Usually, it is recommended to set only one column as partition for a table. However, it is possible to set multiple partitions if this has the potential for improving performance. Be aware thoug that excessive number of partitions and small files should be avoided.
+Usually, it is recommended to set only one column as partition for a table. However, it is possible to set multiple partitions if this has the potential for improving performance. In those cases, it is recomended to set the lowest cardinality column as first partition.
 
-Cenario regioes
+Be aware thoug that excessive number of partitions and small files should be avoided.
 
-OPTIMIZE
+E.g.:
+- Table X holds orders data from all ABI zone.
+- The expected amount of data is huge. 
+- Every query should filter by zone and a period of time (creation date).
+- Zone and creation date are well distributed columns.
+- Then, zone and creation date could be used as partitions, respecting this order once zone cardinality is lower than creation date.
+
+
+*OPTIMIZE and ZORDER*
+
+Since AUTO OPTIMIZE is turned on, in most cases this is not necessary.
+
+For tables bigger than 10 TB of data, running OPTMIZE can help to reduce the storage costs. However, it is not recomended to execute OPTMIZE on every write to the table or in a excessive way once this could be a performance hit and the cost on computing might not cover the storage cost. In this case, a job could be created specically for optimization. This new job should be scheduled in a way that matches the growth pace of the table.
+
+In case you need better performance on queries that filter some high cardinality column, you can optimize with ZORDER. 
+
+If you expect a column to be commonly used in query predicates and if that column has high cardinality (that is, a large number of distinct values), then you can use ZORDER BY. You can also specify multiple columns for ZORDER BY. However, the effectiveness of the locality drops with each additional column.
+
+E.g.: 
+- Table X holds customer data.
+- This table is commonly joined to others through the customer_id column.
+- Then, table X can be optimized with ZORDER BY customer_id.
