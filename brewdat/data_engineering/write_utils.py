@@ -690,9 +690,17 @@ def _generate_type_2_scd_metadata_columns(
     -------
     DataFrame
         Pyspark Dataframe with new Type-2 SCD metadata columns.
+
+    Notes
+    -----
+    __hash_key uses the Base64 representation of the MD5 hash of all columns,
+    except for metadata columns (those whose name starts with two underscores).
     """
     all_cols = [col for col in df.columns if not col.startswith("__")]
-    df = df.withColumn("__hash_key", F.md5(F.to_json(F.struct(*all_cols))))
+    df = df.withColumn(
+        "__hash_key",
+        F.substring(F.base64(F.unhex(F.md5(F.to_json(F.struct(*all_cols))))), 0, 22)
+    )
     df = df.withColumn("__start_date", F.current_timestamp())
     df = df.withColumn("__end_date", F.lit(None).cast("timestamp"))
     df = df.withColumn("__is_active", F.lit(True))
