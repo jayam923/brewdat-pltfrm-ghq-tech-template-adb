@@ -62,11 +62,8 @@ common_utils.configure_spn_access_for_adls(
 raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.CSV,
+    file_format=read_utils.RawFileFormat.ORC,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    csv_has_headers=True,
-    csv_delimiter=",",
-    csv_escape_character="\"",
 )
 
 #display(raw_df)
