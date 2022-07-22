@@ -127,7 +127,7 @@ def generate_gold_table_location(
     target_business_domain : str
         Business domain of the target dataset.
     data_product : str
-        data_product of the target dataset.
+        Data product of the target dataset.
     database_name : str
         Name of the target database for the table in the metastore.
     table_name : str
