@@ -136,9 +136,12 @@ Data distribution is another important aspect. If most of data is bucketed insid
 
 *Multiple columns as partitions*
 
-Usually, it is recommended to set only one column as partition for a table. However, it is possible to set multiple partitions if this has the potential for improving performance. In those cases, it is recomended to set the lowest cardinality column as first partition.
 
-Be aware though that excessive number of partitions and small files should be avoided.
+Although in most cases having only a single column as partition is recommended, it is indeed possible to have multiple columns as partitions.
+
+
+The recomendations regarding table size, partition size and column cardinality from single partition approach still apply is this case and should be taken in consideration even more carefully. Remember that excessive number of partitions and small files should always be avoided, so go with multiple partitions only for tables particularly large. It is also recommended to set the lowest cardinality column as first (root) partition.
+
 
 E.g.:
 - Table X holds orders data from all ABI zones.
