@@ -16,7 +16,7 @@ Data Skipping is a performance optimization that aims at speeding up queries tha
 
 Spark is designed to process large datasets 100x faster than traditional processing, this wouldn’t have been possible without partitions. Below are some of the advantages of using partitions.
 
-* Fast accessed to the data.
+* Fast access to the data.
 * Provides the ability to perform an operation on a smaller dataset.
 
 Partitioning at rest (disk) is a feature of many databases and data processing frameworks and it is key to make reads faster.
