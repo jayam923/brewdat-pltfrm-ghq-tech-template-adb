@@ -1,20 +1,13 @@
-import re
-import ast
 import pandas as pd
-import pyspark
-import numpy as np
 import pyspark.sql.functions as f
+import pyspark.sql.functions as F
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.types import StructType,StringType,StructField
-from pyspark.dbutils import DBUtils
 from pyspark.sql.functions import col, count, lit, length, when, array_union, array
 from pyspark.sql.types import IntegerType,DecimalType,ByteType,StringType,LongType,BooleanType,DoubleType,FloatType
 from pyspark.sql import SparkSession
 from pyspark.sql import Window
 from typing import List
-from pyspark.context import SparkContext
-from datetime import datetime as dt
-from . import common_utils, transform_utils
+from . import common_utils
 
 
 def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
@@ -28,13 +21,13 @@ def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
     DataFrame: 
         Returns Pyspark Dataframe with required columns.
     """
-    dq_dataframe = df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
+    dq_dataframe = df.withColumn('__bad_record', lit('False')).withColumn('__data_quality_issues',array())
     return dq_dataframe
 
             
 def data_type_check(
-    field_name : str, 
-    data_type : str, 
+    field_name : str,
+    data_type : str,
     src_df:DataFrame )->DataFrame:
     
     """Checks the field datatype for field present at ith position of the
@@ -110,34 +103,49 @@ def data_type_check(
 
 
 def null_check(
-    field_name : str, 
-    src_df:DataFrame )->DataFrame:           
+        df: DataFrame,
+        field_name: str,
+        dbutils: object,
+) -> DataFrame:
     
     """Helps to validate null values in the column
     Parameters
     ----------
+    df : DataFrame
+        PySpark DataFrame to modify.
     field_name : str
         Column name to test values.
-    src_df : DataFrame
-        PySpark DataFrame to modify.
+    dbutils : object
+        A Databricks utils object.
 
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-
     try:
-        src_df = src_df.withColumn('__bad_record',when(col(field_name).isNull(),
-                                   lit('True')).otherwise(col('__bad_record')))
+        result_df = (
+            df.withColumn("dq_run_timestamp", F.current_timestamp())
+            .withColumn('__data_quality_issues',
+                        when(F.col(field_name).isNull(),
+                             F.array_union('__data_quality_issues',
+                                           F.array(lit(f'{field_name}: records contain null values')))
+                             )
+                        .otherwise(F.col('__data_quality_issues'))
+                        )
+            .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
 
-        src_df = src_df.withColumn('__data_quality_issues',
-                           when(col(field_name).isNull(),
-                           array_union('__data_quality_issues',
-                           array(lit(f' {field_name} ; Records contain null values'
-                           )))).otherwise(col('__data_quality_issues'
-                           ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
+        )
+        # src_df = df.withColumn('__bad_record',when(col(field_name).isNull(),
+        #                            lit('True')).otherwise(col('__bad_record')))
+        #
+        # src_df = src_df.withColumn('__data_quality_issues',
+        #                    when(col(field_name).isNull(),
+        #                    array_union('__data_quality_issues',
+        #                    array(lit(f'{field_name}: records contain null values'
+        #                    )))).otherwise(col('__data_quality_issues'
+        #                    ))).withColumn("dq_run_timestamp",f.current_timestamp())
+        return result_df
     except Exception:
         common_utils.exit_with_last_exception(dbutils) 
 
