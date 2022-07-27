@@ -28,7 +28,7 @@ def test_read_raw_dataframe_csv_simple(file_location = "./test/brewdat/data_engi
     assert 2 == df.count()
     assert expected_schema == df.schema
 
-
+"""
 def test_read_raw_dataframe_parquet_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_simple1.parquet"):
     # ARRANGE
     expected_schema = StructType(
@@ -282,3 +282,79 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_no
     df.show()
     assert 1 == df.count()
     assert expected_schema == df.schema
+
+def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/test.xml"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('address', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.XML,
+        location=file_location,
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_csv_delimiter(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_delimiter.csv"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('address', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.CSV,
+        location=file_location,
+        csv_delimiter=';'
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_has_headers.csv"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('address', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.CSV,
+        location=file_location,
+        csv_delimiter=',',
+        csv_has_headers = False
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    
+    """
+
