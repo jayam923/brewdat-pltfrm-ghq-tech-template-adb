@@ -17,16 +17,6 @@ from datetime import datetime as dt
 from . import common_utils, transform_utils
 
 
-
-def __get_col_list(src_df:DataFrame)-> List :
-    fields_list= [x for x in src_df.columns]
-    return fields_list
-
-def __get_lower_Case(values:list)-> List :
-    fields_list= [x.lower() for x in values]
-    return fields_list
-
-
 def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
     """To create required columns to maintain DQ checks.
     Parameters
@@ -40,7 +30,6 @@ def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
     """
     dq_dataframe = df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
     return dq_dataframe
-
 
             
 def data_type_check(
@@ -118,6 +107,7 @@ def data_type_check(
         return src_df
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+
 
 def null_check(
     field_name : str, 
@@ -331,6 +321,7 @@ def valid_values(
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
+
 def valid_regular_expression(
     field_name : str,
     valid_regular_expression : str,
@@ -398,7 +389,8 @@ def duplicate_check(
         return src_df
     except Exception:
             common_utils.exit_with_last_exception(dbutils)
-    
+
+
 def column_check(
     col_list,
     src_df:DataFrame)-> List:
@@ -419,8 +411,8 @@ def column_check(
     """
     try:
         missing_fields = [] 
-        fields_list =  __get_lower_Case(__get_col_list(src_df))
-        col_list = __get_lower_Case(col_list)
+        fields_list =  __get_lower_case(__get_col_list(src_df))
+        col_list = __get_lower_case(col_list)
         for i in range(0,len(col_list)):
             if col_list[i] not in fields_list:
                 missing_fields.append(col_list[i])
@@ -433,9 +425,6 @@ def column_check(
     except Exception:
             common_utils.exit_with_last_exception(dbutils)
             
-            
-
-    
 
 def run_validation(
     spark: SparkSession,
@@ -538,3 +527,13 @@ def run_validation(
 
         print('completed')
         return src_df
+
+
+def __get_col_list(src_df:DataFrame)-> List :
+    fields_list= [x for x in src_df.columns]
+    return fields_list
+
+
+def __get_lower_case(values:list)-> List :
+    fields_list= [x.lower() for x in values]
+    return fields_list
