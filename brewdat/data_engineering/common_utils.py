@@ -3,7 +3,7 @@ import sys
 import traceback
 from enum import Enum, unique
 from typing import List
-
+from pyspark.sql import DataFrame
 from pyspark.sql import SparkSession
 
 
@@ -39,11 +39,13 @@ class ReturnObject():
     def __init__(
         self,
         status: RunStatus,
+        last_history_df : DataFrame,
         target_object: str,
         num_records_read: int = 0,
         num_records_loaded: int = 0,
         error_message: str = "",
         error_details: str = "",
+        
     ):
         self.status = status
         self.target_object = target_object
@@ -52,6 +54,7 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
+        self.last_history_df = last_history_df
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):

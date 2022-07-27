@@ -2,12 +2,34 @@ import datetime
 from pyspark.sql import DataFrame
 import great_expectations as ge
 from ruamel import yaml
+from pyspark.sql import DataFrame, SparkSession
+from delta.tables import DeltaTable
 from great_expectations.core.batch import RuntimeBatchRequest
 from great_expectations.validator.validator import Validator
+from great_expectations.core import ExpectationValidationResult
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import DataContextConfig, FilesystemStoreBackendDefaults
-from . import common_utils, transform_utils, read_utils
+from . import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
+    
+def get_delta_tables_values(spark: SparkSession, dbutils: object, delta_table: DeltaTable, target_location: str ) -> DataFrame:
+    """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
+
+    Returns
+    -------
+    DataFrame
+        Dataframe for history and latest records which are loaded
+    """
+    try:
+        current_df = delta_table.history(1)
+        #history_df = delta_table.history(5)
+        latest = spark.read.format("delta").option("versionAsOf", current_df.first()[0]).load(target_location)
+        #history = spark.read.format("delta").option("versionAsOf", history_df.first()[0]).load(target_location)        
+        return latest
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+    
     
 def configure_data_context() -> BaseDataContext:
     """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
@@ -194,6 +216,35 @@ def dq_validate_column_values_to_not_be_null(
         validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY") 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+        
+        
+def dq_validate_count_variation_percentage_from_previous_version_values(
+    dbutils: object, 
+    history_validator: Validator,
+    current_validator: Validator,
+    col_name : str,
+    null_percentage : int) -> ExpectationValidationResult:
+    """Create function to Assert column value is not null.
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    """
+    try:
+        history_result = history_validator.expect_column_values_to_not_be_null(col_name, mostly = null_percentage, result_format = "SUMMARY")
+        current_result = current_validator.expect_column_values_to_not_be_null(col_name, mostly = null_percentage, result_format = "SUMMARY")
+        print(" number of records in the existing delta table --> "+str(history_result['result']['element_count'])+
+              "  number of records in the current delta table  --> "+str(current_result['result']['element_count']))
+        print(" number of records in the existing delta table --> "+str(history_result['result']['unexpected_percent'])+
+              "  number of records in the current delta table  --> "+str(current_result['result']['unexpected_percent']))
+        return history_result, current_result
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
         
         
 def save_expectation_suite_in_validator(

@@ -222,11 +222,11 @@ def write_delta_table(
 
         # Find out how many records we have just written
         delta_table = DeltaTable.forPath(spark, location)
-        history_df = (
+        last_history_df = (
             delta_table
             .history(1)
-            .select(F.col("operationMetrics.numOutputRows").cast("int"))
         )
+        history_df = last_history_df.select(F.col("operationMetrics.numOutputRows").cast("int"))
         num_records_loaded = history_df.first()[0]
 
         # Create the Hive database and table
@@ -253,6 +253,7 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
+            last_history_df = last_history_df
         )
 
     except Exception as e:
@@ -263,6 +264,7 @@ def write_delta_table(
             num_records_loaded=num_records_loaded,
             error_message=str(e),
             error_details=traceback.format_exc(),
+            last_history_df = last_history_df,
         )
 
 

@@ -37,7 +37,7 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wide_checks
 
 # Print a module's help
 help(data_quality_utils)
@@ -73,6 +73,7 @@ display(raw_df)
 
 # COMMAND ----------
 
+# DBTITLE 1,Reading Json files
 from pyspark.sql.functions import col, count, lit, length, when, array_union, array
 import pyspark.sql.functions as f
 import pandas as pd
@@ -80,31 +81,31 @@ json_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.JSON,
-    location="dbfs:/FileStore/dataquality/viv_values_json.json")
+    location="dbfs:/FileStore/dataquality/config_rule_final.json")
 display(json_df)
 
 # COMMAND ----------
 
-# DBTITLE 1,to test individual 
-clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__failed_dg_check',array())
-#clean_df = data_quality_utils.data_type_check(spark=spark, dbutils=dbutils,file_name ="test", field_name = "Salary" ,data_type = "Integer" ,src_df = clean_df) 
-#clean_df = data_quality_utils.null_check(spark=spark, dbutils=dbutils,file_name ="test",field_name = "RegistrationNo" ,src_df = clean_df)
-#clean_df = data_quality_utils.max_length(spark=spark, dbutils=dbutils,file_name ="test",field_name = "Sex" ,maximum_length = 6, src_df = clean_df)
-#clean_df = data_quality_utils.min_length(spark=spark, dbutils=dbutils,file_name ="test",field_name = "City" ,minimum_length = 5, src_df = clean_df)
-#clean_df = data_quality_utils.range_value(spark=spark, dbutils=dbutils,file_name ="test",field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, src_df = clean_df)
-#clean_df = data_quality_utils.valid_values(spark=spark, dbutils=dbutils,file_name = "test",field_name = "Lname" ,valid_values=['sun', 'mon'],src_df = clean_df) 
-#clean_df = data_quality_utils.invalid_values(spark=spark, dbutils=dbutils,file_name = "test",field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],src_df = clean_df)   
-#clean_df = data_quality_utils.valid_regular_expression(spark=spark, dbutils=dbutils, file_name = "test", field_name = "Lname" ,valid_regular_expression="^[s-t]",src_df = clean_df)
-#clean_df = data_quality_utils.duplicate_check(spark=spark, dbutils=dbutils, col_list = ["Name","EmployeeNo","Lname"],file_name = "test",src_df = clean_df)
-tes_df = data_quality_utils.column_check(spark=spark, dbutils=dbutils, col_list=['Lname','Salary',"test"], src_df = clean_df,file_name = "test" )
+# DBTITLE 1,to test individual function
+clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
+clean_df = data_quality_utils.data_type_check(field_name = "Salary" ,data_type = "Integer", src_df = clean_df) 
+clean_df = data_quality_utils.null_check(field_name = "RegistrationNo" ,src_df = clean_df)
+#clean_df = data_quality_utils.max_length(field_name = "Sex" ,maximum_length = 6, src_df = clean_df)
+#clean_df = data_quality_utils.min_length(field_name = "City" ,minimum_length = 5, src_df = clean_df)
+#clean_df = data_quality_utils.range_value(field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, src_df = clean_df)
+clean_df = data_quality_utils.valid_values(field_name = "Lname" ,valid_values=['sun', 'mon'],src_df = clean_df) 
+#clean_df = data_quality_utils.invalid_values(field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],src_df = clean_df)   
+#clean_df = data_quality_utils.valid_regular_expression(field_name = "Lname" ,valid_regular_expression="^[s-t]",src_df = clean_df)
+#clean_df = data_quality_utils.duplicate_check(col_list = ["Name","EmployeeNo","Lname"],src_df = clean_df)
+#tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
 display(clean_df)
-print(tes_df)
+#print(tes_df)
 
 # COMMAND ----------
 
 # DBTITLE 1,To run DQ check using Json file
-clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__failed_dg_check',array())
-clean_df = data_quality_utils.run_validation(spark=spark, dbutils=dbutils, file_name = "test",src_df = clean_df, file_path_rules=json_df)
+clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
+clean_df = data_quality_utils.run_validation(spark=spark, dbutils=dbutils, src_df = clean_df, json_df=json_df)
 display(clean_df)
 
 
@@ -123,6 +124,23 @@ target_location = lakehouse_utils.generate_bronze_table_location(
 
 # COMMAND ----------
 
+from pyspark.sql.types import IntegerType,DecimalType,ByteType,StringType,LongType,BooleanType,DoubleType,FloatType
+field_name = "Salary"
+clean_df = raw_df
+clean_df = clean_df.withColumn('__bad_record',lit('False')).withColumn('__failed_dg_check',array())
+clean_df = clean_df.withColumn(f'{field_name}_type',col("salary").cast(IntegerType()))
+clean_df = clean_df.withColumn('__failed_dg_check',
+                     when((col(f'{field_name}_type').isNull()) & (col(field_name).isNotNull()),array_union('__failed_dg_check',array(lit(f' {field_name} ; Data type mismatch')))).otherwise(col('__failed_dg_check')))         .withColumn("dq_run_timestamp",f.current_timestamp()).drop(col(f'{field_name}_type'))
+display(clean_df)
+
+# COMMAND ----------
+
+clean_df = raw_df
+clean_df = clean_df.withColumn(f'{field_name}_type',col("salary"))
+display(clean_df)
+
+# COMMAND ----------
+
 from pyspark.sql.functions import when
 # display(clean_df)
 # display(temp)
@@ -137,8 +155,8 @@ display(result_data)
 
 from delta.tables import *
 deltaTable = DeltaTable.forPath(spark, target_location)
-fullHistoryDF = deltaTable.history(1)
-display(fullHistoryDF)
+#fullHistoryDF = deltaTable.history(1)
+display(deltaTable)
 
 # COMMAND ----------
 
