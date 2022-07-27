@@ -12,7 +12,7 @@ from great_expectations.data_context.types.base import DataContextConfig, Filesy
 from . import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
     
-def get_delta_tables_values(spark: SparkSession, dbutils: object, delta_table: DeltaTable, target_location: str ) -> DataFrame:
+def get_delta_tables_history_dataframe(target_location: str ) -> DataFrame:
     """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
 
     Returns
@@ -21,11 +21,12 @@ def get_delta_tables_values(spark: SparkSession, dbutils: object, delta_table: D
         Dataframe for history and latest records which are loaded
     """
     try:
-        current_df = delta_table.history(1)
-        #history_df = delta_table.history(5)
-        latest = spark.read.format("delta").option("versionAsOf", current_df.first()[0]).load(target_location)
-        #history = spark.read.format("delta").option("versionAsOf", history_df.first()[0]).load(target_location)        
-        return latest
+        latest = results.delta_table.history().filter(F.col("operation") == "WRITE").select(f.col("version").cast("int")).first()[0]
+        history = latest-4
+        latest_df = spark.read.format("delta").option("versionAsOf", latest).load(target_location)
+        history_df = spark.read.format("delta").option("versionAsOf", history).load(target_location)
+        return latest_df, history_df
+    
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
@@ -193,7 +194,8 @@ def dq_validate_row_count(
         count of the row in the table
     """
     try:
-        validator.expect_table_row_count_to_equal(row_len, result_format = "SUMMARY") 
+        result = validator.expect_table_row_count_to_equal(row_count, result_format = "SUMMARY")
+        return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
@@ -218,7 +220,34 @@ def dq_validate_column_values_to_not_be_null(
         common_utils.exit_with_last_exception(dbutils)
         
         
-def dq_validate_count_variation_percentage_from_previous_version_values(
+def dq_validate_count_variation_from_previous_version_values(
+    dbutils: object, 
+    current_validator: Validator,
+    history_df : df,
+    row_count : int ) -> ExpectationValidationResult:
+    """Create function to Assert column value is not null.
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    """
+    try:
+        history_load_count = history_df.count()
+        current_result = current_validator.expect_table_row_count_to_equal(history_load_count, result_format = "SUMMARY")
+        print(" number of records in the current delta table --> "+str(history_result['result']['element_count'])+
+              "  number of records in the history delta table  --> "+str(current_result['result']['element_count']))
+        print(" percentage of null records in current data--> "+str(history_result['result']['unexpected_percent'])+
+              "  percentage of null records in history data --> "+str(current_result['result']['unexpected_percent']))
+        return history_result, current_result
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+        
+def dq_validate_null_percentage_variation_from_previous_version_values(
     dbutils: object, 
     history_validator: Validator,
     current_validator: Validator,
@@ -239,13 +268,40 @@ def dq_validate_count_variation_percentage_from_previous_version_values(
         current_result = current_validator.expect_column_values_to_not_be_null(col_name, mostly = null_percentage, result_format = "SUMMARY")
         print(" number of records in the existing delta table --> "+str(history_result['result']['element_count'])+
               "  number of records in the current delta table  --> "+str(current_result['result']['element_count']))
-        print(" number of records in the existing delta table --> "+str(history_result['result']['unexpected_percent'])+
-              "  number of records in the current delta table  --> "+str(current_result['result']['unexpected_percent']))
+        print(" percentage of null records in history data--> "+str(history_result['result']['unexpected_percent'])+
+              "  percentage of null records in current data --> "+str(current_result['result']['unexpected_percent']))
         return history_result, current_result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
         
-        
+
+
+def dq_validate_sum_variation_from_previous_version_values(
+    dbutils: object, 
+    history_validator: Validator,
+    current_validator: Validator,
+    col_name : str,
+    null_percentage : int) -> ExpectationValidationResult:
+    """Create function to Assert column value is not null.
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    validator : Validator
+        Name of the Validator object.
+    col_name : str
+        Name of the column on which 
+    """
+    try:
+        history_result = history_validator(col_name, mostly = null_percentage, result_format = "SUMMARY")
+        current_result = current_validator.expect_column_values_to_not_be_null(col_name, mostly = null_percentage, result_format = "SUMMARY")
+        print(" number of records in the existing delta table --> "+str(history_result['result']['element_count'])+
+              "  number of records in the current delta table  --> "+str(current_result['result']['element_count']))
+        print(" percentage of null records in history data--> "+str(history_result['result']['unexpected_percent'])+
+              "  percentage of null records in current data --> "+str(current_result['result']['unexpected_percent']))
+        return history_result, current_result
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
         
 def save_expectation_suite_in_validator(
     dbutils: object,

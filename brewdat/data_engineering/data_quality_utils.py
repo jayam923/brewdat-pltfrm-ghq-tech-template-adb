@@ -26,6 +26,23 @@ def __get_lower_Case(values:list)-> List :
     fields_list= [x.lower() for x in values]
     return fields_list
 
+
+def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
+    """To create required columns to maintain DQ checks.
+    Parameters
+    ----------
+    src_df : DataFrame
+        PySpark DataFrame to modify.
+    Returns
+    -------
+    DataFrame: 
+        Returns Pyspark Dataframe with required columns.
+    """
+    dq_dataframe = df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
+    return dq_dataframe
+
+
+            
 def data_type_check(
     field_name : str, 
     data_type : str, 
@@ -50,16 +67,16 @@ def data_type_check(
         #fields_list = get_col_list(src_df)
         df_final=None
         if data_type == "byte" :
-            df_final = src_df.withColumn(f'{field_name}_type',col(field_name)
-                .cast(ByteType()))
+            df_final = src_df.withColumn(f'{field_name}_type',col(field_name)\
+                                         .cast(ByteType()))
 
         elif data_type== "Integer" : 
             df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
-                .cast(IntegerType()))
+                                       .cast(IntegerType()))
 
-        elif data_type== "string" : 
+        elif data_type== "String" : 
             df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
-                .cast(StringType()))
+                                       .cast(StringType()))
 
         elif data_type== "bigint" : 
             df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
@@ -415,6 +432,9 @@ def column_check(
         return missing_fields
     except Exception:
             common_utils.exit_with_last_exception(dbutils)
+            
+            
+
     
 
 def run_validation(
