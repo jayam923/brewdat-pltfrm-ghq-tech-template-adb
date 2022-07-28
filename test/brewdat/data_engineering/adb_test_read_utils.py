@@ -32,8 +32,16 @@ test_read_raw_dataframe_xml_simple(file_location = f"file:{os.getcwd()}/support_
 
 # COMMAND ----------
 
+test_read_raw_dataframe_xml_simple_row_tag(file_location = f"file:{os.getcwd()}/support_files/read_raw_dataframe/xml_simple_tag.xml")
+
+# COMMAND ----------
+
 test_read_raw_dataframe_csv_delimiter(file_location = f"file:{os.getcwd()}/support_files/read_raw_dataframe/csv_delimiter.csv")
 
 # COMMAND ----------
 
 test_read_raw_dataframe_csv_has_headers(file_location=f"file:{os.getcwd()}/support_files/read_raw_dataframe/csv_no_headers.csv")
+
+# COMMAND ----------
+
+test_read_raw_dataframe_excel_simple(file_location=f"file:{os.getcwd()}/support_files/read_raw_dataframe/excel_simple.xlsx")

@@ -303,11 +303,12 @@ def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engi
     )
 
     # ASSERT
+    df.show()
     assert 2 == df.count()
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_xml_simple_row_tag(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/xml_simple.xml"):
+def test_read_raw_dataframe_xml_simple_row_tag(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/xml_simple_tag.xml"):
     # ARRANGE
     expected_schema = StructType(
         [
@@ -323,10 +324,11 @@ def test_read_raw_dataframe_xml_simple_row_tag(file_location = "./test/brewdat/d
         dbutils=None,
         file_format=RawFileFormat.XML,
         location=file_location,
-        #xml_row_tag="client"
+        xml_row_tag="client"
     )
 
     # ASSERT
+    df.show()
     assert 2 == df.count()
     assert expected_schema == df.schema
 
