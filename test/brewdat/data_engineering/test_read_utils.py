@@ -404,3 +404,26 @@ def test_read_raw_dataframe_excel_simple(file_location="./test/brewdat/data_engi
     # ASSERT
     assert 2 == df.count()
     assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_avro(file_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/avro_simple1"):
+        # ARRANGE
+        expected_schema = StructType(
+            [
+                StructField('name', StringType(), True),
+                StructField('surname', StringType(), True)
+            ]
+        )
+
+        # ACT
+        df = read_raw_dataframe(
+            spark=spark,
+            dbutils=None,
+            file_format=RawFileFormat.AVRO,
+            location=file_location,
+        )
+
+        # ASSERT
+        df.show()
+        assert 2 == df.count()
+        assert expected_schema == df.schema
