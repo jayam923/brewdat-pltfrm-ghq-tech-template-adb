@@ -5,7 +5,7 @@ from pyspark.sql.dataframe import DataFrame
 from pyspark.sql.functions import col, count, lit, length, when, array_union, array
 from pyspark.sql.types import IntegerType,DecimalType,ByteType,StringType,LongType,BooleanType,DoubleType,FloatType
 from pyspark.sql import SparkSession
-from pyspark.sql import Window
+from pyspark.sql import Window, Column
 from typing import List
 from . import common_utils
 
@@ -123,19 +123,28 @@ def null_check(
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        result_df = (
-            df.withColumn("dq_run_timestamp", F.current_timestamp())
-            .withColumn('__data_quality_issues',
-                        when(F.col(field_name).isNull(),
-                             F.array_union('__data_quality_issues',
-                                           F.array(lit(f'{field_name}: records contain null values')))
-                             )
-                        .otherwise(F.col('__data_quality_issues'))
-                        )
-            .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
+    return __perform_dq_check(
+        df=df,
+        condition=F.col(field_name).isNull(),
+        dq_failure_message=f'{field_name}: record contain null value.',
+        dbutils=dbutils)
 
-        )
+    #try:
+        # V2
+        # result_df = (
+        #     df.withColumn("dq_run_timestamp", F.current_timestamp())
+        #     .withColumn('__data_quality_issues',
+        #                 when(F.col(field_name).isNull(),
+        #                      F.array_union('__data_quality_issues',
+        #                                    F.array(lit(f'{field_name}: records contain null values')))
+        #                      )
+        #                 .otherwise(F.col('__data_quality_issues'))
+        #                 )
+        #     .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
+        #
+        # )
+
+        # V1
         # src_df = df.withColumn('__bad_record',when(col(field_name).isNull(),
         #                            lit('True')).otherwise(col('__bad_record')))
         #
@@ -145,15 +154,17 @@ def null_check(
         #                    array(lit(f'{field_name}: records contain null values'
         #                    )))).otherwise(col('__data_quality_issues'
         #                    ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return result_df
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils) 
+        #return result_df
+    #except Exception:
+    #    common_utils.exit_with_last_exception(dbutils)
 
 
 def max_length(
-    field_name : str,
-    maximum_length : int,
-    src_df:DataFrame )->DataFrame:
+        df: DataFrame,
+        field_name: str,
+        maximum_length: int,
+        dbutils: object,
+) -> DataFrame:
     
     """Checks the field column length against the min and max values
     Parameters
@@ -171,19 +182,27 @@ def max_length(
         Returns Pyspark Dataframe with bad record indicator and validation message.
         
     """
-    try:
-        src_df = src_df.withColumn('__bad_record', when(length(field_name)
-                               > maximum_length, lit('True'
-                               )).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues', when(length(field_name)
-                               > maximum_length,
-                               array_union('__data_quality_issues',
-                               array(lit(f' {field_name} ; This records exceed the max_length defined for the column'
-                               )))).otherwise(col('__data_quality_issues'
-                               ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+    return __perform_dq_check(
+        df=df,
+        condition=(F.length(field_name) > maximum_length),
+        dq_failure_message=f'{field_name}: max length of {maximum_length} exceeded.',
+        dbutils=dbutils)
+
+
+    # V1
+    # try:
+    #     src_df = src_df.withColumn('__bad_record', when(length(field_name)
+    #                            > maximum_length, lit('True'
+    #                            )).otherwise(col('__bad_record')))
+    #     src_df = src_df.withColumn('__data_quality_issues', when(length(field_name)
+    #                            > maximum_length,
+    #                            array_union('__data_quality_issues',
+    #                            array(lit(f' {field_name} ; This records exceed the max_length defined for the column'
+    #                            )))).otherwise(col('__data_quality_issues'
+    #                            ))).withColumn("dq_run_timestamp",f.current_timestamp())
+    #     return src_df
+    # except Exception:
+    #     common_utils.exit_with_last_exception(dbutils)
 
 
 def min_length(
@@ -535,6 +554,28 @@ def run_validation(
 
         print('completed')
         return src_df
+
+
+def __perform_dq_check(
+        df: DataFrame,
+        condition: Column,
+        dq_failure_message: str,
+        dbutils: object,
+):
+
+    try:
+        result_df = (
+            df.withColumn("dq_run_timestamp", F.current_timestamp())
+            .withColumn('__data_quality_issues',
+                        when(condition,F.array_union('__data_quality_issues',F.array(lit(dq_failure_message))))
+                        .otherwise(F.col('__data_quality_issues'))
+                        )
+            .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
+
+        )
+        return result_df
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
 
 
 def __get_col_list(src_df:DataFrame)-> List :
