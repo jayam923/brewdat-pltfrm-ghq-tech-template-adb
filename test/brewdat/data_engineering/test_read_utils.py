@@ -28,7 +28,7 @@ def test_read_raw_dataframe_csv_simple(file_location = "./test/brewdat/data_engi
     assert 2 == df.count()
     assert expected_schema == df.schema
 
-"""
+
 def test_read_raw_dataframe_parquet_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_simple1.parquet"):
     # ARRANGE
     expected_schema = StructType(
@@ -283,12 +283,13 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_no
     assert 1 == df.count()
     assert expected_schema == df.schema
 
-def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/test.xml"):
+    
+def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/xml_simple.xml"):
     # ARRANGE
     expected_schema = StructType(
         [
-            StructField('name', StringType(), True),
             StructField('address', StringType(), True),
+            StructField('name', StringType(), True),
             StructField('phone', StringType(), True)
         ]
     )
@@ -302,7 +303,6 @@ def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engi
     )
 
     # ASSERT
-    df.show()
     assert 2 == df.count()
     assert expected_schema == df.schema
 
@@ -332,7 +332,7 @@ def test_read_raw_dataframe_csv_delimiter(file_location = "./test/brewdat/data_e
     assert expected_schema == df.schema
 
 
-def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_has_headers.csv"):
+def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_no_headers.csv"):
     # ARRANGE
     expected_schema = StructType(
         [
@@ -356,5 +356,4 @@ def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data
     df.show()
     assert 2 == df.count()
     
-    """
 

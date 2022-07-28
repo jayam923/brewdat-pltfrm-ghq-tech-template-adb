@@ -25,3 +25,15 @@ test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array(f"file:{o
 
 test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_not_cast_types(f"file:{os.getcwd()}/support_files/read_raw_dataframe/parquet_with_deeply_nested_struct_inside_array.parquet")
 
+
+# COMMAND ----------
+
+test_read_raw_dataframe_xml_simple(file_location = f"file:{os.getcwd()}/support_files/read_raw_dataframe/xml_simple.xml")
+
+# COMMAND ----------
+
+test_read_raw_dataframe_csv_delimiter(file_location = f"file:{os.getcwd()}/support_files/read_raw_dataframe/csv_delimiter.csv")
+
+# COMMAND ----------
+
+test_read_raw_dataframe_csv_has_headers(file_location=f"file:{os.getcwd()}/support_files/read_raw_dataframe/csv_no_headers.csv")
