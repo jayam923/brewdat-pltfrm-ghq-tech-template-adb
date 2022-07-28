@@ -357,3 +357,24 @@ def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data
     assert 2 == df.count()
     
 
+def test_read_raw_dataframe_excel_simple(file_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/excel_simple.xlsx"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), False),
+            StructField('address', StringType(), False),
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.EXCEL,
+        location=file_location,
+        excel_sheet_name="records"
+    )
+
+    # ASSERT
+    assert 2 == df.count()
+    assert expected_schema == df.schema
