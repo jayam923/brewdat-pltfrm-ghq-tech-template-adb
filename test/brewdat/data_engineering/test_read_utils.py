@@ -282,3 +282,148 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_no
     df.show()
     assert 1 == df.count()
     assert expected_schema == df.schema
+
+    
+def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/xml_simple.xml"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('address', StringType(), True),
+            StructField('name', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.XML,
+        location=file_location,
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_xml_simple_row_tag(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/xml_simple_tag.xml"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('address', StringType(), True),
+            StructField('name', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.XML,
+        location=file_location,
+        xml_row_tag="client"
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_csv_delimiter(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_delimiter.csv"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('address', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.CSV,
+        location=file_location,
+        csv_delimiter=';'
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/csv_no_headers.csv"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), True),
+            StructField('address', StringType(), True),
+            StructField('phone', StringType(), True)
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.CSV,
+        location=file_location,
+        csv_delimiter=',',
+        csv_has_headers=False
+    )
+
+    # ASSERT
+    df.show()
+    assert 2 == df.count()
+    
+
+def test_read_raw_dataframe_excel_simple(file_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/excel_simple.xlsx"):
+    # ARRANGE
+    expected_schema = StructType(
+        [
+            StructField('name', StringType(), False),
+            StructField('address', StringType(), False),
+        ]
+    )
+
+    # ACT
+    df = read_raw_dataframe(
+        spark=spark,
+        dbutils=None,
+        file_format=RawFileFormat.EXCEL,
+        location=file_location,
+        excel_sheet_name="records"
+    )
+
+    # ASSERT
+    assert 2 == df.count()
+    assert expected_schema == df.schema
+
+
+def test_read_raw_dataframe_avro(file_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/avro_simple1"):
+        # ARRANGE
+        expected_schema = StructType(
+            [
+                StructField('name', StringType(), True),
+                StructField('surname', StringType(), True)
+            ]
+        )
+
+        # ACT
+        df = read_raw_dataframe(
+            spark=spark,
+            dbutils=None,
+            file_format=RawFileFormat.AVRO,
+            location=file_location,
+        )
+
+        # ASSERT
+        df.show()
+        assert 2 == df.count()
+        assert expected_schema == df.schema
