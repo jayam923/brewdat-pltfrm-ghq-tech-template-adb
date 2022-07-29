@@ -10,12 +10,11 @@ from pyspark.sql import SparkSession
 @unique
 class RunStatus(str, Enum):
     """Available run statuses.
-
-    SUCCEEDED: Represents a succeeded run status.
-    FAILED: Represents a failed run status.
     """
     SUCCEEDED = "SUCCEEDED"
+    """Represents a succeeded run status."""
     FAILED = "FAILED"
+    """Represents a failed run status."""
 
 
 class ReturnObject():

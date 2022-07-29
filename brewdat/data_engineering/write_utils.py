@@ -13,62 +13,51 @@ from .common_utils import ReturnObject, RunStatus
 @unique
 class LoadType(str, Enum):
     """Specifies the way in which the table should be loaded.
-
-    OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
-    Avoid whenever possible, as this is not good for large tables.
-    This deletes records that are not present in the DataFrame.
-
-    OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
-    This deletes records that are not present in the DataFrame for the chosen partition.
-    The df must be filtered such that it contains a single partition.
-
-    APPEND_ALL: Load type where all records in the DataFrame are written into an table.
-    *Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
-
-    APPEND_NEW: Load type where only new records in the DataFrame are written into an existing table.
-    Records for which the key already exists in the table are ignored.
-
-    UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
-    This does NOT delete existing records that are not included in the DataFrame.
-
-    TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
-    This essentially uses an upsert that keeps track of all previous versions of each record.
-    For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
     """
     OVERWRITE_TABLE = "OVERWRITE_TABLE"
+    """Load type where the entire table is rewritten in every execution.
+    Avoid whenever possible, as this is not good for large tables.
+    This deletes records that are not present in the DataFrame."""
     OVERWRITE_PARTITION = "OVERWRITE_PARTITION"
+    """Load type for overwriting a single partition based on partitionColumns.
+    This deletes records that are not present in the DataFrame for the chosen partition.
+    The df must be filtered such that it contains a single partition."""
     APPEND_ALL = "APPEND_ALL"
+    """Load type where all records in the DataFrame are written into an table.
+    *Attention*: use this load type only for Bronze tables, as it is bad for backfilling."""
     APPEND_NEW = "APPEND_NEW"
+    """Load type where only new records in the DataFrame are written into an existing table.
+    Records for which the key already exists in the table are ignored."""
     UPSERT = "UPSERT"
+    """Load type where records of a df are appended as new records or update existing records based on the key.
+    This does NOT delete existing records that are not included in the DataFrame."""
     TYPE_2_SCD = "TYPE_2_SCD"
+    """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+    This essentially uses an upsert that keeps track of all previous versions of each record.
+    For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension"""
 
 
 @unique
 class SchemaEvolutionMode(str, Enum):
     """Specifies the way in which schema mismatches should be handled.
-
-    FAIL_ON_SCHEMA_MISMATCH: Fail if the table's schema is not compatible with the DataFrame's.
-    This is the default Spark behavior when no option is given.
-
-    ADD_NEW_COLUMNS: Schema evolution through adding new columns to the target table.
-    This is the same as using the option "mergeSchema".
-
-    IGNORE_NEW_COLUMNS: Drop DataFrame columns that do not exist in the table's schema.
-    Does nothing if the table does not yet exist in the Hive metastore.
-
-    OVERWRITE_SCHEMA: Overwrite the table's schema with the DataFrame's schema.
-    This is the same as using the option "overwriteSchema".
-
-    RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
-    This is the same strategy used in AutoLoader's rescue mode.
-    For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
-    *Attention*: This schema evolution mode is not implemented on this library yet!
     """
     FAIL_ON_SCHEMA_MISMATCH = "FAIL_ON_SCHEMA_MISMATCH"
+    """Fail if the table's schema is not compatible with the DataFrame's.
+    This is the default Spark behavior when no option is given."""
     ADD_NEW_COLUMNS = "ADD_NEW_COLUMNS"
+    """Schema evolution through adding new columns to the target table.
+    This is the same as using the option "mergeSchema"."""
     IGNORE_NEW_COLUMNS = "IGNORE_NEW_COLUMNS"
+    """Drop DataFrame columns that do not exist in the table's schema.
+    Does nothing if the table does not yet exist in the Hive metastore."""
     OVERWRITE_SCHEMA = "OVERWRITE_SCHEMA"
+    """Overwrite the table's schema with the DataFrame's schema.
+    This is the same as using the option "overwriteSchema"."""
     RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"
+    """Create a new struct-type column to collect data for new columns.
+    This is the same strategy used in AutoLoader's rescue mode.
+    For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
+    *Attention*: This schema evolution mode is not implemented on this library yet!"""
 
 
 def write_delta_table(
@@ -82,6 +71,7 @@ def write_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
+    auto_broadcast_join_threshold: int = 52428800,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -113,6 +103,9 @@ def write_delta_table(
         Number of days for retaining time travel data in the Delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
         For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+    auto_broadcast_join_threshold : int, default=52428800
+        Configures the maximum size in bytes for a table that will be broadcast to all worker
+        nodes when performing a join. Default value in bytes represents 50 MB.
 
     Returns
     -------
@@ -145,6 +138,9 @@ def write_delta_table(
         # Use optimized writes to create less small files
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
+
+        # Set maximum size in bytes for a table that will be broadcast to all worker nodes when performing a join
+        spark.conf.set("spark.sql.autoBroadcastJoinThreshold", auto_broadcast_join_threshold)
 
         # Count source records
         num_records_read = df.count()
@@ -664,6 +660,7 @@ def _write_table_using_type_2_scd(
         )
 
     else:
+        print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         _write_table_using_append_all(
             spark=spark,
             df=df,

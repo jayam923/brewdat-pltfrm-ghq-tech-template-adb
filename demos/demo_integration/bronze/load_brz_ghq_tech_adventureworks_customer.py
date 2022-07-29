@@ -19,7 +19,7 @@ dbutils.widgets.text("target_hive_database", "brz_ghq_tech_adventureworks", "5 -
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "sales_order_header", "6 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "customer", "6 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
@@ -63,17 +63,16 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.ORC,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/"
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/customer/"
 )
 
-display(raw_df)
+#display(raw_df)
 
 # COMMAND ----------
 
 clean_df = transform_utils.clean_column_names(dbutils=dbutils, df=raw_df)
 
 #display(clean_df)
-#clean_df.count()
 
 # COMMAND ----------
 
@@ -95,7 +94,6 @@ transformed_df = (
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
 
 #display(audit_df)
-#audit_df.count()
 
 # COMMAND ----------
 
