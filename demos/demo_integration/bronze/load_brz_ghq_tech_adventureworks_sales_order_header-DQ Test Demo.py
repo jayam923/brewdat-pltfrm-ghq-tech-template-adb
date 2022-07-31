@@ -37,7 +37,7 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wide_checks
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils
 
 # Print a module's help
 help(data_quality_utils)
@@ -71,6 +71,7 @@ raw_df = read_utils.read_raw_dataframe(
 
 display(raw_df)
 
+
 # COMMAND ----------
 
 # DBTITLE 1,Reading Json files
@@ -87,19 +88,26 @@ display(json_df)
 # COMMAND ----------
 
 # DBTITLE 1,to test individual function
+from pyspark.sql.functions import col, count, lit, length, when, array_union, array
+import pyspark.sql.functions as f
 clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
-clean_df = data_quality_utils.data_type_check(field_name = "Salary" ,data_type = "Integer", src_df = clean_df) 
-clean_df = data_quality_utils.null_check(field_name = "RegistrationNo" ,src_df = clean_df)
-#clean_df = data_quality_utils.max_length(field_name = "Sex" ,maximum_length = 6, src_df = clean_df)
-#clean_df = data_quality_utils.min_length(field_name = "City" ,minimum_length = 5, src_df = clean_df)
-#clean_df = data_quality_utils.range_value(field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, src_df = clean_df)
-clean_df = data_quality_utils.valid_values(field_name = "Lname" ,valid_values=['sun', 'mon'],src_df = clean_df) 
-#clean_df = data_quality_utils.invalid_values(field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],src_df = clean_df)   
-#clean_df = data_quality_utils.valid_regular_expression(field_name = "Lname" ,valid_regular_expression="^[s-t]",src_df = clean_df)
-#clean_df = data_quality_utils.duplicate_check(col_list = ["Name","EmployeeNo","Lname"],src_df = clean_df)
+clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "Salary" ,data_type = "Integer", df = clean_df) 
+#clean_df = data_quality_utils.null_check(dbutils =dbutils,field_name = "RegistrationNo" ,df = clean_df)
+#clean_df = data_quality_utils.max_length(dbutils =dbutils,field_name = "City" ,maximum_length = 10, df = clean_df)
+#clean_df = data_quality_utils.min_length(dbutils =dbutils, field_name = "City" , minimum_length = 5, df = clean_df)
+#clean_df = data_quality_utils.range_value(dbutils =dbutils, field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, df = clean_df)
+#clean_df = data_quality_utils.valid_values(dbutils =dbutils, field_name = "Lname" ,valid_values=['sun', 'mon'],df = clean_df) 
+#clean_df = data_quality_utils.invalid_values(dbutils =dbutils, field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],df = clean_df)   
+#clean_df = data_quality_utils.valid_regular_expression(dbutils =dbutils, field_name = "Lname" ,regex="^[s-t]",df = clean_df)
+clean_df = data_quality_utils.duplicate_check(dbutils =dbutils, col_list = ["Name","EmployeeNo","Lname"],df = clean_df)
 #tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
 display(clean_df)
-#print(tes_df)
+if "data_type_test" in clean_df.columns or "Duplicate_indicator" in clean_df.columns : 
+    print("kya yaar")
+
+# COMMAND ----------
+
+print(type("data_type_test" in clean_df.columns))
 
 # COMMAND ----------
 

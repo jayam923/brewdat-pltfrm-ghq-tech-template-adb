@@ -26,9 +26,11 @@ def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
 
             
 def data_type_check(
+    df: DataFrame,
     field_name : str,
     data_type : str,
-    src_df:DataFrame )->DataFrame:
+    dbutils: object,
+) -> DataFrame:
     
     """Checks the field datatype for field present at ith position of the
     validation dataframe.
@@ -46,58 +48,46 @@ def data_type_check(
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
     try:
-        #fields_list = get_col_list(src_df)
         df_final=None
         if data_type == "byte" :
-            df_final = src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final = df.withColumn("data_type_test",col(field_name)\
                                          .cast(ByteType()))
 
         elif data_type== "Integer" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                                        .cast(IntegerType()))
 
         elif data_type== "String" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                                        .cast(StringType()))
 
         elif data_type== "bigint" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                 .cast(LongType()))
 
         elif data_type== "bool" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                 .cast(BooleanType()))
 
         elif data_type== "decimal" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                 .cast(DecimalType(12,5)))
 
         elif data_type== "float" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                 .cast(FloatType()))
 
         elif data_type== "double" : 
-            df_final=src_df.withColumn(f'{field_name}_type',col(field_name)\
+            df_final=df.withColumn("data_type_test",col(field_name)\
                 .cast(DoubleType()))
-
         if df_final is None:
-            return src_df
+            return df
         else:
-            src_df = (
-                     df_final.withColumn('__bad_record',
-                     when((col(f'{field_name}_type').isNull()) & (col(field_name).isNotNull()),
-                     lit('True')).otherwise(col('__bad_record')))
-            )
-            src_df = (
-                     src_df.withColumn('__data_quality_issues',
-                     when((col(f'{field_name}_type').isNull()) & (col(field_name).isNotNull()),
-                     array_union('__data_quality_issues',
-                     array(lit(f' {field_name} ; Data type mismatch'))))
-                     .otherwise(col('__data_quality_issues')))
-                     .withColumn("dq_run_timestamp",f.current_timestamp())
-                     .drop(col(f'{field_name}_type'))
-            )
-        return src_df
+            return __perform_dq_check(
+                df=df_final,
+                condition=(F.col("data_type_test").isNull()) & (F.col(field_name).isNotNull()),
+                dq_failure_message=f'{field_name}: Data type mismatch.',
+                dbutils=dbutils)
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
@@ -129,34 +119,7 @@ def null_check(
         dq_failure_message=f'{field_name}: record contain null value.',
         dbutils=dbutils)
 
-    #try:
-        # V2
-        # result_df = (
-        #     df.withColumn("dq_run_timestamp", F.current_timestamp())
-        #     .withColumn('__data_quality_issues',
-        #                 when(F.col(field_name).isNull(),
-        #                      F.array_union('__data_quality_issues',
-        #                                    F.array(lit(f'{field_name}: records contain null values')))
-        #                      )
-        #                 .otherwise(F.col('__data_quality_issues'))
-        #                 )
-        #     .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
-        #
-        # )
-
-        # V1
-        # src_df = df.withColumn('__bad_record',when(col(field_name).isNull(),
-        #                            lit('True')).otherwise(col('__bad_record')))
-        #
-        # src_df = src_df.withColumn('__data_quality_issues',
-        #                    when(col(field_name).isNull(),
-        #                    array_union('__data_quality_issues',
-        #                    array(lit(f'{field_name}: records contain null values'
-        #                    )))).otherwise(col('__data_quality_issues'
-        #                    ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        #return result_df
-    #except Exception:
-    #    common_utils.exit_with_last_exception(dbutils)
+    
 
 
 def max_length(
@@ -175,7 +138,8 @@ def max_length(
         maximum length column values.
     df : DataFrame
         PySpark DataFrame to modify.
-            
+    dbutils : object
+        A Databricks utils object.        
     Returns
     -------
     DataFrame: 
@@ -189,26 +153,12 @@ def max_length(
         dbutils=dbutils)
 
 
-    # V1
-    # try:
-    #     src_df = src_df.withColumn('__bad_record', when(length(field_name)
-    #                            > maximum_length, lit('True'
-    #                            )).otherwise(col('__bad_record')))
-    #     src_df = src_df.withColumn('__data_quality_issues', when(length(field_name)
-    #                            > maximum_length,
-    #                            array_union('__data_quality_issues',
-    #                            array(lit(f' {field_name} ; This records exceed the max_length defined for the column'
-    #                            )))).otherwise(col('__data_quality_issues'
-    #                            ))).withColumn("dq_run_timestamp",f.current_timestamp())
-    #     return src_df
-    # except Exception:
-    #     common_utils.exit_with_last_exception(dbutils)
-
-
 def min_length(
     field_name : str,
     minimum_length : int,
-    src_df:DataFrame )->DataFrame:
+    df:DataFrame,
+    dbutils: object,
+) -> DataFrame:
     """Checks the field column length against the min and max values
     Parameters
     ----------
@@ -218,32 +168,27 @@ def min_length(
         minimum length column values.
     src_df : DataFrame
         PySpark DataFrame to modify.
-        
+    dbutils : object
+        A Databricks utils object.    
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        src_df = src_df.withColumn('__bad_record', when(length(field_name)
-                           < minimum_length, lit('True'
-                           )).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues', when(length(field_name)
-                           < minimum_length,
-                           array_union('__data_quality_issues',
-                           array(lit(f' {field_name} ; This records lenght is lesser then then min_length defined for the column'
-                           )))).otherwise(col('__data_quality_issues'
-                           ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)    
-
+    return __perform_dq_check(
+        df=df,
+        condition=(F.length(field_name) < minimum_length),
+        dq_failure_message=f'{field_name}: min length of {minimum_length} exceeded.',
+        dbutils=dbutils)
     
+
 def range_value(
     field_name : str, 
     minimum_value : int, 
     maximum_value : int, 
-    src_df:DataFrame )->DataFrame:
+    df:DataFrame,
+    dbutils: object,
+) -> DataFrame:
     """Checks the field column values against between min and max values
     Parameters
     ----------
@@ -255,33 +200,26 @@ def range_value(
         maximum value column values.
     src_df : DataFrame
         PySpark DataFrame to modify.
-        
+    dbutils : object
+        A Databricks utils object.    
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        src_df = src_df.withColumn('__bad_record',
-                               when(col(field_name).between(minimum_value,
-                               maximum_value), lit('True'
-                               )).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues',
-                               when(col(field_name).between(minimum_value,
-                               maximum_value),
-                               array_union('__data_quality_issues',
-                               array(lit(f' {field_name} ; This records does not lie in between the specified range'
-                               )))).otherwise(col('__data_quality_issues'
-                               ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
+    return __perform_dq_check(
+        df=df,
+        condition=F.col(field_name).between(minimum_value, maximum_value) == False,
+        dq_failure_message=f'{field_name}: range value does not lie in between minimum value -> {minimum_value} and maximum value -> {maximum_value} value.',
+        dbutils=dbutils)
+    
     
 def invalid_values(
     field_name : str,
     invalid_values,
-    src_df:DataFrame )->DataFrame:
+    df:DataFrame,
+    dbutils: object,
+) -> DataFrame:
     """Checks the field column values against valid values
     Parameters
     ----------
@@ -291,32 +229,28 @@ def invalid_values(
         List of values which are invalid
     src_df : DataFrame
         The src_df DataFrame needed to verify
+    dbutils : object
+        A Databricks utils object.
         
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        list_values = invalid_values
-        src_df = src_df.withColumn('__bad_record',
-                           when(col(field_name).isin(list(map(lambda x: x , list_values))),
-                           lit('True')).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues',
-                           when(col(field_name).isin(list(map(lambda x: x , list_values))),
-                           array_union('__data_quality_issues',
-                           array(lit(f' {field_name} ; This record is having invalid values'
-                           )))).otherwise(col('__data_quality_issues'
-                           ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
     
+    return __perform_dq_check(
+        df=df,
+        condition=F.col(field_name).isin(list(map(lambda x: x , invalid_values))),
+        dq_failure_message=f'{field_name}: this record is having following invalid values  -> {invalid_values}.',
+        dbutils=dbutils)
+
     
 def valid_values(
     field_name : str,
     valid_values,
-    src_df:DataFrame)->DataFrame:
+    df:DataFrame,
+    dbutils: object,
+) -> DataFrame:
     """Checks the field column values against valid values
     Parameters
     ----------
@@ -326,33 +260,26 @@ def valid_values(
         List of values which are valid
     src_df : DataFrame
         The src_df DataFrame needed to verify
-        
+    dbutils : object
+        A Databricks utils object.    
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        list_values = valid_values
-        src_df = src_df.withColumn('__bad_record',
-                               when(col(field_name).isin(list(map(lambda x: x , list_values)))
-                               == False, lit('True'
-                               )).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues',
-                               when(col(field_name).isin(list(map(lambda x: x , list_values)))
-                               == False, array_union('__data_quality_issues',
-                               array(lit(f'{field_name} ; This record is having invalid values'
-                               )))).otherwise(col('__data_quality_issues'
-                               ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+    return __perform_dq_check(
+        df=df,
+        condition=F.col(field_name).isin(list(map(lambda x: x , valid_values)))== False,
+        dq_failure_message=f'{field_name}: this record is in list of valid values  -> {valid_values}.',
+        dbutils=dbutils)
 
 
 def valid_regular_expression(
     field_name : str,
-    valid_regular_expression : str,
-    src_df:DataFrame)->DataFrame:
+    regex : str,
+    df:DataFrame,
+    dbutils: object,
+) -> DataFrame:
     """Checks the field column values against valid values
     Parameters
     ----------
@@ -362,31 +289,26 @@ def valid_regular_expression(
         The src_df DataFrame needed to verify
     valid_regular_expression : str
         Regex to filter the data
-        
+    dbutils : object
+        A Databricks utils object.    
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        exp= valid_regular_expression
-        src_df = src_df.withColumn('__bad_record',
-                           when(src_df[field_name].rlike(exp),
-                           lit('True')).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues',
-                           when(src_df[field_name].rlike(exp),
-                           array_union('__data_quality_issues',
-                           array(lit(f' {field_name} ; This record does not align based on the regex given'
-                           )))).otherwise(col('__data_quality_issues'
-                           ))).withColumn("dq_run_timestamp",f.current_timestamp())
-        return src_df
-    except Exception:
-            common_utils.exit_with_last_exception(dbutils)
-
+    
+    return __perform_dq_check(
+        df=df,
+        condition=F.col(field_name).rlike(regex),
+        dq_failure_message=f'{field_name}: does not align as per the given regex {regex}.',
+        dbutils=dbutils)
+    
 
 def duplicate_check(
     col_list : str,
-    src_df:DataFrame)->DataFrame:
+    df:DataFrame,
+    dbutils: object,
+) -> DataFrame:
     
     """Checks the field column values against valid values
     Parameters
@@ -395,32 +317,29 @@ def duplicate_check(
         List of columns on based on which we need to check the duplicate values
     src_df : DataFrame
         The src_df DataFrame needed to verify
-        
+    dbutils : object
+        A Databricks utils object.    
     Returns
     -------
     DataFrame: 
         Returns Pyspark Dataframe with bad record indicator and validation message.
     """
-    try:
-        w = Window.partitionBy(col_list)
-        src_df = src_df.select('*', f.count('*').over(w).alias('Duplicate_indicator'))
-        src_df = src_df.withColumn('__bad_record',
-                               when(col('Duplicate_indicator') > 1,
-                               lit('True')).otherwise(col('__bad_record')))
-        src_df = src_df.withColumn('__data_quality_issues',
-                               when(col('Duplicate_indicator') > 1,
-                               array_union('__data_quality_issues',
-                               array(lit('This records contain duplicate values'
-                               )))).otherwise(col('__data_quality_issues'
-                               ))).withColumn("dq_run_timestamp",f.current_timestamp()).drop('Duplicate_indicator')
-        return src_df
-    except Exception:
-            common_utils.exit_with_last_exception(dbutils)
+    w = Window.partitionBy(col_list)
+    df = df.select('*', f.count('*').over(w).alias('Duplicate_indicator'))
+    print(df)
+    return __perform_dq_check(
+        df=df,
+        condition=F.col("Duplicate_indicator") > 1,
+        dq_failure_message=f'This records contain duplicate values.',
+        dbutils=dbutils)
+    
 
 
 def column_check(
     col_list,
-    src_df:DataFrame)-> List:
+    df:DataFrame,
+    dbutils: object,
+)-> List:
     
     """Checks the field column values against valid values
     Parameters
@@ -430,7 +349,8 @@ def column_check(
         List of columns name to verify
     src_df : DataFrame
         The src_df DataFrame needed to verify
-            
+    dbutils : object
+        A Databricks utils object.        
     Returns
     -------
     missing_fields
@@ -438,7 +358,7 @@ def column_check(
     """
     try:
         missing_fields = [] 
-        fields_list =  __get_lower_case(__get_col_list(src_df))
+        fields_list =  __get_lower_case(__get_col_list(df))
         col_list = __get_lower_case(col_list)
         for i in range(0,len(col_list)):
             if col_list[i] not in fields_list:
@@ -457,7 +377,8 @@ def run_validation(
     spark: SparkSession,
     dbutils: object,
     src_df : DataFrame,
-    json_df : DataFrame)-> DataFrame:
+    json_df : DataFrame,
+)-> DataFrame:
     
     """Checks the field column values against valid values
     Parameters
@@ -469,8 +390,7 @@ def run_validation(
     src_df : DataFrame
         The src_df file needed to verify
     json_df : DataFrame
-        The logic_df DataFrame to get the input values from json file
-        
+        The logic_df DataFrame to get the input values from json file  
     Returns
     -------
     DataFrame: 
@@ -481,7 +401,7 @@ def run_validation(
     for col in src_df.columns:
         src_df = src_df.withColumnRenamed(col,col.lower())
     col_list=logic_df['field_name'].tolist()
-    missing_fields = column_check(col_list,src_df )
+    missing_fields = column_check(col_list, src_df, dbutils )
     if len(missing_fields)!=0:
         print('column missing',missing_fields)
         raise ValueError('Souce Columns are not matching with Metadata')
@@ -494,59 +414,59 @@ def run_validation(
         if len(Pk_col_list)==0:
             pass
         else:
-            src_df=duplicate_check(Pk_col_list,src_df)
+            src_df=duplicate_check(Pk_col_list,src_df, dbutils)
         for i in range(0,logic_df.shape[0]):
             if logic_df.loc[i,"field_name"] in src_df.columns:
                 print(logic_df.loc[i,"field_name"])
                 ## Mandatory Checks whether null values present or not
                 if pd.notnull(logic_df.loc[i,'is_null']):
                     print('null_check started')
-                    src_df = null_check(logic_df.loc[i,"field_name"],src_df)
+                    src_df = null_check(src_df, logic_df.loc[i,"field_name"], dbutils)
                     ## DataType checks
                 if pd.notnull(logic_df.loc[i,'data_type']):
                     print('data_type_check check started')
-                    src_df= data_type_check(logic_df.loc[i,"field_name"],logic_df.loc[i,"data_type"], src_df)
+                    src_df= data_type_check(src_df, logic_df.loc[i,"field_name"],logic_df.loc[i,"data_type"], dbutils)
                 else:
                     print('No Datatype')
                  ## range checks
                 if pd.notnull(logic_df.loc[i,'maximum_value']):
                     if pd.notnull(logic_df.loc[i,'minimum_value']):
                         print('data_range_check check started')
-                        src_df= range_value(logic_df.loc[i,"field_name"], logic_df.loc[i,"minimum_value"] ,logic_df.loc[i,"maximum_value"],src_df)
+                        src_df= range_value(logic_df.loc[i,"field_name"], logic_df.loc[i,"minimum_value"] ,logic_df.loc[i,"maximum_value"], src_df, dbutils)
                 else:
                     print('No Maximum_value and Minimum_value')
                 ##Passing only not null values for remaining checks
                     ## checking for Max values
                 if pd.notnull(logic_df.loc[i,'maximum_length']):
                     print('max_length check started')
-                    src_df= max_length(logic_df.loc[i,"field_name"],  logic_df.loc[i,"maximum_length"],src_df)
+                    src_df= max_length(logic_df.loc[i,"field_name"],  logic_df.loc[i,"maximum_length"],src_df, dbutils)
                 else:
                     pass
 
                 ## checking for Min values
                 if pd.notnull(logic_df.loc[i,'minimum_length']):
                     print('min_length check started')
-                    src_df = min_length(logic_df.loc[i,"field_name"], logic_df.loc[i,"minimum_length"],src_df)
+                    src_df = min_length(logic_df.loc[i,"field_name"], logic_df.loc[i,"minimum_length"],src_df, dbutils)
                 else:
                     pass
                 ## Checking the Valid values field
                 if str(logic_df.loc[i,'valid_values']) != "None" :
                     print(logic_df.loc[i,'valid_values'])
                     print('valid_values check started')
-                    src_df =valid_values(logic_df.loc[i,"field_name"], logic_df.loc[i,"valid_values"],src_df)
+                    src_df =valid_values(logic_df.loc[i,"field_name"], logic_df.loc[i,"valid_values"],src_df, dbutils)
                 else:
                     pass
                 ## Checking the Invalid values field
                 if str(logic_df.loc[i,'invalid_values']) != "None" :
                     print('Invalid_values check started')
-                    src_df =invalid_values(logic_df.loc[i,"field_name"],logic_df.loc[i,"invalid_values"],src_df)
+                    src_df =invalid_values(logic_df.loc[i,"field_name"],logic_df.loc[i,"invalid_values"],src_df, dbutils)
                 else:
                     pass
 
                 ## Valid regular expression check filed
                 if pd.notnull(logic_df.loc[i,'valid_regular_expression']):
                     print('Valid_Regular_Expression check started')
-                    src_df =valid_regular_expression(logic_df.loc[i,"field_name"], logic_df.loc[i,"valid_regular_expression"],src_df)
+                    src_df =valid_regular_expression(logic_df.loc[i,"field_name"], logic_df.loc[i,"valid_regular_expression"],src_df, dbutils)
                 else:
                     pass
             else:
@@ -573,7 +493,14 @@ def __perform_dq_check(
             .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
 
         )
+        if "data_type_test" in result_df.columns :
+            result_df= result_df.drop(col("data_type_test"))
+            
+        if "Duplicate_indicator" in result_df.columns :
+            result_df  =result_df.drop(col("Duplicate_indicator"))
+                
         return result_df
+    
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
