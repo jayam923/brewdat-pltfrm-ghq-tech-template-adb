@@ -13,24 +13,18 @@ from .common_utils import ReturnObject, RunStatus
 @unique
 class LoadType(str, Enum):
     """Specifies the way in which the table should be loaded.
-
     OVERWRITE_TABLE: Load type where the entire table is rewritten in every execution.
     Avoid whenever possible, as this is not good for large tables.
     This deletes records that are not present in the DataFrame.
-
     OVERWRITE_PARTITION: Load type for overwriting a single partition based on partitionColumns.
     This deletes records that are not present in the DataFrame for the chosen partition.
     The df must be filtered such that it contains a single partition.
-
     APPEND_ALL: Load type where all records in the DataFrame are written into an table.
     *Attention*: use this load type only for Bronze tables, as it is bad for backfilling.
-
     APPEND_NEW: Load type where only new records in the DataFrame are written into an existing table.
     Records for which the key already exists in the table are ignored.
-
     UPSERT: Load type where records of a df are appended as new records or update existing records based on the key.
     This does NOT delete existing records that are not included in the DataFrame.
-
     TYPE_2_SCD: Load type that implements the standard type-2 Slowly Changing Dimension implementation.
     This essentially uses an upsert that keeps track of all previous versions of each record.
     For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension
@@ -46,19 +40,14 @@ class LoadType(str, Enum):
 @unique
 class SchemaEvolutionMode(str, Enum):
     """Specifies the way in which schema mismatches should be handled.
-
     FAIL_ON_SCHEMA_MISMATCH: Fail if the table's schema is not compatible with the DataFrame's.
     This is the default Spark behavior when no option is given.
-
     ADD_NEW_COLUMNS: Schema evolution through adding new columns to the target table.
     This is the same as using the option "mergeSchema".
-
     IGNORE_NEW_COLUMNS: Drop DataFrame columns that do not exist in the table's schema.
     Does nothing if the table does not yet exist in the Hive metastore.
-
     OVERWRITE_SCHEMA: Overwrite the table's schema with the DataFrame's schema.
     This is the same as using the option "overwriteSchema".
-
     RESCUE_NEW_COLUMNS: Create a new struct-type column to collect data for new columns.
     This is the same strategy used in AutoLoader's rescue mode.
     For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
@@ -84,7 +73,6 @@ def write_delta_table(
     time_travel_retention_days: int = 30,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
-
     Parameters
     ----------
     spark : SparkSession
@@ -113,7 +101,6 @@ def write_delta_table(
         Number of days for retaining time travel data in the Delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
         For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
-
     Returns
     -------
     ReturnObject
@@ -222,11 +209,10 @@ def write_delta_table(
 
         # Find out how many records we have just written
         delta_table = DeltaTable.forPath(spark, location)
-        last_history_df = (
+        history_df = (
             delta_table
-            .history(1)
+            .history(1).select(F.col("operationMetrics.numOutputRows").cast("int"))
         )
-        history_df = last_history_df.select(F.col("operationMetrics.numOutputRows").cast("int"))
         num_records_loaded = history_df.first()[0]
 
         # Create the Hive database and table
@@ -253,7 +239,7 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
-            last_history_df = last_history_df
+            delta_table = delta_table
         )
 
     except Exception as e:
@@ -264,7 +250,7 @@ def write_delta_table(
             num_records_loaded=num_records_loaded,
             error_message=str(e),
             error_details=traceback.format_exc(),
-            last_history_df = last_history_df,
+            delta_table = delta_table,
         )
 
 
@@ -275,7 +261,6 @@ def _table_exists_in_different_location(
     expected_location: str
 ) -> bool:
     """Return whether the metastore table already exists at a different location.
-
     Parameters
     ----------
     spark : SparkSession
@@ -286,7 +271,6 @@ def _table_exists_in_different_location(
         Name of the table in the metastore.
     expected_location : str
         Absolute Delta Lake path for the expected physical location of this delta table.
-
     Returns
     -------
     bool
@@ -314,7 +298,6 @@ def _write_table_using_overwrite_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using OVERWRITE_TABLE.
-
     Parameters
     ----------
     spark : SparkSession
@@ -369,7 +352,6 @@ def _write_table_using_overwrite_partition(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using OVERWRITE_PARTITION.
-
     Parameters
     ----------
     spark : SparkSession
@@ -436,7 +418,6 @@ def _write_table_using_append_all(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using APPEND_ALL.
-
     Parameters
     ----------
     spark : SparkSession
@@ -491,7 +472,6 @@ def _write_table_using_append_new(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using APPEND_NEW.
-
     Parameters
     ----------
     spark : SparkSession
@@ -547,7 +527,6 @@ def _write_table_using_upsert(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using UPSERT.
-
     Parameters
     ----------
     spark : SparkSession
@@ -605,7 +584,6 @@ def _write_table_using_type_2_scd(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using TYPE_2_SCD.
-
     Parameters
     ----------
     spark : SparkSession
@@ -679,18 +657,15 @@ def _generate_type_2_scd_metadata_columns(
     df: DataFrame,
 ) -> DataFrame:
     """Create or replace Type-2 SCD metadata columns in the given DataFrame.
-
     The following columns are created/replaced:
         - __hash_key: used as both a surrogate key and a checksum.
         - __start_date: timestamp of when the record started being effective.
         - __end_date: timestamp of when the record ceased being effective.
         - __is_active: whether the record is currently effective.
-
     Parameters
     ----------
     df : DataFrame
         PySpark DataFrame to modify.
-
     Returns
     -------
     DataFrame
@@ -710,14 +685,11 @@ def _merge_dataframe_for_type_2_scd(
     key_columns: List[str] = [],
 ) -> DataFrame:
     """Create the merge DataFrame for TYPE_2_SCD load type.
-
     This DataFrame contains all the hash keys of target records which
     should be deactivated. Their __is_active column is set to False.
-
     Additionally, it also contains all the new records that will be inserted
     if, and only if, their hash key is not already active in the target table.
     Their __is_active columns is set to True.
-
     Parameters
     ----------
     source_df : DataFrame
@@ -726,12 +698,10 @@ def _merge_dataframe_for_type_2_scd(
         PySpark DataFrame containing target table records.
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
-
     Returns
     -------
     Dataframe
         Pyspark Dataframe ready to be merged into target table.
-
     Examples
     --------
     source_df:
@@ -741,17 +711,14 @@ def _merge_dataframe_for_type_2_scd(
     | 1  | Alice | 42          | 11aa22bb   | 2022-01-02   | null       | True        |
     | 2  | Bob   | 1           | a1b2c3d4   | 2022-01-02   | null       | True        |
     +----+-------+-------------+------------+--------------+------------+-------------+
-
     target_df:
     +----+-------+-------------+------------+--------------+------------+-------------+
     | id | name  | status_code | __hash_key | __start_date | __end_date | __is_active |
     +----+-------+-------------+------------+--------------+------------+-------------+
     | 1  | Alice | 1           | 0a0b0c0d   | 2022-01-01   | null       | True        |
     +----+-------+-------------+------------+--------------+------------+-------------+
-
     key_columns:
     [id]
-
     result:
     +------------+-------------+------+-------+-------------+--------------+------------+
     | __hash_key | __is_active |  id  | name  | status_code | __start_date | __end_date |
@@ -784,4 +751,4 @@ def _merge_dataframe_for_type_2_scd(
     # As well as the new records that should be inserted (__is_active = True)
     merge_df = update_df.unionByName(source_df, allowMissingColumns=True)
 
-    return merge_df
+    return 

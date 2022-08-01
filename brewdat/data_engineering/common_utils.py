@@ -3,7 +3,7 @@ import sys
 import traceback
 from enum import Enum, unique
 from typing import List
-from pyspark.sql import DataFrame
+from delta.tables import DeltaTable
 from pyspark.sql import SparkSession
 
 
@@ -39,7 +39,7 @@ class ReturnObject():
     def __init__(
         self,
         status: RunStatus,
-        last_history_df : DataFrame,
+        delta_table : DeltaTable,
         target_object: str,
         num_records_read: int = 0,
         num_records_loaded: int = 0,
@@ -54,7 +54,7 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
-        self.last_history_df = last_history_df
+        self.delta_table = delta_table
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):
@@ -97,6 +97,7 @@ def exit_with_last_exception(dbutils: object):
     results = ReturnObject(
         status=RunStatus.FAILED,
         target_object=None,
+        delta_table = None,
         error_message=f"{exc_type.__name__}: {exc_value}",
         error_details=traceback.format_exc(),
     )

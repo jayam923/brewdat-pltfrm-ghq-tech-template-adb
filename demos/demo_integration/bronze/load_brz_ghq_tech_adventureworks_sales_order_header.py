@@ -64,7 +64,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/manual_files/sample_game_results_csv",
+    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
@@ -155,4 +155,4 @@ validator_2 = data_quality_wide_checks.Create_expectation_suite(dbutils= dbutils
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+

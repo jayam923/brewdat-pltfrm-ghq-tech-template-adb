@@ -63,13 +63,25 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
-    location="dbfs:/FileStore/dataquality/DQData_1.csv",
-    csv_has_headers=True,
+    location="dbfs:/FileStore/dataquality/DQ_Test_Files/Col_value_type_test.csv",
+    csv_has_headers=False,
     csv_delimiter=",",
     csv_escape_character="\"",
 )
 
 display(raw_df)
+
+
+# COMMAND ----------
+
+from pyspark.sql.functions import col, count, lit, length, when, array_union, array
+import pyspark.sql.functions as f
+clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
+clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "_c3" ,data_type = "bool", df = clean_df) 
+display(clean_df)
+
+
+
 
 
 # COMMAND ----------
@@ -91,23 +103,18 @@ display(json_df)
 from pyspark.sql.functions import col, count, lit, length, when, array_union, array
 import pyspark.sql.functions as f
 clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
-clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "Salary" ,data_type = "Integer", df = clean_df) 
+clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "_c1" ,data_type = "double", df = clean_df) 
 #clean_df = data_quality_utils.null_check(dbutils =dbutils,field_name = "RegistrationNo" ,df = clean_df)
 #clean_df = data_quality_utils.max_length(dbutils =dbutils,field_name = "City" ,maximum_length = 10, df = clean_df)
-#clean_df = data_quality_utils.min_length(dbutils =dbutils, field_name = "City" , minimum_length = 5, df = clean_df)
+#clean_df = data_quality_utils.min_length(dbutils =dbutils, field_name = "City" , minimum_length 89.41= 5, df = clean_df)
 #clean_df = data_quality_utils.range_value(dbutils =dbutils, field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, df = clean_df)
 #clean_df = data_quality_utils.valid_values(dbutils =dbutils, field_name = "Lname" ,valid_values=['sun', 'mon'],df = clean_df) 
 #clean_df = data_quality_utils.invalid_values(dbutils =dbutils, field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],df = clean_df)   
 #clean_df = data_quality_utils.valid_regular_expression(dbutils =dbutils, field_name = "Lname" ,regex="^[s-t]",df = clean_df)
-clean_df = data_quality_utils.duplicate_check(dbutils =dbutils, col_list = ["Name","EmployeeNo","Lname"],df = clean_df)
+#clean_df = data_quality_utils.duplicate_check(dbutils =dbutils, col_list = ["Name","EmployeeNo","Lname"],df = clean_df)
 #tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
 display(clean_df)
-if "data_type_test" in clean_df.columns or "Duplicate_indicator" in clean_df.columns : 
-    print("kya yaar")
 
-# COMMAND ----------
-
-print(type("data_type_test" in clean_df.columns))
 
 # COMMAND ----------
 
@@ -132,6 +139,7 @@ target_location = lakehouse_utils.generate_bronze_table_location(
 
 # COMMAND ----------
 
+# DBTITLE 1,Data type testing 
 from pyspark.sql.types import IntegerType,DecimalType,ByteType,StringType,LongType,BooleanType,DoubleType,FloatType
 field_name = "Salary"
 clean_df = raw_df
