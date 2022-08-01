@@ -73,6 +73,7 @@ def write_delta_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
+    update_condition: str = "1=1"
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -199,8 +200,9 @@ def write_delta_table(
                 spark=spark,
                 df=df,
                 location=location,
+                update_condition=update_condition,
                 key_columns=key_columns,
-                schema_evolution_mode=schema_evolution_mode,
+                schema_evolution_mode=schema_evolution_mode
             )
         elif load_type == LoadType.TYPE_2_SCD:
             if not key_columns:
@@ -547,8 +549,9 @@ def _write_table_using_upsert(
     spark: SparkSession,
     df: DataFrame,
     location: str,
+    update_condition: str,
     key_columns: List[str] = [],
-    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS
 ):
     """Write the DataFrame using UPSERT.
 
@@ -594,7 +597,7 @@ def _write_table_using_upsert(
     (
         delta_table.alias("target")
         .merge(df.alias("source"), merge_condition)
-        .whenMatchedUpdateAll()
+        .whenMatchedUpdateAll(condition = update_condition)
         .whenNotMatchedInsertAll()
         .execute()
     )

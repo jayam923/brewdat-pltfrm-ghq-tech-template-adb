@@ -1,4 +1,5 @@
 from enum import Enum, unique
+import datetime
 
 import pyspark.pandas as ps
 from pyspark.sql import DataFrame, SparkSession
@@ -32,7 +33,7 @@ def read_raw_dataframe(
     spark: SparkSession,
     dbutils: object,
     file_format: RawFileFormat,
-    location: str,
+    location: list,
     cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
@@ -136,3 +137,19 @@ def read_raw_dataframe(
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+
+        
+        
+def get_partitions_to_process(dbutils, table_path, last_partition_end_time):
+    ct_partitions = dbutils.fs.ls(table_path)
+    partitions_to_process = []
+    for item in ct_partitions:
+        partition_start_time = datetime.datetime.strptime(item[1].replace('/','').split('_')[0], "%Y%m%dT%H%M%S")
+        partition_end_time = datetime.datetime.strptime(item[1].replace('/','').split('_')[1], "%Y%m%dT%H%M%S")
+        if partition_start_time > last_partition_end_time:
+            partitions_to_process.append((item[1].replace('/', ''), partition_start_time, partition_end_time))
+        
+    sorted_partitions = sorted(partitions_to_process, key=lambda x: x[1]) 
+    data_interval_start = sorted_partitions[0][1]
+    data_interval_end = sorted_partitions[-1][2]
+    return sorted_partitions, data_interval_start.strftime("%Y-%m-%dT%H:%M:%SZ"), data_interval_end.strftime("%Y-%m-%dT%H:%M:%SZ")

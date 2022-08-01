@@ -403,3 +403,59 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
             new_field_types.append(f"`{name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
     return "string"
+
+def apply_silver_schema(
+    dbutils: object,
+    df: DataFrame,
+    silver_schema: list
+) -> DataFrame:
+    """Cast all DataFrame columns to required data types and change column names 
+    as received from the input schema.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to cast.
+    silver_schema: List
+        List containing column details of silver table. The element of the list is a dictionary containing
+        source_table_name, source_column_name, target_data_type, target_column_name
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame with all columns cast to required data types as specified in schema.
+    """
+    try:
+        expressions = []
+        for column in df.schema:
+            target_data_type = _get_target_data_type(column.name, silver_schema)
+            if target_data_type == 'string':
+                expressions.append(f"`{column.name}`")
+            else:
+                expressions.append(f"CAST(`{column.name}` AS {target_data_type}) AS `{column.name}`")
+        return df.selectExpr(*expressions)       
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
+def _get_target_data_type(column_name, silver_schema) -> str:
+    """Finds the data type of input column in input schema. 
+
+    Parameters
+    ----------
+    column_name : string
+        Input Column Name .
+    silver_schema: List
+        List containing column details of silver table. The element of the list is a dictionary containing
+        source_table_name, source_column_name, target_data_type, target_column_name
+
+    Returns
+    -------
+    str
+        Target data type the input column needs to be cast to
+    """
+    for item in silver_schema:
+        if item["source_attribute_name"].lower() == column_name.lower():
+            return item["target_data_type"]
+    return "string"
