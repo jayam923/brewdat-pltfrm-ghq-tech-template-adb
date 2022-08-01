@@ -150,6 +150,4 @@ def get_partitions_to_process(dbutils, table_path, last_partition_end_time):
             partitions_to_process.append((item[1].replace('/', ''), partition_start_time, partition_end_time))
         
     sorted_partitions = sorted(partitions_to_process, key=lambda x: x[1]) 
-    data_interval_start = sorted_partitions[0][1]
-    data_interval_end = sorted_partitions[-1][2]
-    return sorted_partitions, data_interval_start.strftime("%Y-%m-%dT%H:%M:%SZ"), data_interval_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return sorted_partitions

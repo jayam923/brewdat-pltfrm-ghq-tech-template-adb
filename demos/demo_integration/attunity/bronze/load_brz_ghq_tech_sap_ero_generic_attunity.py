@@ -39,6 +39,10 @@ dbutils.widgets.text("incremental_load", "false", "10 - incremental_load")
 incremental_load = dbutils.widgets.get("incremental_load")
 print(f"incremental_load: {incremental_load}")
 
+dbutils.widgets.text("watermark_column", "target_apply_ts", "10 - incremental_load")
+watermark_column = dbutils.widgets.get("watermark_column")
+print(f"watermark_column: {watermark_column}")
+
 # COMMAND ----------
 
 import sys
@@ -54,7 +58,11 @@ help(read_utils)
 
 # COMMAND ----------
 
-# MAGIC %run "/Users/sachin.kumar@ab-inbev.com/Attunity_d/attunity_demo/project_context"
+# MAGIC %run "../set_project_context"
+
+# COMMAND ----------
+
+
 
 # COMMAND ----------
 
@@ -75,28 +83,84 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 import datetime
-#last_partition_loaded = '20220726T133000' '0001-01-01T00:00:00Z'
-last_partition_end_time = datetime.datetime.strptime(data_interval_start, "%Y-%m-%dT%H:%M:%SZ")
-#last_partition_end_time =last_partition_loaded.strftime("%Y-%m-%dT%H:%M:%SZ")
-#last_partition_end_time=None
-#print(type(last_partition_loaded))
+import pyspark.sql.functions as F
 
 # COMMAND ----------
 
-target_hive_table = "R4S - SALES MASTER.kna1"
+watermark_lower_bound, partition_start = data_interval_start.split('_')
+watermark_upper_bound, partition_end = data_interval_end.split('_')
+
+convert_watermark_format = lambda x : datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%dT%H:%M:%SZ")
 
 # COMMAND ----------
 
 raw_locations = []
+base_table_path = f"{attunity_sap_ero_prelz_root}/attunity_test/test/{target_hive_table}/*.csv.gz"
+base_df = read_utils.read_raw_dataframe(
+                            spark=spark,
+                            dbutils=dbutils,
+                            file_format=read_utils.RawFileFormat.CSV,
+                            location=[base_table_path],
+                            csv_has_headers=True,
+                            csv_delimiter="|~|",
+                            csv_escape_character="\"",
+                        )
+#base_df.withColumn(watermark_column, col(watermark_column).cast(""))
+
 if incremental_load.lower() == 'true':
     #build list of locations
-    table_path = f"{attunity_sap_ero_prelz_root}/attunity_test/test/{target_hive_table}__ct"
-    partitions_to_load,  data_interval_start, data_interval_end = read_utils.get_partitions_to_process(dbutils, table_path, last_partition_end_time)
-    raw_locations = [f"{table_path}/{partition[0]}/*.csv.gz" for partition in partitions_to_load]
+    load_type = "APPEND_ALL"
+    ct_table_path =f"{attunity_sap_ero_prelz_root}/attunity_test/test/{target_hive_table}__ct"
+    last_partition_end_time = datetime.datetime.strptime(partition_start, "%Y-%m-%dT%H:%M:%SZ")
+    partitions_to_load = read_utils.get_partitions_to_process(dbutils, ct_table_path, last_partition_end_time)
+    if partitions_to_load:
+        partition_start = partitions_to_load[0][1].strftime("%Y-%m-%dT%H:%M:%SZ")
+        partition_end = partitions_to_load[-1][2].strftime("%Y-%m-%dT%H:%M:%SZ")
+        raw_ct_locations = [f"{ct_table_path}/{partition[0]}/*.csv.gz" for partition in partitions_to_load]
+        ct_df = read_utils.read_raw_dataframe(
+                            spark=spark,
+                            dbutils=dbutils,
+                            file_format=read_utils.RawFileFormat.CSV,
+                            location=raw_ct_locations,
+                            csv_has_headers=True,
+                            csv_delimiter="|~|",
+                            csv_escape_character="\"",
+                        )
+        ct_df = ct_df.filter("header__change_oper != 'B'")
+        union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
+        if not watermark_upper_bound:
+            max_watermark = union_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+            watermark_upper_bound = convert_watermark_format(max_watermark)
+            
+        filtered_df = union_df.filter(F.col(watermark_column).between(
+                            F.to_timestamp(F.lit(watermark_lower_bound)),
+                            F.to_timestamp(F.lit(watermark_upper_bound)),
+                        ))
+        data_interval_start = f"{watermark_lower_bound}_{partition_start}" 
+        data_interval_end = f"{watermark_upper_bound}_{partition_end}" 
+    else:
+        if not watermark_upper_bound:
+            max_watermark = base_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+            watermark_upper_bound = convert_watermark_format(max_watermark)
+        
+        filtered_df = base_df.filter(F.col(watermark_column).between(
+                            F.to_timestamp(F.lit(watermark_lower_bound)),
+                            F.to_timestamp(F.lit(watermark_upper_bound)),
+                        ))
+        data_interval_start = f"{watermark_lower_bound}_{partition_start}" 
+        data_interval_end = f"{watermark_upper_bound}_{partition_start}"
+        
 else:
-    data_interval_start=None
-    data_interval_end = None
-    raw_locations.append(f"{attunity_sap_ero_prelz_root}/attunity_test/test/{target_hive_table}/*.csv.gz")
+    watermark_lower_bound = '0001-01-01T00:00:00Z'
+    max_watermark = base_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+    watermark_upper_bound = convert_watermark_format(max_watermark)
+    load_type = "OVERWRITE_TABLE"
+    filtered_df = base_df.filter(F.col(watermark_column).between(
+                            F.to_timestamp(F.lit(watermark_lower_bound)),
+                            F.to_timestamp(F.lit(watermark_upper_bound)),
+                        ))
+    data_interval_start = f"{watermark_lower_bound}_{watermark_lower_bound}" 
+    data_interval_end = f"{watermark_upper_bound}_{watermark_lower_bound}"
     
 
 # COMMAND ----------
@@ -105,25 +169,11 @@ print(data_interval_start, data_interval_end)
 
 # COMMAND ----------
 
-#read list of locations
-raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.CSV,
-    location=raw_locations,
-    csv_has_headers=True,
-    csv_delimiter="|~|",
-    csv_escape_character="\"",
-)
+clean_columns_df = transform_utils.clean_column_names(dbutils, filtered_df)
 
 # COMMAND ----------
 
-if incremental_load.lower() == 'true':
-    raw_df = raw_df.filter("header__change_oper != 'B'")
-
-# COMMAND ----------
-
-clean_columns_df = transform_utils.clean_column_names(dbutils, raw_df)
+clean_columns_df.count()
 
 # COMMAND ----------
 
@@ -161,7 +211,7 @@ results = write_utils.write_delta_table(
     location=target_location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=write_utils.LoadType.APPEND_ALL,
+    load_type=write_utils.LoadType(load_type),
     partition_columns=["TARGET_APPLY_DT"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
