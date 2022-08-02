@@ -112,20 +112,20 @@ def __get_result_list(
         dq_total_records = str(result['result']['observed_value'])
         dq_unexpected_records = str(result['result']['observed_value']-
                                     result['expectation_config']['kwargs']['value'])
-        dq_unexpected_percent = str(result['result']['observed_value'] * 
-                                    result['expectation_config']['kwargs']['value'] / 100)
+        dq_unexpected_percent = str(result['result']['observed_value'] *
+                                    result['expectation_config']['kwargs']['value'] /100)
         
     elif dq_function_name == "dq_validate_range_for_numeric_column_sum_values" :
         dq_total_records = str(result['result']['element_count'])
-        dq_comments = 'test is failed since sum value for the column is --> ' \
+        dq_comments = 'failed : actual sum value -> ' \
                             + str(result['result']['observed_value']) \
-                            + ' and range specified in between min_values -> ' \
+                            + ', range specified min_values-> ' \
                             + str(result['expectation_config']['kwargs']['min_value']) \
                             + ' ,  max_values ->' + str(result['expectation_config']['kwargs']['max_value'])     
     else :
         dq_total_records = str(result['result']['element_count'])
         dq_unexpected_records = str(result['result']['unexpected_count'])
-        dq_unexpected_percent = str(result['result']['unexpected_percent'])[0:4]
+        dq_unexpected_percent = str(result['result']['unexpected_percent'])[0:5]
   
     resultlist.append(
             (dq_function_name, dq_total_records, dq_unexpected_records, dq_unexpected_percent, dq_result, dq_comments ))
@@ -212,6 +212,7 @@ def dq_validate_row_count(
     """
     try:
         result = validator.expect_table_row_count_to_equal(row_count, mostly, result_format = "SUMMARY")
+        print(result)
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_validate_row_count")
         return result
     except Exception:
@@ -313,6 +314,7 @@ def dq_validate_count_variation_from_previous_version_values(
         history_load_count = history_df.count()
         Latest_validator = ge.dataset.SparkDFDataset(current_df)
         result = Latest_validator.expect_table_row_count_to_equal(history_load_count, result_format = "SUMMARY")
+        print(result)
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_count_variation_from_previous_version")
         return result
     except Exception:
@@ -341,18 +343,18 @@ def dq_validate_null_percentage_variation_from_previous_version_values(
         Latest_validator = ge.dataset.SparkDFDataset(current_df)
         history_result = history_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
         current_result = Latest_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
-        dq_total_records = 'total number of records before ingestion --> ' \
+        dq_total_records = ' records before ingestion --> ' \
                             + str(history_result['result']['element_count']) \
-                            + 'total number of records after ingestion --> ' \
+                            + ' records after ingestion --> ' \
                             + str(current_result['result']['element_count']) 
-        dq_unexpected_records = 'total number of unexpected_records before ingestion --> ' \
+        dq_unexpected_records = ' unexpected_records before ingestion --> ' \
                             + str(history_result['result']['unexpected_count']) \
-                            + 'total number of unexpected_records after ingestion --> ' \
+                            + ' unexpected_records after ingestion --> ' \
                             + str(current_result['result']['unexpected_count']) 
-        dq_unexpected_percent = 'total number of unexpected_records before ingestion --> ' \
-                            + str(history_result['result']['unexpected_percent'])[0:4] \
-                            + 'total number of unexpected_records after ingestion --> ' \
-                            + str(current_result['result']['unexpected_percent'])[0:4] 
+        dq_unexpected_percent = ' unexpected_records before ingestion --> ' \
+                            + str(history_result['result']['unexpected_percent'])[0:5] \
+                            + ' unexpected_records after ingestion --> ' \
+                            + str(current_result['result']['unexpected_percent'])[0:5] 
         dq_function_name  = "dq_validate_null_percentage_variation_from_previous_version_values"
         dq_result = str(current_result['success'])
         dq_comments = 'null variation -->' + str(history_result['result']['unexpected_percent'] - current_result['result']['unexpected_percent'])[0:4]

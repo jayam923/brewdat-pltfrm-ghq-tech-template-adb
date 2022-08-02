@@ -241,7 +241,7 @@ def invalid_values(
     return __perform_dq_check(
         df=df,
         condition=F.col(field_name).isin(list(map(lambda x: x , invalid_values))),
-        dq_failure_message=f'{field_name}: this record is having following invalid values  -> {invalid_values}.',
+        dq_failure_message=f'{field_name}: this record comes under invalid values  -> {invalid_values}.',
         dbutils=dbutils)
 
     
@@ -270,7 +270,7 @@ def valid_values(
     return __perform_dq_check(
         df=df,
         condition=F.col(field_name).isin(list(map(lambda x: x , valid_values)))== False,
-        dq_failure_message=f'{field_name}: this record is in list of valid values  -> {valid_values}.',
+        dq_failure_message=f'{field_name}: this record is not in list of valid values  -> {valid_values}.',
         dbutils=dbutils)
 
 
@@ -299,7 +299,7 @@ def valid_regular_expression(
     
     return __perform_dq_check(
         df=df,
-        condition=F.col(field_name).rlike(regex),
+        condition=F.col(field_name).rlike(regex) == False,
         dq_failure_message=f'{field_name}: does not align as per the given regex {regex}.',
         dbutils=dbutils)
     
@@ -481,7 +481,7 @@ def __perform_dq_check(
         condition: Column,
         dq_failure_message: str,
         dbutils: object,
-):
+)-> DataFrame:
 
     try:
         result_df = (

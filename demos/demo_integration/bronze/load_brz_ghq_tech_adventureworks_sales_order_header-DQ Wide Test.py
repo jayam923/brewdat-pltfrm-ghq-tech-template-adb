@@ -120,18 +120,17 @@ _testing = results
 from pyspark.sql.functions import col, count, lit
 
 #Add one column with integer values 
-transformed_df=transformed_df.withColumn("testing", lit(20))
+raw_df=raw_df.withColumn("testing", lit(20))
 
 # Create object for Great Expectation
-validator, result_list = data_quality_wide_checks.configure_great_expectation(transformed_df)
-
+validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
 
 #run functions which can be run directly using greate expectations
 test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list )
 test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_names = ["SalesOrderID"], mostly =0.8, resultlist = result_list)
 test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator ,row_count = 40, mostly =0.9, resultlist = result_list)
 test= data_quality_wide_checks.dq_validate_column_nulls_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 500 , max_value = 1000, resultlist = result_list)  # to run this function we need integer column
+test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 3000 , max_value = 5000, resultlist = result_list)  # to run this function we need integer column
 
 #result of all validation in dataframe
 final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
@@ -140,7 +139,7 @@ display(final_result_df)
 
 # COMMAND ----------
 
-validator, result_list = data_quality_wide_checks.configure_great_expectation(transformed_df)
+validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
 current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = _testing)
 test = data_quality_wide_checks.dq_validate_count_variation_from_previous_version_values(dbutils ,validator ,history_df, current_df, resultlist = result_list)
 
@@ -164,7 +163,7 @@ display(final_result_df)
 # COMMAND ----------
 
 # Create object for Great Expectation
-validator, result_list = data_quality_wide_checks.configure_great_expectation(transformed_df)
+validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
 
 
 #run functions which can be run directly using greate expectations
@@ -179,7 +178,7 @@ test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(d
 current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = _testing)
 test = data_quality_wide_checks.dq_validate_count_variation_from_previous_version_values(dbutils ,validator ,history_df, current_df, resultlist = result_list)
 
-#Null  variation 
+# #Null  variation 
 current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark,dbutils =dbutils,  target_location = target_location, results = _testing)
 result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_previous_version_values(dbutils ,history_df, current_df, "SalesOrderID", resultlist = result_list)
 
@@ -187,3 +186,7 @@ result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_pre
 #result of all validation in dataframe
 final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
 display(final_result_df)
+
+# COMMAND ----------
+
+

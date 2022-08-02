@@ -74,14 +74,19 @@ display(raw_df)
 
 # COMMAND ----------
 
-from pyspark.sql.functions import col, count, lit, length, when, array_union, array
-import pyspark.sql.functions as f
-clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
-clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "_c3" ,data_type = "bool", df = clean_df) 
+# DBTITLE 1,Test Individual Function
+clean_df = data_quality_utils.create_required_columns_for_dq_check(raw_df)
+#clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "_c1" ,data_type = "double", df = clean_df) 
+#clean_df = data_quality_utils.null_check(dbutils =dbutils,field_name = "RegistrationNo" ,df = clean_df)
+#clean_df = data_quality_utils.max_length(dbutils =dbutils,field_name = "City" ,maximum_length = 10, df = clean_df)
+#clean_df = data_quality_utils.min_length(dbutils =dbutils, field_name = "City" , minimum_length 89.41= 5, df = clean_df)
+#clean_df = data_quality_utils.range_value(dbutils =dbutils, field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, df = clean_df)
+#clean_df = data_quality_utils.valid_values(dbutils =dbutils, field_name = "Lname" ,valid_values=['sun', 'mon'],df = clean_df) 
+#clean_df = data_quality_utils.invalid_values(dbutils =dbutils, field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],df = clean_df)   
+clean_df = data_quality_utils.valid_regular_expression(dbutils =dbutils, field_name = "_c1" ,regex="^[s-t]",df = clean_df)
+#clean_df = data_quality_utils.duplicate_check(dbutils =dbutils, col_list = ["Name","EmployeeNo","Lname"],df = clean_df)
+#tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
 display(clean_df)
-
-
-
 
 
 # COMMAND ----------
@@ -99,26 +104,7 @@ display(json_df)
 
 # COMMAND ----------
 
-# DBTITLE 1,to test individual function
-from pyspark.sql.functions import col, count, lit, length, when, array_union, array
-import pyspark.sql.functions as f
-clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
-clean_df = data_quality_utils.data_type_check(dbutils =dbutils, field_name = "_c1" ,data_type = "double", df = clean_df) 
-#clean_df = data_quality_utils.null_check(dbutils =dbutils,field_name = "RegistrationNo" ,df = clean_df)
-#clean_df = data_quality_utils.max_length(dbutils =dbutils,field_name = "City" ,maximum_length = 10, df = clean_df)
-#clean_df = data_quality_utils.min_length(dbutils =dbutils, field_name = "City" , minimum_length 89.41= 5, df = clean_df)
-#clean_df = data_quality_utils.range_value(dbutils =dbutils, field_name = "Salary" , minimum_value = 10000,maximum_value = 60000, df = clean_df)
-#clean_df = data_quality_utils.valid_values(dbutils =dbutils, field_name = "Lname" ,valid_values=['sun', 'mon'],df = clean_df) 
-#clean_df = data_quality_utils.invalid_values(dbutils =dbutils, field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],df = clean_df)   
-#clean_df = data_quality_utils.valid_regular_expression(dbutils =dbutils, field_name = "Lname" ,regex="^[s-t]",df = clean_df)
-#clean_df = data_quality_utils.duplicate_check(dbutils =dbutils, col_list = ["Name","EmployeeNo","Lname"],df = clean_df)
-#tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
-display(clean_df)
-
-
-# COMMAND ----------
-
-# DBTITLE 1,To run DQ check using Json file
+# DBTITLE 1,To Run DQ check using Json file
 clean_df = raw_df.withColumn('__bad_record',lit('False')).withColumn('__data_quality_issues',array())
 clean_df = data_quality_utils.run_validation(spark=spark, dbutils=dbutils, src_df = clean_df, json_df=json_df)
 display(clean_df)
@@ -136,116 +122,3 @@ target_location = lakehouse_utils.generate_bronze_table_location(
 )
 
 
-
-# COMMAND ----------
-
-# DBTITLE 1,Data type testing 
-from pyspark.sql.types import IntegerType,DecimalType,ByteType,StringType,LongType,BooleanType,DoubleType,FloatType
-field_name = "Salary"
-clean_df = raw_df
-clean_df = clean_df.withColumn('__bad_record',lit('False')).withColumn('__failed_dg_check',array())
-clean_df = clean_df.withColumn(f'{field_name}_type',col("salary").cast(IntegerType()))
-clean_df = clean_df.withColumn('__failed_dg_check',
-                     when((col(f'{field_name}_type').isNull()) & (col(field_name).isNotNull()),array_union('__failed_dg_check',array(lit(f' {field_name} ; Data type mismatch')))).otherwise(col('__failed_dg_check')))         .withColumn("dq_run_timestamp",f.current_timestamp()).drop(col(f'{field_name}_type'))
-display(clean_df)
-
-# COMMAND ----------
-
-clean_df = raw_df
-clean_df = clean_df.withColumn(f'{field_name}_type',col("salary"))
-display(clean_df)
-
-# COMMAND ----------
-
-from pyspark.sql.functions import when
-# display(clean_df)
-# display(temp)
-result_data = clean_df.union(temp)
-display(result_data)
-# df3 = clean_df.withColumn("bad_record", when(col(temp.bad_record == "True","True") \
-#       .otherwise(clean_df.bad_record))
-# df3.show(30)
-
-
-# COMMAND ----------
-
-from delta.tables import *
-deltaTable = DeltaTable.forPath(spark, target_location)
-#fullHistoryDF = deltaTable.history(1)
-display(deltaTable)
-
-# COMMAND ----------
-
-#temp = fullHistoryDF.filter(fullHistoryDF.operation == "WRITE").select("operationParameters")
-temp = fullHistoryDF.filter(fullHistoryDF.operation == "WRITE").select("operationParameters")
-display(temp)
-print(type(temp))
-
-
-# COMMAND ----------
-
-import pyspark.sql.functions as F
-temp = fullHistoryDF.filter(fullHistoryDF.operation == "VACUUM END").select(F.max("version")).first()[0]
-print(temp)
-
-# COMMAND ----------
-
-latest = spark.read.format("delta").option("versionAsOf", 39).load(target_location)
-print(latest.count())
-history = spark.read.format("delta").option("versionAsOf", 35).load(target_location)
-print(history.count())
-# df3= latest.subtract(history)
-# print(df3.count())
-# return df3
-
-
-
-# COMMAND ----------
-
-contextval = QualityCheck_wide_utils.configure_data_context()
-batch_request_t = QualityCheck_wide_utils.Create_batch_request(dbutils= dbutils, df=latest, context = contextval )
-validator_t = QualityCheck_wide_utils.Create_expectation_suite(dbutils= dbutils, df=latest, context = contextval, batch_request =batch_request_t)
-batch_request_2 = QualityCheck_wide_utils.Create_batch_request(dbutils= dbutils, df=history, context = contextval )
-validator_2 = QualityCheck_wide_utils.Create_expectation_suite(dbutils= dbutils, df=history, context = contextval, batch_request =batch_request_2)
-
-# COMMAND ----------
-
-his, lal= QualityCheck_wide_utils.dq_validate_count_variation_percentage_from_previous_version_values(
-  dbutils= dbutils,
-  current_validator = validator_2, 
-  null_percentage = .8 ,
-  col_name = "RevisionNumber",
-  history_validator =validator_t)
-
-# COMMAND ----------
-
-result = QualityCheck_wide_utils.dq_validate_column_nulls_values (dbutils= dbutils, null_percentage = .8 ,col_name = "RevisionNumber",validator =validator_t)
-#print(result)
-print(type(result['result']['element_count']))
-# print(result['result']['unexpected_percent'])
-# resultw = QualityCheck_wide_utils.dq_validate_column_nulls_values (dbutils= dbutils, null_percentage = .8 ,col_name = "RevisionNumber",validator =validator_2)
-# print(resultw['result']['element_count'])
-# print(result['result']['unexpected_percent'])
-# #print(result)
-
-
-# COMMAND ----------
-
-result = QualityCheck_wide_utils.dq_validate_row_count_to_be_in_between_range(dbutils, validator_t,10, 20)
-print(result)
-
-
-# COMMAND ----------
-
-logic_df= temp.select(col('Metadata__tag__DataType').alias("DataType"),
-    col('Metadata__tag__FieldName').alias("FieldName"),
-    col('Metadata__tag__FileName').alias("FileName"),
-    col('Metadata__tag__IsNull').alias("IsNull"),
-    col('Metadata__tag__Maximum_Length').alias("Maximum_Length"),
-    col('Metadata__tag__Minimum_Length').alias("Minimum_Length"),
-    col('Metadata__tag__Maximum_value').alias("Maximum_value"),
-    col('Metadata__tag__Minimum_value').alias("Minimum_value"),
-    col('Metadata__tag__PK').alias("PK"),
-    col('Metadata__tag__Valid_Regular_Expression').alias("Valid_Regular_Expression"),
-    col('Metadata__tag__Valid_Values').alias("Valid_Values"),
-    col('Metadata__tag__Invalid_Values').alias("Invalid_Values"))
