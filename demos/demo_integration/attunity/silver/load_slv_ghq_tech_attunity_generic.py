@@ -424,19 +424,38 @@ class RowSchema():
         self.target_attribute_name = column_map["target_attribute_name"]
         self.target_data_type = column_map["target_data_type"]
         
-schema = []
-for item in silver_schema:
-    schema.append(RowSchema(item))
+target_schema = []
+for row in silver_schema:
+    target_schema.append(RowSchema(row))
     
 def apply_schema(
     dbutils: object,
     df: DataFrame,
-    schema: List[str]
+    schema: List[RowSchema]
 ) -> DataFrame:
-    target_columns = [col["source_attribute_name"] for col in ]
-    for 
     expressions = []
-    for s in schema:    
+    audit_columns = ['__insert_gmt_ts','__update_gmt_ts']
+    target_columns = [c.source_attribute_name for c in schema]
+    schema_missing_cols = list(
+                set(map(str.lower, [c for c in df.columns if c not in audit_columns]))
+                - set(map(str.lower, target_columns))
+            )
+    for s in schema:
+        expressions.append(f"CAST(`{s.source_attribute_name}` AS {s.target_data_type}) AS `{s.target_attribute_name}`")
+    for col in audit_columns:
+        expressions.append(f"`{col}`")
+    if schema_missing_cols:
+        print(f"The columns {(',').join(schema_missing_cols)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target.")
+    return df.selectExpr(*expressions)
+
+# COMMAND ----------
+
+df = apply_schema(dbutils, audit_df, target_schema)
+
+# COMMAND ----------
+
+x = ['a', 'b']
+print(f"The columns {(',').join(x)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target.")
 
 # COMMAND ----------
 

@@ -1,5 +1,6 @@
 from enum import Enum, unique
 import datetime
+from typing import Union, List
 
 import pyspark.pandas as ps
 from pyspark.sql import DataFrame, SparkSession
@@ -33,7 +34,7 @@ def read_raw_dataframe(
     spark: SparkSession,
     dbutils: object,
     file_format: RawFileFormat,
-    location: union[str, List[str]],
+    location: Union[str, List[str]],
     cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
