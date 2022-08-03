@@ -48,17 +48,6 @@ help(data_quality_utils)
 
 # COMMAND ----------
 
-common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=[adls_raw_bronze_storage_account_name],
-        key_vault_name=key_vault_name,
-        spn_client_id=spn_client_id,
-        spn_secret_name=spn_secret_name,
-    )
-
-# COMMAND ----------
-
 raw_df1 = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
@@ -76,7 +65,6 @@ display(raw_df1)
 
 # DBTITLE 1,Direct function in GE 
 from pyspark.sql.functions import col, count, lit
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType, FloatType
 #Add one column with integer values 
 raw_df1=raw_df1.withColumn("testing", lit(20))
 
@@ -176,14 +164,3 @@ result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_pre
 # # #result of all validation in dataframe
 final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
 display(final_result_df)
-
-# COMMAND ----------
-
-temp = 0.3463647
-temp1 = 0.3125523
-print(round(temp- temp1, 2))
-print(round(temp,2)- round(temp1, 2))
-
-# COMMAND ----------
-
-
