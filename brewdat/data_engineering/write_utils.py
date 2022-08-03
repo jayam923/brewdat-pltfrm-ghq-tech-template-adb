@@ -102,6 +102,9 @@ def write_delta_table(
         Number of days for retaining time travel data in the Delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
         For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+    auto_broadcast_join_threshold : int, default=52428800
+        Configures the maximum size in bytes for a table that will be broadcast to all worker
+        nodes when performing a join. Default value in bytes represents 50 MB.
     Returns
     -------
     ReturnObject
