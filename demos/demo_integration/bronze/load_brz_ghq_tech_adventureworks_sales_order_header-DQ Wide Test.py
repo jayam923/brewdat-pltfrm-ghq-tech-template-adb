@@ -59,11 +59,50 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
+raw_df1 = read_utils.read_raw_dataframe(
+    spark=spark,
+    dbutils=dbutils,
+    file_format=read_utils.RawFileFormat.CSV,
+    #location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    location="dbfs:/FileStore/dataquality/DQ_Test_Files/Col_value_type_test.csv",
+    csv_has_headers=False,
+    csv_delimiter=",",
+    csv_escape_character="\"",
+)
+
+display(raw_df1)
+
+# COMMAND ----------
+
+# DBTITLE 1,Direct function in GE 
+from pyspark.sql.functions import col, count, lit
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType, FloatType
+#Add one column with integer values 
+raw_df1=raw_df1.withColumn("testing", lit(20))
+
+# Create object for Great Expectation
+validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df1)
+
+#run functions which can be run directly using greate expectations
+test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "_c1", mostly =0.7, resultlist = result_list )
+test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_list = ["_c1","_c3"], mostly =0.7, resultlist = result_list)
+test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator, min_value =5, max_value = 30, resultlist = result_list)
+test= data_quality_wide_checks.dq_validate_column_values_to_not_be_null(dbutils ,validator ,col_name = "_c3", mostly =0.8, resultlist = result_list)
+test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 100 , max_value = 500, resultlist = result_list)  # to run this function we need integer column
+
+# #result of all validation in dataframe/
+final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
+display(final_result_df)
+
+
+# COMMAND ----------
+
 raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.CSV,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    #location="dbfs:/FileStore/dataquality/DQ_Test_Files/Col_value_type_test.csv",
     csv_has_headers=True,
     csv_delimiter=",",
     csv_escape_character="\"",
@@ -116,76 +155,34 @@ _testing = results
 
 # COMMAND ----------
 
-# DBTITLE 1,Direct function in GE 
-from pyspark.sql.functions import col, count, lit
-
-#Add one column with integer values 
 raw_df=raw_df.withColumn("testing", lit(20))
-
-# Create object for Great Expectation
+# # Create object for Great Expectation
 validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
 
-#run functions which can be run directly using greate expectations
-test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list )
-test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_names = ["SalesOrderID"], mostly =0.8, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator ,row_count = 40, mostly =0.9, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_column_nulls_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 3000 , max_value = 5000, resultlist = result_list)  # to run this function we need integer column
+# #run functions which can be run directly using greate expectations
+# test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list )
+# print(test)
+# test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_list = ["SalesOrderID"], mostly =0.8, resultlist = result_list)
+# test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator, min_value =10, max_value = 30, resultlist = result_list)
+# test= data_quality_wide_checks.dq_validate_column_values_to_not_be_null(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list)
+# test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 500 , max_value = 1000, resultlist = result_list)  # to run this function we need integer column
 
-#result of all validation in dataframe
-final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
-display(final_result_df)
+# #count variation  - function which depends on delta table  
+test = data_quality_wide_checks.dq_validate_count_variation_from_previous_version_values(spark=spark, dbutils = dbutils , target_location = target_location, results = _testing, min_value = 100, max_value = 300, resultlist = result_list)
 
+# # # Null variation - function which depends on delta table 
+result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_previous_version_values(spark=spark, dbutils = dbutils , target_location = target_location, results = _testing,  col_name = "SalesOrderID", dq_mostly = 0.1, resultlist = result_list)
 
-# COMMAND ----------
-
-validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
-current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = _testing)
-test = data_quality_wide_checks.dq_validate_count_variation_from_previous_version_values(dbutils ,validator ,history_df, current_df, resultlist = result_list)
-
+# # #result of all validation in dataframe
 final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
 display(final_result_df)
 
 # COMMAND ----------
 
-validator, result_list = data_quality_wide_checks.configure_great_expectation(transformed_df)
-current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark,dbutils =dbutils,  target_location = target_location, results = _testing)
-result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_previous_version_values(dbutils ,history_df, current_df, "SalesOrderID", resultlist = result_list)
-temp = list(result)
-print(temp)
-final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= temp)
-
-
-# COMMAND ----------
-
-display(final_result_df)
-
-# COMMAND ----------
-
-# Create object for Great Expectation
-validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
-
-
-#run functions which can be run directly using greate expectations
-test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list )
-test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_names = ["SalesOrderID"], mostly =0.8, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator ,row_count = 40, mostly =0.9, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_column_nulls_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 500 , max_value = 1000, resultlist = result_list)  # to run this function we need integer column
-
-# run function which depends on delta table  
-#count variation 
-current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = _testing)
-test = data_quality_wide_checks.dq_validate_count_variation_from_previous_version_values(dbutils ,validator ,history_df, current_df, resultlist = result_list)
-
-# #Null  variation 
-current_df, history_df = data_quality_wide_checks.get_delta_tables_history_dataframe(spark = spark,dbutils =dbutils,  target_location = target_location, results = _testing)
-result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_previous_version_values(dbutils ,history_df, current_df, "SalesOrderID", resultlist = result_list)
-
-
-#result of all validation in dataframe
-final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
-display(final_result_df)
+temp = 0.3463647
+temp1 = 0.3125523
+print(round(temp- temp1, 2))
+print(round(temp,2)- round(temp1, 2))
 
 # COMMAND ----------
 

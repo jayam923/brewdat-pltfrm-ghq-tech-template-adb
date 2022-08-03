@@ -125,34 +125,4 @@ print(vars(results))
 
 # COMMAND ----------
 
-current_df = results.last_history_df
-history = spark.read.format("delta").option("versionAsOf", current_df.first()[0]).load(target_location)
-
-#history= last_history_df
-
-#latest=data_quality_wide_checks.get_delta_tables_values(spark =spark, dbutils=dbutils,delta_table=results.delta_table,target_location = target_location )
-# display(latest)
-display(history)
-display(clean_df)
-
-# COMMAND ----------
-
-contextval = data_quality_wide_checks.configure_data_context()
-batch_request_t = data_quality_wide_checks.Create_batch_request(dbutils= dbutils, df=clean_df, context = contextval )
-validator_t = data_quality_wide_checks.Create_expectation_suite(dbutils= dbutils, df=clean_df, context = contextval, batch_request =batch_request_t)
-batch_request_2 = data_quality_wide_checks.Create_batch_request(dbutils= dbutils, df=history, context = contextval )
-validator_2 = data_quality_wide_checks.Create_expectation_suite(dbutils= dbutils, df=history, context = contextval, batch_request =batch_request_2)
-
-# COMMAND ----------
-
- lal= data_quality_wide_checks.dq_validate_count_variation_percentage_from_previous_version_values(
-   dbutils= dbutils,
-   history_validator =validator_t,
-   current_validator = validator_2, 
-   null_percentage = .8 ,
-   col_name = "RevisionNumber",
-   )
-
-# COMMAND ----------
-
 

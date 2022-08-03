@@ -1,10 +1,11 @@
 import datetime
+import math
 import great_expectations as ge
 from ruamel import yaml
 from pyspark.sql import DataFrame, SparkSession
 from delta.tables import DeltaTable
-import pyspark.sql.functions as F
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType
+import pyspark.sql.functions as f
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType, FloatType
 from great_expectations.core.batch import RuntimeBatchRequest
 from great_expectations.validator.validator import Validator
 from great_expectations.core import ExpectationValidationResult
@@ -15,7 +16,7 @@ from . import common_utils, lakehouse_utils, read_utils, transform_utils, write_
 
 
     
-def get_delta_tables_history_dataframe(
+def __get_delta_tables_history_dataframe(
     spark: SparkSession, 
     dbutils: object, 
     target_location: str, 
@@ -30,14 +31,14 @@ def get_delta_tables_history_dataframe(
     target_location : str
         Absolute Delta Lake path for the physical location of this delta table.
     result : object
-        A ExpectationValidationResult object.
+        A DeltaTable object.
     Returns
     -------
     DataFrame
         Dataframe for history and latest records which are loaded in delta table
     """
     try:
-        latest = results.delta_table.history().filter(F.col("operation") == "WRITE").select(F.col("version").cast("int")).first()[0]
+        latest = results.delta_table.history().filter(f.col("operation") == "WRITE").select(f.col("version").cast("int")).first()[0]
         history = latest-4
         latest_df = spark.read.format("delta").option("versionAsOf", latest).load(target_location)
         history_df = spark.read.format("delta").option("versionAsOf", history).load(target_location)
@@ -67,16 +68,22 @@ def configure_great_expectation(
     
     except Exception:
         common_utils.exit_with_last_exception(dbutils)    
+
         
 def __get_result_list(
     result : ExpectationValidationResult,
     resultlist : list =[],
     dq_result =None,
-    dq_total_records = None,
+    result_value = None,
     dq_unexpected_records = None,
     dq_unexpected_percent = None,
     dq_function_name = None,
-    dq_comments = None
+    dq_min_value = None,
+    dq_max_value = None,
+    dq_column_name = None,
+    dq_mostly= None,
+    dq_range = None,
+    dq_comments = None,
 ) -> list:
     """ Create a list for the results from the DQ checks.
     
@@ -101,34 +108,20 @@ def __get_result_list(
     """
     dq_result = str(result['success'])
     
-    if   dq_function_name == "dq_validate_row_count" :
-        dq_total_records = str(result['result']['observed_value'])
-        dq_unexpected_records = str(result['result']['observed_value']-
-                                    result['expectation_config']['kwargs']['value'])
-        dq_unexpected_percent = str(result['result']['observed_value'] * 
-                                    result['expectation_config']['kwargs']['value'] / 100)
+    if   dq_function_name == "dq_count_of_records_in_table" or dq_function_name == "dq_column_sum_value" :
+        result_value = str(result['result']['observed_value'])
+        dq_mostly = dq_mostly
+        dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+        dq_comments = f" records_count :-> {result['result']['observed_value']}, is not in between range :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
      
-    elif   dq_function_name == "dq_count_variation_from_previous_version" :
-        dq_total_records = str(result['result']['observed_value'])
-        dq_unexpected_records = str(result['result']['observed_value']-
-                                    result['expectation_config']['kwargs']['value'])
-        dq_unexpected_percent = str(result['result']['observed_value'] *
-                                    result['expectation_config']['kwargs']['value'] /100)
+    else :  
+        result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
+        dq_mostly = result['expectation_config']['kwargs']['mostly']
+        dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
+        dq_comments = f" total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
         
-    elif dq_function_name == "dq_validate_range_for_numeric_column_sum_values" :
-        dq_total_records = str(result['result']['element_count'])
-        dq_comments = 'failed : actual sum value -> ' \
-                            + str(result['result']['observed_value']) \
-                            + ', range specified min_values-> ' \
-                            + str(result['expectation_config']['kwargs']['min_value']) \
-                            + ' ,  max_values ->' + str(result['expectation_config']['kwargs']['max_value'])     
-    else :
-        dq_total_records = str(result['result']['element_count'])
-        dq_unexpected_records = str(result['result']['unexpected_count'])
-        dq_unexpected_percent = str(result['result']['unexpected_percent'])[0:5]
-  
     resultlist.append(
-            (dq_function_name, dq_total_records, dq_unexpected_records, dq_unexpected_percent, dq_result, dq_comments ))
+            (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
     
     return resultlist
  
@@ -157,12 +150,12 @@ def get_wider_dq_results(
     try:
         result_schema = (
              StructType(fields=[StructField('dq_function_name',StringType()),
-                                               StructField('dq_total_records',StringType()),
-                                               StructField('dq_unexpected_records',StringType()),
-                                               StructField('dq_unexpected_percent',StringType()),
+                                               StructField('result_value',StringType()), 
+                                               StructField('dq_mostly',FloatType()),
+                                               StructField('dq_range',StringType()),
                                                StructField('dq_result',StringType()),
                                                StructField('dq_comments',StringType())])
-        )
+             )                   
         result_df= spark.createDataFrame(values, result_schema)
         return result_df
     except Exception:
@@ -172,7 +165,7 @@ def get_wider_dq_results(
 def dq_validate_compond_column_unique_values(
     dbutils: object, 
     validator: Validator,
-    col_names : list,
+    col_list : list,
     mostly :int,
     resultlist : list = [])-> ExpectationValidationResult:
     """Create function to Assert if column has unique values.
@@ -182,13 +175,22 @@ def dq_validate_compond_column_unique_values(
         A Databricks utils object.
     validator : Validator
         Name of the Validator object.
+    col_list : list
+        hold list of result for result list function
     col_name : str
-        Name of the column on which 
+        must be a float between 0 and 1. evaluates it as a percentage to fail or pass the validation
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        result =  validator.expect_compound_columns_to_be_unique(col_names, mostly, result_format = "SUMMARY")
-        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_validate_compond_column_unique_values")
-        print(result_list)
+        col_names = " "
+        result =  validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
+        col_names = col_names.join(col_list)
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns")
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -197,8 +199,8 @@ def dq_validate_compond_column_unique_values(
 def dq_validate_row_count(
     dbutils: object, 
     validator: Validator,
-    row_count : int,
-    mostly :int,
+    min_value : int,
+    max_value :int,
     resultlist : list = [])-> ExpectationValidationResult:
     """Create function to Assert Assert row count.
     Parameters
@@ -207,19 +209,27 @@ def dq_validate_row_count(
         A Databricks utils object.
     validator : Validator
         Name of the Validator object.
-    row_count : int
+    min_value : int
         count of the row in the table
+    max_value : int
+        count of the row in the table
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        result = validator.expect_table_row_count_to_equal(row_count, mostly, result_format = "SUMMARY")
-        print(result)
-        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_validate_row_count")
+        result = validator.expect_table_column_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_count_of_records_in_table")
+        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
     
-def dq_validate_column_nulls_values(
+def dq_validate_column_values_to_not_be_null(
     dbutils: object, 
     validator: Validator, 
     col_name : str,
@@ -233,11 +243,20 @@ def dq_validate_column_nulls_values(
     validator : Validator
         Name of the Validator object.
     col_name : str
-        Name of the column on which 
+        Name of the column on which
+    mostly :int
+        thrashold value to validate the test cases
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
         result =  validator.expect_column_values_to_not_be_null(col_name, mostly, result_format = "SUMMARY")
-        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_validate_column_nulls_values")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_not_null_records_percentage_for_column")
+        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -259,10 +278,21 @@ def dq_validate_range_for_numeric_column_sum_values(
         Name of the Validator object.
     col_name : str
         Name of the column on which 
+    min_value : int
+        count of the row in the table
+    max_value : int
+        count of the row in the table
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
         result =  validator.expect_column_sum_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
-        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_validate_range_for_numeric_column_sum_values")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_column_sum_value")
+        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -284,10 +314,19 @@ def dq_validate_column_unique_values(
         Name of the Validator object.
     col_name : str
         Name of the column on which 
+    mostly :int
+        thrashold value to validate the test cases
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
         result =  validator.expect_column_values_to_be_unique(col_name, mostly, result_format = "SUMMARY")
-        dresult_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_validate_column_unique_values")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_count_for_unique_values_in_columns")
+        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -295,37 +334,51 @@ def dq_validate_column_unique_values(
 
 
 def dq_validate_count_variation_from_previous_version_values(
+    spark: SparkSession,
     dbutils: object, 
-    current_validator: Validator,
-    history_df : DataFrame,
-    current_df : DataFrame,
+    target_location: str,
+    results : object,
+    min_value : int,
+    max_value : int,
     resultlist : list = [])-> ExpectationValidationResult:
     """Create function to Assert column value is not null.
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
-    validator : Validator
-        Name of the Validator object.
-    col_name : str
-        Name of the column on which 
+    target_location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    result : object
+        A DeltaTable object.
+    resultlist : list
+        takes the list to hold the result in result df
     """
     try:
+        current_df, history_df = __get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = results)
         history_load_count = history_df.count()
         Latest_validator = ge.dataset.SparkDFDataset(current_df)
-        result = Latest_validator.expect_table_row_count_to_equal(history_load_count, result_format = "SUMMARY")
-        print(result)
-        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_count_variation_from_previous_version")
+        result = Latest_validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+        dq_result = str(result['success'])
+        dq_function_name = "dq_validate_count_variation_from_previous_version_values"
+        result_value = result['result']['observed_value'] - history_load_count
+        dq_comments = f" total_record_count_in_history :-> {history_load_count} , total_record_count_in_Latest :-> {result['result']['observed_value']}"
+        dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+        dq_mostly = None 
+        if result['expectation_config']['kwargs']['min_value'] <= result_value <= result['expectation_config']['kwargs']['max_value']:
+            dq_result = "True"
+        resultlist.append((dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))     
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
         
 def dq_validate_null_percentage_variation_from_previous_version_values(
+    spark: SparkSession,
     dbutils: object, 
-    history_df: DataFrame,
-    current_df: DataFrame,
+    target_location: str,
+    results : object,
     col_name : str,
+    dq_mostly : int,
     resultlist : list = [])-> ExpectationValidationResult:
     
     """Create function to Assert column value is not null.
@@ -333,33 +386,35 @@ def dq_validate_null_percentage_variation_from_previous_version_values(
     ----------
     dbutils : object
         A Databricks utils object.
-    validator : Validator
-        Name of the Validator object.
+    target_location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    result : object
+        A DeltaTable object.
     col_name : str
         Name of the column on which 
+    resultlist : list
+        takes the list to hold the result in result df
     """
     try:
+        dq_min_value = None
+        dq_min_value = None
+        current_df, history_df = __get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = results)
         history_validator = ge.dataset.SparkDFDataset(history_df)
         Latest_validator = ge.dataset.SparkDFDataset(current_df)
         history_result = history_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
         current_result = Latest_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
-        dq_total_records = ' records before ingestion --> ' \
-                            + str(history_result['result']['element_count']) \
-                            + ' records after ingestion --> ' \
-                            + str(current_result['result']['element_count']) 
-        dq_unexpected_records = ' unexpected_records before ingestion --> ' \
-                            + str(history_result['result']['unexpected_count']) \
-                            + ' unexpected_records after ingestion --> ' \
-                            + str(current_result['result']['unexpected_count']) 
-        dq_unexpected_percent = ' unexpected_records before ingestion --> ' \
-                            + str(history_result['result']['unexpected_percent'])[0:5] \
-                            + ' unexpected_records after ingestion --> ' \
-                            + str(current_result['result']['unexpected_percent'])[0:5] 
-        dq_function_name  = "dq_validate_null_percentage_variation_from_previous_version_values"
         dq_result = str(current_result['success'])
-        dq_comments = 'null variation -->' + str(history_result['result']['unexpected_percent'] - current_result['result']['unexpected_percent'])[0:4]
-        resultlist.append((dq_function_name, dq_total_records, dq_unexpected_records, dq_unexpected_percent, dq_result, dq_comments ))        
+        result_value = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
+        dq_function_name  = "dq_validate_null_percentage_variation_values"
+        dq_comments = dq_comments = f" null percentage in history :-> {history_result['result']['unexpected_percent']:.2f}  null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
+        dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
+        cal_mostly = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
+        dq_mostly = dq_mostly
+        if(cal_mostly <= dq_mostly):
+            dq_result = "True"
+        resultlist.append((dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))      
         return resultlist
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-
+        
+        
