@@ -42,7 +42,7 @@ class ReturnObject():
         num_records_read: int = 0,
         num_records_loaded: int = 0,
         error_message: str = "",
-        error_details: str = "",
+        error_details: str = ""
     ):
         self.status = status
         self.target_object = target_object

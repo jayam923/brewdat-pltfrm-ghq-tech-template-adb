@@ -430,11 +430,11 @@ def apply_silver_schema(
     try:
         expressions = []
         for column in df.schema:
-            target_data_type = _get_target_data_type(column.name, silver_schema)
+            target_data_type, target_attribute_name = _get_target_data_type(column.name, silver_schema)
             if target_data_type == 'string':
-                expressions.append(f"`{column.name}`")
+                expressions.append(f"`{column.name}` AS `{target_attribute_name}`")
             else:
-                expressions.append(f"CAST(`{column.name}` AS {target_data_type}) AS `{column.name}`")
+                expressions.append(f"CAST(`{column.name}` AS {target_data_type}) AS `{target_attribute_name}`")
         return df.selectExpr(*expressions)       
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -457,5 +457,5 @@ def _get_target_data_type(column_name, silver_schema) -> str:
     """
     for item in silver_schema:
         if item["source_attribute_name"].lower() == column_name.lower():
-            return item["target_data_type"]
-    return "string"
+            return item["target_data_type"], item["target_attribute_name"]
+    return "string", column_name

@@ -33,7 +33,7 @@ def read_raw_dataframe(
     spark: SparkSession,
     dbutils: object,
     file_format: RawFileFormat,
-    location: list,
+    location: union[str, List[str]],
     cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
@@ -140,7 +140,24 @@ def read_raw_dataframe(
 
         
         
-def get_partitions_to_process(dbutils, table_path, last_partition_end_time):
+def get_partitions_to_process(dbutils, table_path, last_partition_end_time) -> list:
+    """...
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    table_path : str
+        change table path
+  
+    last_partition_end_time : datetime
+        The partition end time that was loaded in previous load
+
+    Returns
+    -------
+    List
+        List of all unprocessed partitions in ct table that needs to be read.
+    """
     ct_partitions = dbutils.fs.ls(table_path)
     partitions_to_process = []
     for item in ct_partitions:
@@ -150,6 +167,4 @@ def get_partitions_to_process(dbutils, table_path, last_partition_end_time):
             partitions_to_process.append((item[1].replace('/', ''), partition_start_time, partition_end_time))
         
     sorted_partitions = sorted(partitions_to_process, key=lambda x: x[1]) 
-    data_interval_start = sorted_partitions[0][1]
-    data_interval_end = sorted_partitions[-1][2]
-    return sorted_partitions, data_interval_start.strftime("%Y-%m-%dT%H:%M:%SZ"), data_interval_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+    return sorted_partitions

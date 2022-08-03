@@ -31,10 +31,6 @@ dbutils.widgets.text("data_interval_start", "2022-06-21T00:00:00Z", "8 - data_in
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
-dbutils.widgets.text("data_interval_end", "2022-06-22T00:00:00Z", "9 - data_interval_end")
-data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
-
 dbutils.widgets.text("incremental_load", "false", "10 - incremental_load")
 incremental_load = dbutils.widgets.get("incremental_load")
 print(f"incremental_load: {incremental_load}")
@@ -54,7 +50,7 @@ help(read_utils)
 
 # COMMAND ----------
 
-# MAGIC %run "/Users/sachin.kumar@ab-inbev.com/Attunity_d/attunity_demo/project_context"
+# MAGIC %run "../set_project_context"
 
 # COMMAND ----------
 
@@ -75,28 +71,40 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 import datetime
-#last_partition_loaded = '20220726T133000' '0001-01-01T00:00:00Z'
-last_partition_end_time = datetime.datetime.strptime(data_interval_start, "%Y-%m-%dT%H:%M:%SZ")
-#last_partition_end_time =last_partition_loaded.strftime("%Y-%m-%dT%H:%M:%SZ")
-#last_partition_end_time=None
-#print(type(last_partition_loaded))
 
 # COMMAND ----------
 
-target_hive_table = "R4S - SALES MASTER.kna1"
+base_table_path=f"{lakehouse_raw_root}/data/{target_zone}/{target_business_domain}/{source_system}/file.{target_hive_table}"
 
 # COMMAND ----------
 
 raw_locations = []
 if incremental_load.lower() == 'true':
     #build list of locations
-    table_path = f"{attunity_sap_ero_prelz_root}/attunity_test/test/{target_hive_table}__ct"
-    partitions_to_load,  data_interval_start, data_interval_end = read_utils.get_partitions_to_process(dbutils, table_path, last_partition_end_time)
-    raw_locations = [f"{table_path}/{partition[0]}/*.csv.gz" for partition in partitions_to_load]
+    last_partition_end_time = datetime.datetime.strptime(data_interval_start, "%Y-%m-%dT%H:%M:%SZ")
+    ct_table_path = f"{base_table_path}__ct"
+    partitions_to_load = read_utils.get_partitions_to_process(dbutils, ct_table_path, last_partition_end_time)
+    if partitions_to_load:
+        data_interval_start = partitions_to_load[0][1].strftime("%Y-%m-%dT%H:%M:%SZ")
+        data_interval_end = partitions_to_load[-1][2].strftime("%Y-%m-%dT%H:%M:%SZ")
+        raw_locations = [f"{table_path}/{partition[0]}/*.csv.gz" for partition in partitions_to_load]
+    else:
+        results = common_utils.ReturnObject(
+            status=common_utils.RunStatus.SUCCEEDED,
+            target_object=f"{target_hive_database}.{target_hive_table}",
+            num_records_read=0,
+            num_records_loaded=0,
+            error_message='There are no new data in change table to process',
+            error_details='')
+        vars(results)["data_interval_start"] = data_interval_start
+        vars(results)["data_interval_end"] = data_interval_start
+        common_utils.exit_with_object(dbutils=dbutils, results=results)
+        
+        
 else:
     data_interval_start=None
     data_interval_end = None
-    raw_locations.append(f"{attunity_sap_ero_prelz_root}/attunity_test/test/{target_hive_table}/*.csv.gz")
+    raw_locations.append(f"{base_table_path}/*.csv.gz")
     
 
 # COMMAND ----------
@@ -141,11 +149,6 @@ audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=t
 
 # COMMAND ----------
 
-#remove this line when table name is properly updated
-target_hive_table = target_hive_table.split('.')[1]
-
-# COMMAND ----------
-
 target_location = lakehouse_utils.generate_bronze_table_location(
     dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
@@ -163,7 +166,7 @@ results = write_utils.write_delta_table(
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["TARGET_APPLY_DT"],
-    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS
 )
 
 print(vars(results))

@@ -251,7 +251,7 @@ def write_delta_table(
             status=RunStatus.SUCCEEDED,
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
-            num_records_loaded=num_records_loaded,
+            num_records_loaded=num_records_loaded
         )
     except Py4JJavaError as e:
         return ReturnObject(
