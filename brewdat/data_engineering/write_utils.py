@@ -751,4 +751,4 @@ def _merge_dataframe_for_type_2_scd(
     # As well as the new records that should be inserted (__is_active = True)
     merge_df = update_df.unionByName(source_df, allowMissingColumns=True)
 
-    return 
+    return merge_df

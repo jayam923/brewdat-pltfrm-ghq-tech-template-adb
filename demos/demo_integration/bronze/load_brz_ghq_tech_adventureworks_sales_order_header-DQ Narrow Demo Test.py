@@ -112,6 +112,33 @@ display(clean_df)
 
 # COMMAND ----------
 
+clean_df = transform_utils.clean_column_names(dbutils=dbutils, df=raw_df)
+
+#display(clean_df)
+
+# COMMAND ----------
+
+from pyspark.sql import functions as F
+
+transformed_df = (
+    clean_df
+    .filter(F.col("__ref_dt").between(
+        F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
+        F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
+    ))
+    .withColumn("__src_file", F.input_file_name())
+)
+
+#display(transformed_df)
+
+# COMMAND ----------
+
+audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
+
+#display(audit_df)
+
+# COMMAND ----------
+
 target_location = lakehouse_utils.generate_bronze_table_location(
     dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
@@ -121,4 +148,14 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     table_name=target_hive_table,
 )
 
+results = write_utils.write_delta_table(
+    spark=spark,
+    df=audit_df,
+    location=target_location,
+    schema_name=target_hive_database,
+    table_name=target_hive_table,
+    load_type=write_utils.LoadType.APPEND_ALL,
+    partition_columns=["__ref_dt"],
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+)
 
