@@ -39,11 +39,11 @@ dbutils.widgets.text("silver_schema", "10 - silver_schema")
 silver_schema = dbutils.widgets.get("silver_schema")
 print(f"silver_schema: {silver_schema}")
 
-dbutils.widgets.text("key_columns","MANDT,BUKRS,BELNR,GJAHR", "12 - key_columns")
+dbutils.widgets.text("key_columns","MANDT,BUKRS,BELNR,GJAHR", "11 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 print(f"key_columns: {key_columns}")
 
-dbutils.widgets.text("watermark_column","target_apply_ts", "13 - watermark_column")
+dbutils.widgets.text("watermark_column","target_apply_ts", "12 - watermark_column")
 watermark_column = dbutils.widgets.get("watermark_column")
 print(f"watermark_column: {watermark_column}")
 
@@ -390,7 +390,21 @@ silver_schema = """[{"source_table_name": "kna1", "source_attribute_name": "adrn
  {"source_table_name": "kna1", "source_attribute_name": "TARGET_APPLY_DT",
   "target_attribute_name": "TARGET_APPLY_DT", "target_data_type": "date"},
  {"source_table_name": "kna1", "source_attribute_name": "op_ind", "target_attribute_name": "op_ind",
-  "target_data_type": "string"}
+  "target_data_type": "string"},
+  {"source_table_name": "kna1", "source_attribute_name": "header__change_seq", "target_attribute_name": "header__change_seq",
+  "target_data_type": "string"},
+  {"source_table_name": "kna1", "source_attribute_name": "header__change_oper", "target_attribute_name": "header__change_oper",
+  "target_data_type": "string"},
+  {"source_table_name": "kna1", "source_attribute_name": "header__change_mask", "target_attribute_name": "header__change_mask",
+  "target_data_type": "string"},
+  {"source_table_name": "kna1", "source_attribute_name": "header__stream_position", "target_attribute_name": "header__stream_position",
+  "target_data_type": "string"},
+  {"source_table_name": "kna1", "source_attribute_name": "header__operation", "target_attribute_name": "header__operation",
+  "target_data_type": "string"},
+  {"source_table_name": "kna1", "source_attribute_name": "header__transaction_id", "target_attribute_name": "header__transaction_id",
+  "target_data_type": "string"},
+   {"source_table_name": "kna1", "source_attribute_name": "header__timestamp", "target_attribute_name": "header__timestamp",
+  "target_data_type": "timestamp"}
  ]"""
 
 # COMMAND ----------
@@ -406,122 +420,6 @@ key_columns_list = key_columns.split(",")
 
 # COMMAND ----------
 
-import re
-from datetime import datetime
-from typing import List
-
-import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
-from pyspark.sql.types import DataType
-from pyspark.sql.window import Window
-
-class RowSchema():
-    def __init__(
-            self,
-            column_map: dict
-    ):
-        self.source_attribute_name = column_map["source_attribute_name"]
-        self.target_attribute_name = column_map["target_attribute_name"]
-        self.target_data_type = column_map["target_data_type"]
-        
-target_schema = []
-for row in silver_schema:
-    target_schema.append(RowSchema(row))
-    
-def apply_schema(
-    dbutils: object,
-    df: DataFrame,
-    schema: List[RowSchema]
-) -> DataFrame:
-    expressions = []
-    audit_columns = ['__insert_gmt_ts','__update_gmt_ts']
-    target_columns = [c.source_attribute_name for c in schema]
-    schema_missing_cols = list(
-                set(map(str.lower, [c for c in df.columns if c not in audit_columns]))
-                - set(map(str.lower, target_columns))
-            )
-    for s in schema:
-        expressions.append(f"CAST(`{s.source_attribute_name}` AS {s.target_data_type}) AS `{s.target_attribute_name}`")
-    for col in audit_columns:
-        expressions.append(f"`{col}`")
-    if schema_missing_cols:
-        print(f"The columns {(',').join(schema_missing_cols)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target.")
-    return df.selectExpr(*expressions)
-
-# COMMAND ----------
-
-df = apply_schema(dbutils, audit_df, target_schema)
-
-# COMMAND ----------
-
-x = ['a', 'b']
-print(f"The columns {(',').join(x)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target.")
-
-# COMMAND ----------
-
-schema = brz_df.schema
-print(schema.fields)
-
-# COMMAND ----------
-
-def apply_silver_schema(
-    dbutils: object,
-    df: DataFrame,
-    silver_schema: list
-) -> DataFrame:
-    """Cast all DataFrame columns to required data types and change column names 
-    as received from the input schema.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    df : DataFrame
-        The PySpark DataFrame to cast.
-    silver_schema: List
-        List containing column details of silver table. The element of the list is a dictionary containing
-        source_table_name, source_column_name, target_data_type, target_column_name
-
-    Returns
-    -------
-    DataFrame
-        The modified PySpark DataFrame with all columns cast to required data types as specified in schema.
-    """
-    try:
-        expressions = []
-        for column in df.schema:
-            target_data_type, target_attribute_name = _get_target_data_type(column.name, silver_schema)
-            if target_data_type == 'string':
-                expressions.append(f"`{column.name}` AS `{target_attribute_name}`")
-            else:
-                expressions.append(f"CAST(`{column.name}` AS {target_data_type}) AS `{target_attribute_name}`")
-        return df.selectExpr(*expressions)       
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-        
-def _get_target_data_type(column_name, silver_schema) -> str:
-    """Finds the data type of input column in input schema. 
-
-    Parameters
-    ----------
-    column_name : string
-        Input Column Name .
-    silver_schema: List
-        List containing column details of silver table. The element of the list is a dictionary containing
-        source_table_name, source_column_name, target_data_type, target_column_name
-
-    Returns
-    -------
-    str
-        Target data type the input column needs to be cast to
-    """
-    for item in silver_schema:
-        if item["source_attribute_name"].lower() == column_name.lower():
-            return item["target_data_type"], item["target_attribute_name"]
-    return "string", column_name
-
-# COMMAND ----------
-
 # Import BrewDat Library modules
 #sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 sys.path.append(f"/Workspace/Repos/sachin.kumar@ab-inbev.com/brewdat-pltfrm-ghq-tech-template-adb")
@@ -532,8 +430,11 @@ help(read_utils)
 
 # COMMAND ----------
 
-x = common_utils.ReturnObject
-print(x.)
+convert_watermark_format = lambda x : datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%dT%H:%M:%SZ")
+
+target_schema = []
+for row in silver_schema:
+    target_schema.append(common_utils.RowSchema(row))
 
 # COMMAND ----------
 
@@ -556,31 +457,26 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-convert_watermark_format = lambda x : datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%dT%H:%M:%SZ")
-
-# COMMAND ----------
-
 brz_df = spark.sql(f"select * from {source_hive_database}.{target_hive_table} where TARGET_APPLY_DT >= TO_DATE('{data_interval_start}')")
 if not data_interval_end:
     watermark_upper_bound = brz_df.select(F.max(F.col(watermark_column))).collect()[0][0]
     data_interval_end = convert_watermark_format(watermark_upper_bound)
 
-print(data_interval_start, data_interval_end)
 filtered_df = brz_df.filter(F.col(watermark_column).between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(data_interval_end)),
     ))
 
-df = transform_utils.apply_silver_schema(dbutils, filtered_df, silver_schema)
-
 # COMMAND ----------
 
 dedup_df = transform_utils.deduplicate_records(
     dbutils=dbutils,
-    df=df,
+    df=filtered_df,
     key_columns=key_columns_list,
     watermark_column=watermark_column,
 )
+
+df = transform_utils.apply_schema(dbutils, filtered_df, target_schema)
 
 #display(dedup_df)
 

@@ -52,7 +52,23 @@ class ReturnObject():
         self.error_message = error_message[:8000]
         self.error_details = error_details
 
-
+class RowSchema():
+    """Object the holds the schema information of each column"
+    
+    Attributes
+    ----------
+    column_map : dict
+        column_map: Dictionary containing source_attribute_name, target_attribute_name and target_attribute_type
+    """
+    
+    def __init__(
+            self,
+            column_map: dict
+    ):
+        self.source_attribute_name = column_map["source_attribute_name"]
+        self.target_attribute_name = column_map["target_attribute_name"]
+        self.target_data_type = column_map["target_data_type"]
+        
 def exit_with_object(dbutils: object, results: ReturnObject):
     """Finish execution returning an object to the notebook's caller.
 

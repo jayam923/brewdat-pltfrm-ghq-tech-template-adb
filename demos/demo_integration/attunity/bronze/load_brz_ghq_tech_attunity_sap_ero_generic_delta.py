@@ -92,8 +92,13 @@ ct_raw_df = read_utils.read_raw_dataframe(
 
 # COMMAND ----------
 
-max_base_watermark_value = base_raw_df.select(F.max(F.col(watermark_column))).collect()[0][0]
-max_ct_watermark_value = ct_raw_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+clean_base_df = transform_utils.clean_column_names(dbutils=dbutils, df=base_raw_df)
+clean_ct_df = transform_utils.clean_column_names(dbutils=dbutils, df=ct_raw_df)
+
+# COMMAND ----------
+
+max_base_watermark_value = clean_base_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+max_ct_watermark_value = clean_ct_df.select(F.max(F.col(watermark_column))).collect()[0][0]
 new_upper_bound = max_ct_watermark_value if max_ct_watermark_value > max_base_watermark_value else max_base_watermark_value
 data_interval_end = new_upper_bound.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -104,7 +109,7 @@ print(max_base_watermark_value, max_ct_watermark_value, new_upper_bound, data_in
 # COMMAND ----------
 
 filtered_base_df = (
-    base_raw_df
+    clean_base_df
     .filter(F.col(watermark_column).between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(max_base_watermark_value)),
@@ -116,7 +121,7 @@ filtered_base_df = (
 # COMMAND ----------
 
 filtered_ct_df = (
-    ct_raw_df
+    clean_ct_df
     .filter(F.col(watermark_column).between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(max_ct_watermark_value)),
@@ -164,7 +169,7 @@ results = write_utils.write_delta_table(
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["TARGET_APPLY_DT"],
-    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS
 )
 vars(results)["data_interval_end"] = data_interval_end
 print(vars(results))
@@ -172,3 +177,8 @@ print(vars(results))
 # COMMAND ----------
 
 common_utils.exit_with_object(dbutils=dbutils, results=results)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC Select  * from brz_ghq_tech_attunity_sap_ero.kna1

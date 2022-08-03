@@ -404,58 +404,27 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
         return "struct<" + ", ".join(new_field_types) + ">"
     return "string"
 
-def apply_silver_schema(
-    dbutils: object,
-    df: DataFrame,
-    silver_schema: list
+def apply_schema(
+        dbutils: object,
+        df: DataFrame,
+        schema: List[common_utils.RowSchema]
 ) -> DataFrame:
-    """Cast all DataFrame columns to required data types and change column names 
-    as received from the input schema.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    df : DataFrame
-        The PySpark DataFrame to cast.
-    silver_schema: List
-        List containing column details of silver table. The element of the list is a dictionary containing
-        source_table_name, source_column_name, target_data_type, target_column_name
-
-    Returns
-    -------
-    DataFrame
-        The modified PySpark DataFrame with all columns cast to required data types as specified in schema.
-    """
     try:
         expressions = []
-        for column in df.schema:
-            target_data_type, target_attribute_name = _get_target_data_type(column.name, silver_schema)
-            if target_data_type == 'string':
-                expressions.append(f"`{column.name}` AS `{target_attribute_name}`")
-            else:
-                expressions.append(f"CAST(`{column.name}` AS {target_data_type}) AS `{target_attribute_name}`")
-        return df.selectExpr(*expressions)       
+        audit_columns = ['__src_file','__insert_gmt_ts', '__update_gmt_ts']
+        target_columns = [c.source_attribute_name for c in schema]
+        schema_missing_cols = list(
+            set(map(str.lower, [c for c in df.columns if c not in audit_columns]))
+            - set(map(str.lower, target_columns))
+        )
+        for s in schema:
+            expressions.append(
+                f"CAST(`{s.source_attribute_name}` AS {s.target_data_type}) AS `{s.target_attribute_name}`")
+        for col in audit_columns:
+            expressions.append(f"`{col}`")
+        if schema_missing_cols:
+            print(
+                f"The columns {(',').join(schema_missing_cols)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target.")
+        return df.selectExpr(*expressions)
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-        
-def _get_target_data_type(column_name, silver_schema) -> str:
-    """Finds the data type of input column in input schema. 
-
-    Parameters
-    ----------
-    column_name : string
-        Input Column Name .
-    silver_schema: List
-        List containing column details of silver table. The element of the list is a dictionary containing
-        source_table_name, source_column_name, target_data_type, target_column_name
-
-    Returns
-    -------
-    str
-        Target data type the input column needs to be cast to
-    """
-    for item in silver_schema:
-        if item["source_attribute_name"].lower() == column_name.lower():
-            return item["target_data_type"], item["target_attribute_name"]
-    return "string", column_name
