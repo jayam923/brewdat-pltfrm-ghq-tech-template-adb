@@ -426,7 +426,7 @@ def apply_schema(
     """
     try:
         expressions = []
-        audit_columns = ['__src_file','__insert_gmt_ts', '__update_gmt_ts']
+        audit_columns = ['__src_file', '__insert_gmt_ts', '__update_gmt_ts']
         target_columns = [c.source_attribute_name for c in schema]
         schema_missing_cols = list(
             set(map(str.lower, [c for c in df.columns if c not in audit_columns]))
@@ -443,4 +443,3 @@ def apply_schema(
         return df.selectExpr(*expressions)
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-        

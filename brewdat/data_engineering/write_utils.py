@@ -204,7 +204,7 @@ def write_delta_table(
                 location=location,
                 update_condition=update_condition,
                 key_columns=key_columns,
-                schema_evolution_mode=schema_evolution_mode
+                schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.TYPE_2_SCD:
             if not key_columns:
@@ -553,7 +553,7 @@ def _write_table_using_upsert(
     location: str,
     update_condition: str,
     key_columns: List[str] = [],
-    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS
+    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using UPSERT.
 
