@@ -108,7 +108,7 @@ def __get_result_list(
         result_value = str(result['result']['observed_value'])
         dq_mostly = dq_mostly
         dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-        dq_comments = f" {dq_column_name} -; records_count :-> {result['result']['observed_value']}, is not in between range :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+        dq_comments = f" {dq_column_name} -; records_count :-> {result['result']['observed_value']}, and rage value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
      
     else :  
         result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
@@ -218,7 +218,7 @@ def dq_validate_row_count(
         ExpectationValidationResult object
     """
     try:
-        result = validator.expect_table_column_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+        result = validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_count_of_records_in_table")
         return result
     except Exception:
