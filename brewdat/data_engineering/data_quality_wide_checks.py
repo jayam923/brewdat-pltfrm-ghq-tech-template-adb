@@ -1,230 +1,275 @@
 import datetime
-from pyspark.sql import DataFrame
+import math
 import great_expectations as ge
 from ruamel import yaml
 from pyspark.sql import DataFrame, SparkSession
 from delta.tables import DeltaTable
+import pyspark.sql.functions as f
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType, FloatType
 from great_expectations.core.batch import RuntimeBatchRequest
 from great_expectations.validator.validator import Validator
 from great_expectations.core import ExpectationValidationResult
+from great_expectations.dataset import SparkDFDataset
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import DataContextConfig, FilesystemStoreBackendDefaults
 from . import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
-    
-def get_delta_tables_values(spark: SparkSession, dbutils: object, delta_table: DeltaTable, target_location: str ) -> DataFrame:
-    """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
 
+    
+def __get_delta_tables_history_dataframe(
+    spark: SparkSession, 
+    dbutils: object, 
+    target_location: str, 
+    results : object ) -> DataFrame:
+    """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    dbutils : object
+        A Databricks utils object.
+    target_location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    result : object
+        A DeltaTable object.
+    Returns
+    -------
+    DataFrame
+        Dataframe for history and latest records which are loaded in delta table
+    """
+    try:
+        latest = results.delta_table.history().filter(f.col("operation") == "WRITE").select(f.col("version").cast("int")).first()[0]
+        history = latest-4
+        latest_df = spark.read.format("delta").option("versionAsOf", latest).load(target_location)
+        history_df = spark.read.format("delta").option("versionAsOf", history).load(target_location)
+        return latest_df, history_df
+    
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+def configure_great_expectation(
+    df: DataFrame) -> SparkDFDataset:
+    """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
+    
+    Parameters
+    ----------
+    df : DataFrame
+        PySpark DataFrame to write.
+        
+    Returns
+    -------
+    SparkDFDataset
+        SparkDFDataset object for great expectation
+    """
+    try:
+        validator = ge.dataset.SparkDFDataset(df)
+        result_list = []
+        return validator, result_list
+    
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)    
+
+        
+def __get_result_list(
+    result : ExpectationValidationResult,
+    resultlist : list =[],
+    dq_result =None,
+    result_value = None,
+    dq_unexpected_records = None,
+    dq_unexpected_percent = None,
+    dq_function_name = None,
+    dq_min_value = None,
+    dq_max_value = None,
+    dq_column_name = None,
+    dq_mostly= None,
+    dq_range = None,
+    dq_comments = None,
+) -> list:
+    """ Create a list for the results from the DQ checks.
+    
+    Parameters
+    ----------
+    result : object
+        A ExpectationValidationResult object.
+    dq_name : DataFrame
+        Name of the DQ check.
+    dq_result : BaseDataContext
+        Result from the DQ check.
+    dq_row_count : DataFrame
+        count of records from the DQ check.
+    dq_unexpected_count : BaseDataContext
+        unexpected count of records from the DQ check
+    dq_unexpected_percent : BaseDataContext.
+        unexpected percent of records from the DQ check.
+    Returns
+    -------
+    DataFrame
+        Dataframe for history and latest records which are loaded
+    """
+    dq_result = str(result['success'])
+    
+    if   dq_function_name == "dq_count_of_records_in_table" or dq_function_name == "dq_column_sum_value" :
+        result_value = str(result['result']['observed_value'])
+        dq_mostly = dq_mostly
+        dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+        dq_comments = f" records_count :-> {result['result']['observed_value']}, is not in between range :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+     
+    else :  
+        result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
+        dq_mostly = result['expectation_config']['kwargs']['mostly']
+        dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
+        dq_comments = f" total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
+        
+    resultlist.append(
+            (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
+    
+    return resultlist
+ 
+
+def get_wider_dq_results( 
+    spark: SparkSession, 
+    dbutils: object, 
+    values : list,
+    with_history = None) -> DataFrame:
+    """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
+    
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    dbutils : object
+        A Databricks utils object.
+    values : list
+        List of values from the result json 
+    
     Returns
     -------
     DataFrame
         Dataframe for history and latest records which are loaded
     """
     try:
-        current_df = delta_table.history(1)
-        #history_df = delta_table.history(5)
-        latest = spark.read.format("delta").option("versionAsOf", current_df.first()[0]).load(target_location)
-        #history = spark.read.format("delta").option("versionAsOf", history_df.first()[0]).load(target_location)        
-        return latest
+        result_schema = (
+             StructType(fields=[StructField('dq_function_name',StringType()),
+                                               StructField('result_value',StringType()), 
+                                               StructField('dq_mostly',FloatType()),
+                                               StructField('dq_range',StringType()),
+                                               StructField('dq_result',StringType()),
+                                               StructField('dq_comments',StringType())])
+             )                   
+        result_df= spark.createDataFrame(values, result_schema)
+        return result_df
     except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
-    
-    
-def configure_data_context() -> BaseDataContext:
-    """Create an object for data context for accessing all of the primary methods for creating elements of your project related to DQ checks.
-
-    Returns
-    -------
-    BaseDataContext
-        The BaseDataContext object.
-    """
-    try:
-        root_loc ="/dbfs/FileStore/dataquality/"
-        data_context_config = DataContextConfig(
-        store_backend_defaults=FilesystemStoreBackendDefaults(root_directory= root_loc),)
-        context = BaseDataContext(project_config=data_context_config)
-        return context
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
-def Create_batch_request( 
-    dbutils: object,
-    df: DataFrame,
-    context: BaseDataContext) -> RuntimeBatchRequest:
-    """Create batch_request for data context.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    df : DataFrame
-        The PySpark DataFrame to modify.
-    context : BaseDataContext
-        Name of the BaseDataContext object.
-
-    Returns
-    -------
-    RuntimeBatchRequest
-        The object RuntimeBatchRequest class .
-    """
-    try:
-        my_spark_datasource_config = {
-        "name": "brewdat_datasource_name",
-        "class_name": "Datasource",
-        "execution_engine": {"class_name": "SparkDFExecutionEngine"},
-        "data_connectors": {
-            "Testing_dataconnector": {
-                "class_name": "RuntimeDataConnector",
-                "batch_identifiers": [
-                    "some_key_maybe_pipeline_stage",
-                    "some_other_key_maybe_run_id",
-                    ],
-                }
-            },
-        }
-        context.add_datasource(**my_spark_datasource_config)
-        batch_request = RuntimeBatchRequest(
-        datasource_name = "brewdat_datasource_name",
-        data_connector_name="Testing_dataconnector",
-        data_asset_name="testing_dataset",  # This can be anything that identifies this data_asset for you
-        batch_identifiers={
-            "some_key_maybe_pipeline_stage": "pipeline_layer",
-            "some_other_key_maybe_run_id": f"Data_Quality_Results_{datetime.date.today().strftime('%Y%m%d')}",
-        },
-        runtime_parameters={"batch_data": df},
-        )
-        return batch_request
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
-def Create_expectation_suite(
-    dbutils: object,
-    df: DataFrame,
-    context: BaseDataContext,
-    batch_request: RuntimeBatchRequest) -> Validator:
-    """Create expectation_suite for data context.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    df : DataFrame
-        The PySpark DataFrame to modify.
-    batch_request : RuntimeBatchRequest
-        Name of the RuntimeBatchRequest object.
-    context : BaseDataContext
-        Name of the BaseDataContext object.
-
-    Returns
-    -------
-    Validator
-        The object Validator class .
-    """
-    try:
-        expectation_suite_name = "expectation_suite_name"
-        context.create_expectation_suite(
-        expectation_suite_name = expectation_suite_name, overwrite_existing=True)
-        validator = context.get_validator(
-        batch_request = batch_request,
-        expectation_suite_name = expectation_suite_name)
-        return validator
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+        common_utils.exit_with_last_exception(dbutils)    
         
-        
-def dq_validate_column_nulls_values(
+         
+def dq_validate_compond_column_unique_values(
     dbutils: object, 
-    validator: Validator, 
-    col_name):
-    """Create function to Assert column value is not null.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    validator : Validator
-        Name of the Validator object.
-    col_name : str
-        Name of the column on which 
-    """
-    try:
-        validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-        
-        
-                           
-
-def dq_validate_column_unique_values(
-    dbutils: object, 
-    validator: Validator, 
-    col_name):
+    validator: Validator,
+    col_list : list,
+    mostly :int,
+    resultlist : list = [])-> ExpectationValidationResult:
     """Create function to Assert if column has unique values.
-
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
     validator : Validator
         Name of the Validator object.
+    col_list : list
+        hold list of result for result list function
     col_name : str
-        Name of the column on which 
+        must be a float between 0 and 1. evaluates it as a percentage to fail or pass the validation
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        validator.expect_column_values_to_be_unique(col_name, result_format = "SUMMARY")
+        col_names = " "
+        result =  validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
+        col_names = col_names.join(col_list)
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns")
+        return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-
-
+     
+    
 def dq_validate_row_count(
     dbutils: object, 
     validator: Validator,
-    row_count):
-    """Create function to Assert if column values are in range.
-
+    min_value : int,
+    max_value :int,
+    resultlist : list = [])-> ExpectationValidationResult:
+    """Create function to Assert Assert row count.
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
     validator : Validator
         Name of the Validator object.
-    row_count : int
+    min_value : int
         count of the row in the table
+    max_value : int
+        count of the row in the table
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        validator.expect_table_row_count_to_equal(row_len, result_format = "SUMMARY") 
+        result = validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_count_of_records_in_table")
+        print(result)
+        return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
 
+    
 def dq_validate_column_values_to_not_be_null(
     dbutils: object, 
-    validator: Validator,
-    col_name):
-    """Create function to Assert if column values are in range.
-
+    validator: Validator, 
+    col_name : str,
+    mostly :int,
+    resultlist : list = [])-> ExpectationValidationResult:
+    """Create function to check null percentage for a column in DF
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
     validator : Validator
         Name of the Validator object.
-    row_count : int
-        count of the row in the table
+    col_name : str
+        Name of the column on which
+    mostly :int
+        thrashold value to validate the test cases
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY") 
+        result =  validator.expect_column_values_to_not_be_null(col_name, mostly, result_format = "SUMMARY")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_not_null_records_percentage_for_column")
+        print(result_list)
+        return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
         
         
-def dq_validate_count_variation_percentage_from_previous_version_values(
+def dq_validate_range_for_numeric_column_sum_values(
     dbutils: object, 
-    history_validator: Validator,
-    current_validator: Validator,
+    validator: Validator, 
     col_name : str,
-    null_percentage : int) -> ExpectationValidationResult:
-    """Create function to Assert column value is not null.
+    min_value : int,
+    max_value : int,
+    resultlist : list = [])-> ExpectationValidationResult:
+    """Create function to check null percentage for a column in DF
     Parameters
     ----------
     dbutils : object
@@ -233,74 +278,141 @@ def dq_validate_count_variation_percentage_from_previous_version_values(
         Name of the Validator object.
     col_name : str
         Name of the column on which 
+    min_value : int
+        count of the row in the table
+    max_value : int
+        count of the row in the table
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        history_result = history_validator.expect_column_values_to_not_be_null(col_name, mostly = null_percentage, result_format = "SUMMARY")
-        current_result = current_validator.expect_column_values_to_not_be_null(col_name, mostly = null_percentage, result_format = "SUMMARY")
-        print(" number of records in the existing delta table --> "+str(history_result['result']['element_count'])+
-              "  number of records in the current delta table  --> "+str(current_result['result']['element_count']))
-        print(" number of records in the existing delta table --> "+str(history_result['result']['unexpected_percent'])+
-              "  number of records in the current delta table  --> "+str(current_result['result']['unexpected_percent']))
-        return history_result, current_result
+        result =  validator.expect_column_sum_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_column_sum_value")
+        print(result_list)
+        return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
         
-        
-        
-def save_expectation_suite_in_validator(
-    dbutils: object,
-    validator: Validator):
-    """Create function to get the result from the validations.
-
-        Parameters
-        ----------
-        dbutils : object
-            A Databricks utils object.
-        validator : Validator
-            Name of the Validator object.
-    """
-    try:
-        test_config=validator.get_expectation_suite()
-        validator.save_expectation_suite(discard_failed_expectations=False)
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
-def get_dq_checkpoint_result(
-    dbutils: object,
-    validator: Validator,
-    context: BaseDataContext,
-    batch_request: RuntimeBatchRequest
-    ):
-    """Create function to get the result from the validations.
-
+                           
+    
+def dq_validate_column_unique_values(
+    dbutils: object, 
+    validator: Validator, 
+    col_name : str,
+    mostly :int,
+    resultlist : list = [])-> ExpectationValidationResult:
+    """Create function to Assert if column has unique values.
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
     validator : Validator
         Name of the Validator object.
-    context : BaseDataContext
-        Name of the context object.
-    batch_request : RuntimeBatchRequest
-        Name of the batch_request object.
+    col_name : str
+        Name of the column on which 
+    mostly :int
+        thrashold value to validate the test cases
+    resultlist : list
+        takes the list to hold the result in result df
+    Returns
+    -------
+    result
+        ExpectationValidationResult object
     """
     try:
-        checkpoint_config = {
-        "name": "check_point_name",
-        "config_version": 1.0,
-        "class_name": "SimpleCheckpoint",
-        "run_name_template": "%Y%m%d-%H%M%S-my-run-name-template",
-        }
-        context.add_checkpoint(**checkpoint_config)
-        checkpoint_result = context.run_checkpoint(
-        checkpoint_name="check_point_name",
-        validations=[
-                    {
-                "batch_request": batch_request,
-                "expectation_suite_name": "expectation_suite_name",
-                    }
-                ],
-             )
-        return checkpoint_result
+        result =  validator.expect_column_values_to_be_unique(col_name, mostly, result_format = "SUMMARY")
+        result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_count_for_unique_values_in_columns")
+        print(result_list)
+        return result
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
+
+def dq_validate_count_variation_from_previous_version_values(
+    spark: SparkSession,
+    dbutils: object, 
+    target_location: str,
+    results : object,
+    min_value : int,
+    max_value : int,
+    resultlist : list = [])-> ExpectationValidationResult:
+    """Create function to Assert column value is not null.
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    target_location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    result : object
+        A DeltaTable object.
+    resultlist : list
+        takes the list to hold the result in result df
+    """
+    try:
+        current_df, history_df = __get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = results)
+        history_load_count = history_df.count()
+        Latest_validator = ge.dataset.SparkDFDataset(current_df)
+        result = Latest_validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+        dq_result = str(result['success'])
+        dq_function_name = "dq_validate_count_variation_from_previous_version_values"
+        result_value = result['result']['observed_value'] - history_load_count
+        dq_comments = f" total_record_count_in_history :-> {history_load_count} , total_record_count_in_Latest :-> {result['result']['observed_value']}"
+        dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+        dq_mostly = None 
+        if result['expectation_config']['kwargs']['min_value'] <= result_value <= result['expectation_config']['kwargs']['max_value']:
+            dq_result = "True"
+        resultlist.append((dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))     
+        return result
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+        
+def dq_validate_null_percentage_variation_from_previous_version_values(
+    spark: SparkSession,
+    dbutils: object, 
+    target_location: str,
+    results : object,
+    col_name : str,
+    dq_mostly : int,
+    resultlist : list = [])-> ExpectationValidationResult:
+    
+    """Create function to Assert column value is not null.
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    target_location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    result : object
+        A DeltaTable object.
+    col_name : str
+        Name of the column on which 
+    resultlist : list
+        takes the list to hold the result in result df
+    """
+    try:
+        dq_min_value = None
+        dq_min_value = None
+        current_df, history_df = __get_delta_tables_history_dataframe(spark = spark, dbutils =dbutils,  target_location = target_location, results = results)
+        history_validator = ge.dataset.SparkDFDataset(history_df)
+        Latest_validator = ge.dataset.SparkDFDataset(current_df)
+        history_result = history_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
+        current_result = Latest_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
+        dq_result = str(current_result['success'])
+        result_value = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
+        dq_function_name  = "dq_validate_null_percentage_variation_values"
+        dq_comments = dq_comments = f" null percentage in history :-> {history_result['result']['unexpected_percent']:.2f}  null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
+        dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
+        cal_mostly = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
+        dq_mostly = dq_mostly
+        if(cal_mostly <= dq_mostly):
+            dq_result = "True"
+        resultlist.append((dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))      
+        return resultlist
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
