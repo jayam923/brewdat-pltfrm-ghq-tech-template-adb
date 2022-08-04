@@ -1,11 +1,13 @@
 import datetime
 import math
 import great_expectations as ge
+import pyspark.sql.functions as f
 from pyspark.sql import DataFrame, SparkSession
 from delta.tables import DeltaTable
-import pyspark.sql.functions as f
+from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, DoubleType, FloatType
 from great_expectations.core import ExpectationValidationResult
+from great_expectations.validator.validator import Validator
 from . import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
 
@@ -106,13 +108,13 @@ def __get_result_list(
         result_value = str(result['result']['observed_value'])
         dq_mostly = dq_mostly
         dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-        dq_comments = f" records_count :-> {result['result']['observed_value']}, is not in between range :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+        dq_comments = f" {dq_column_name} -; records_count :-> {result['result']['observed_value']}, is not in between range :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
      
     else :  
         result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
         dq_mostly = result['expectation_config']['kwargs']['mostly']
         dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
-        dq_comments = f" total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
+        dq_comments = f" {dq_column_name} -; total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
         
     resultlist.append(
             (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
@@ -184,6 +186,7 @@ def dq_validate_compond_column_unique_values(
         col_names = " "
         result =  validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
         col_names = col_names.join(col_list)
+        print(col_names)
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns")
         return result
     except Exception:
@@ -217,7 +220,6 @@ def dq_validate_row_count(
     try:
         result = validator.expect_table_column_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_function_name = "dq_count_of_records_in_table")
-        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -250,7 +252,6 @@ def dq_validate_column_values_to_not_be_null(
     try:
         result =  validator.expect_column_values_to_not_be_null(col_name, mostly, result_format = "SUMMARY")
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_not_null_records_percentage_for_column")
-        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -286,7 +287,6 @@ def dq_validate_range_for_numeric_column_sum_values(
     try:
         result =  validator.expect_column_sum_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_column_sum_value")
-        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -320,11 +320,9 @@ def dq_validate_column_unique_values(
     try:
         result =  validator.expect_column_values_to_be_unique(col_name, mostly, result_format = "SUMMARY")
         result_list = __get_result_list(result= result, resultlist= resultlist, dq_column_name =  col_name, dq_function_name = "dq_count_for_unique_values_in_columns")
-        print(result_list)
         return result
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-
 
 
 def dq_validate_count_variation_from_previous_version_values(
@@ -400,7 +398,7 @@ def dq_validate_null_percentage_variation_from_previous_version_values(
         dq_result = str(current_result['success'])
         result_value = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
         dq_function_name  = "dq_validate_null_percentage_variation_values"
-        dq_comments = dq_comments = f" null percentage in history :-> {history_result['result']['unexpected_percent']:.2f}  null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
+        dq_comments = f" {col_name} -; null percentage in history :-> {history_result['result']['unexpected_percent']:.2f}  null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
         dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
         cal_mostly = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
         dq_mostly = dq_mostly

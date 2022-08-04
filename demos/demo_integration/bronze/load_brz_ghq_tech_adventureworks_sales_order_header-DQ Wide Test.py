@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.2.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -164,3 +164,7 @@ result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_pre
 # # #result of all validation in dataframe
 final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
 display(final_result_df)
+
+# COMMAND ----------
+
+
