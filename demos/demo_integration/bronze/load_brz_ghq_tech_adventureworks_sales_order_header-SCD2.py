@@ -122,6 +122,8 @@ results = write_utils.write_delta_table(
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
+print(results)
+print(results.num_records_loaded)
 
 # COMMAND ----------
 
