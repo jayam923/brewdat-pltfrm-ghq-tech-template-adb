@@ -85,6 +85,6 @@ print(f"lakehouse_silver_root: {lakehouse_silver_root}")
 lakehouse_gold_root = f"abfss://gold@{adls_silver_gold_storage_account_name}.dfs.core.windows.net"
 print(f"lakehouse_gold_root: {lakehouse_gold_root}")
 
-attunity_sap_ero_prelz_root = f"abfss://brewdat-ghq@{adls_brewdat_ghq_storage_account_name}.dfs.core.windows.net"
-print(f"attunity_sap_ero_prelz_root: {attunity_sap_ero_prelz_root}")
+attunity_sap_root = f"abfss://brewdat-ghq@{adls_brewdat_ghq_storage_account_name}.dfs.core.windows.net"
+print(f"attunity_sap_root: {attunity_sap_root}")
 
