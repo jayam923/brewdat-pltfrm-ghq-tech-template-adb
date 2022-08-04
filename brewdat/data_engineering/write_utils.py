@@ -108,6 +108,8 @@ def write_delta_table(
     auto_broadcast_join_threshold : int, default=52428800
         Configures the maximum size in bytes for a table that will be broadcast to all worker
         nodes when performing a join. Default value in bytes represents 50 MB.
+    update_condition : int, default="1=1"
+        An optional update condition to be used before merging the updated rows in target. 
 
     Returns
     -------
@@ -251,7 +253,7 @@ def write_delta_table(
             status=RunStatus.SUCCEEDED,
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
-            num_records_loaded=num_records_loaded
+            num_records_loaded=num_records_loaded,
         )
     except Py4JJavaError as e:
         return ReturnObject(

@@ -409,6 +409,21 @@ def apply_schema(
         df: DataFrame,
         schema: List[common_utils.RowSchema]
 ) -> DataFrame:
+    """Cast all DataFrame columns to required data types and column names 
+    as received from the input schema.
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to cast.
+    silver_schema: List[RowSchema]
+        List containing column details of target table. The element of the list is an object containing
+          source_attribute_name, target_data_type, target_attribute_name
+    Returns
+    -------
+    DataFrame
+    """
     try:
         expressions = []
         audit_columns = ['__src_file','__insert_gmt_ts', '__update_gmt_ts']
@@ -428,3 +443,4 @@ def apply_schema(
         return df.selectExpr(*expressions)
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+        

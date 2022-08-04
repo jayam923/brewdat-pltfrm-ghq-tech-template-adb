@@ -177,8 +177,3 @@ print(vars(results))
 # COMMAND ----------
 
 common_utils.exit_with_object(dbutils=dbutils, results=results)
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC Select  * from brz_ghq_tech_attunity_sap_ero.kna1

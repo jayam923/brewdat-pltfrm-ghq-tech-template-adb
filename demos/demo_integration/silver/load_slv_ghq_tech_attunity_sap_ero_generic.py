@@ -27,45 +27,35 @@ dbutils.widgets.text("source_hive_database", "brz_ghq_tech_attunity_sap_ero", "7
 source_hive_database = dbutils.widgets.get("source_hive_database")
 print(f"source_hive_database: {source_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "bkpf", "8 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"target_hive_table: {target_hive_table}")
-
-dbutils.widgets.text("data_interval_start", "2022-06-21T00:00:00Z", "9 - data_interval_start")
+dbutils.widgets.text("data_interval_start", "2022-06-21T00:00:00Z", "8 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
-dbutils.widgets.text("data_interval_end", '', "10 - data_interval_end")
+dbutils.widgets.text("data_interval_end", '', "9 - data_interval_end")
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"data_interval_end: {data_interval_end}")
 
-dbutils.widgets.text("silver_schema", "11 - silver_schema")
+dbutils.widgets.text("silver_schema", "10 - silver_schema")
 silver_schema = dbutils.widgets.get("silver_schema")
 print(f"silver_schema: {silver_schema}")
 
-dbutils.widgets.text("key_columns","MANDT,BUKRS,BELNR,GJAHR", "12 - key_columns")
+dbutils.widgets.text("key_columns","MANDT,BUKRS,BELNR,GJAHR", "11 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 print(f"key_columns: {key_columns}")
-
-dbutils.widgets.text("watermark_column","target_apply_ts", "13 - watermark_column")
-watermark_column = dbutils.widgets.get("watermark_column")
-print(f"watermark_column: {watermark_column}")
-
-# COMMAND ----------
-
-print(silver_schema)
-raise Exception
-
-# COMMAND ----------
-
-key_columns_list = key_columns.split(",")
-print(key_columns_list)
 
 # COMMAND ----------
 
 import json
 import sys
 import pyspark.sql.functions as F
+from ast import literal_eval
+import datetime
+
+silver_schema = literal_eval(silver_schema)
+key_columns_list = key_columns.split(",")
+watermark_column = "target_apply_ts"
+
+# COMMAND ----------
 
 # Import BrewDat Library modules
 #sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
@@ -77,7 +67,15 @@ help(read_utils)
 
 # COMMAND ----------
 
-# MAGIC %run "/Users/sachin.kumar@ab-inbev.com/Attunity_d/attunity_demo/project_context"
+convert_watermark_format = lambda x : datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%dT%H:%M:%SZ")
+
+target_schema = []
+for row in silver_schema:
+    target_schema.append(common_utils.RowSchema(row))
+
+# COMMAND ----------
+
+# MAGIC %run "../set_project_context"
 
 # COMMAND ----------
 
@@ -97,40 +95,31 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 brz_df = spark.sql(f"select * from {source_hive_database}.{target_hive_table} where TARGET_APPLY_DT >= TO_DATE('{data_interval_start}')")
-if data_interval_end != '':
-    data_interval_end = brz_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+if not data_interval_end:
+    watermark_upper_bound = brz_df.select(F.max(F.col(watermark_column))).collect()[0][0]
+    data_interval_end = convert_watermark_format(watermark_upper_bound)
 
 filtered_df = brz_df.filter(F.col(watermark_column).between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(data_interval_end)),
     ))
 
-df = transform_utils.apply_silver_schema(dbutils, filtered_df, silver_schema)
-
 # COMMAND ----------
 
 dedup_df = transform_utils.deduplicate_records(
     dbutils=dbutils,
-    df=df,
+    df=filtered_df,
     key_columns=key_columns_list,
     watermark_column=watermark_column,
 )
+
+df = transform_utils.apply_schema(dbutils, filtered_df, target_schema)
 
 #display(dedup_df)
 
 # COMMAND ----------
 
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=dedup_df)
-
-display(audit_df.select("__update_gmt_ts").distinct())
-
-# COMMAND ----------
-
-display(audit_df.select("__insert_gmt_ts").distinct())
-
-# COMMAND ----------
-
-audit_df.count()
 
 # COMMAND ----------
 
@@ -160,38 +149,4 @@ print(vars(results))
 
 # COMMAND ----------
 
-update_condition="source.source_commit_ts > target.source_commit_ts"
-
-# COMMAND ----------
-
 common_utils.exit_with_object(dbutils=dbutils, results=results)
-
-# COMMAND ----------
-
-# MAGIC %sql
-# MAGIC --Select distinct source_commit_ts from brz_ghq_tech_attunity_sap_ero.kna1
-# MAGIC --Select count(*) from brz_ghq_tech_attunity_sap_ero.kna1 where source_commit_ts = '2022-07-28 12:06:42.809369'--12
-# MAGIC --Select count(*) from brz_ghq_tech_attunity_sap_ero.kna1--2084472
-# MAGIC --update brz_ghq_tech_attunity_sap_ero.kna1 set source_commit_ts = '2022-07-31 12:06:42.809369' where source_commit_ts = '2022-07-28 12:06:42.809369'
-# MAGIC --Select * from slv_ghq_tech_attunity_sap_ero.kna1
-# MAGIC select __update_gmt_ts,count(*) from slv_ghq_tech_attunity_sap_ero.kna1 group by __update_gmt_ts
-# MAGIC --select __insert_gmt_ts,count(*) from slv_ghq_tech_attunity_sap_ero.kna1 group by __insert_gmt_ts
-
-# COMMAND ----------
-
-from delta.tables import DeltaTable
-delta_table = DeltaTable.forPath(spark, location)
-history_df = (delta_table
-            .history(1)
-              
-            .select(F.col("operationMetrics.numOutputRows").cast("int"))
-        )
-
-# COMMAND ----------
-
-display(history_df)
-
-# COMMAND ----------
-
-# MAGIC %sql 
-# MAGIC desc history slv_ghq_tech_attunity_sap_ero.kna1
