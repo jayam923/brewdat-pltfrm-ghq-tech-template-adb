@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.2.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.3.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -37,40 +37,36 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_wide_checks
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
 # Print a module's help
 help(read_utils)
 
 # COMMAND ----------
 
-# MAGIC 
 # MAGIC %run "../set_project_context"
 
 # COMMAND ----------
 
 common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=[adls_raw_bronze_storage_account_name],
-        key_vault_name=key_vault_name,
-        spn_client_id=spn_client_id,
-        spn_secret_name=spn_secret_name,
-    )
+    spark=spark,
+    dbutils=dbutils,
+    storage_account_names=[adls_raw_bronze_storage_account_name],
+    key_vault_name=key_vault_name,
+    spn_client_id=spn_client_id,
+    spn_secret_name=spn_secret_name,
+)
 
 # COMMAND ----------
 
 raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.CSV,
+    file_format=read_utils.RawFileFormat.ORC,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    csv_has_headers=True,
-    csv_delimiter=",",
-    csv_escape_character="\"",
 )
 
-display(raw_df)
+#display(raw_df)
 
 # COMMAND ----------
 
@@ -125,4 +121,4 @@ print(vars(results))
 
 # COMMAND ----------
 
-
+common_utils.exit_with_object(dbutils=dbutils, results=results)
