@@ -2,6 +2,7 @@ import os
 import traceback
 from enum import Enum, unique
 from typing import List
+from py4j.protocol import Py4JJavaError
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -35,7 +36,6 @@ class LoadType(str, Enum):
     """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
     This essentially uses an upsert that keeps track of all previous versions of each record.
     For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension"""
-
 
 
 @unique
@@ -72,8 +72,10 @@ def write_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
+    auto_broadcast_join_threshold: int = 52428800,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
+
     Parameters
     ----------
     spark : SparkSession
@@ -105,6 +107,7 @@ def write_delta_table(
     auto_broadcast_join_threshold : int, default=52428800
         Configures the maximum size in bytes for a table that will be broadcast to all worker
         nodes when performing a join. Default value in bytes represents 50 MB.
+
     Returns
     -------
     ReturnObject
@@ -136,6 +139,9 @@ def write_delta_table(
         # Use optimized writes to create less small files
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
+
+        # Set maximum size in bytes for a table that will be broadcast to all worker nodes when performing a join
+        spark.conf.set("spark.sql.autoBroadcastJoinThreshold", auto_broadcast_join_threshold)
 
         # Count source records
         num_records_read = df.count()
@@ -215,7 +221,8 @@ def write_delta_table(
         delta_table = DeltaTable.forPath(spark, location)
         history_df = (
             delta_table
-            .history(1).select(F.col("operationMetrics.numOutputRows").cast("int"))
+            .history(1)
+            .select(F.col("operationMetrics.numOutputRows").cast("int"))
         )
         num_records_loaded = history_df.first()[0]
 
@@ -243,7 +250,15 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
-            delta_table = delta_table
+        )
+    except Py4JJavaError as e:
+        return ReturnObject(
+            status=RunStatus.FAILED,
+            target_object=f"{schema_name}.{table_name}",
+            num_records_read=num_records_read,
+            num_records_loaded=num_records_loaded,
+            error_message=str(e.java_exception).replace("\n", " "),
+            error_details=traceback.format_exc(),
         )
 
     except Exception as e:
@@ -254,7 +269,6 @@ def write_delta_table(
             num_records_loaded=num_records_loaded,
             error_message=str(e),
             error_details=traceback.format_exc(),
-            delta_table = delta_table,
         )
 
 
@@ -265,6 +279,7 @@ def _table_exists_in_different_location(
     expected_location: str
 ) -> bool:
     """Return whether the metastore table already exists at a different location.
+
     Parameters
     ----------
     spark : SparkSession
@@ -275,6 +290,7 @@ def _table_exists_in_different_location(
         Name of the table in the metastore.
     expected_location : str
         Absolute Delta Lake path for the expected physical location of this delta table.
+
     Returns
     -------
     bool
@@ -302,6 +318,7 @@ def _write_table_using_overwrite_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using OVERWRITE_TABLE.
+
     Parameters
     ----------
     spark : SparkSession
@@ -356,6 +373,7 @@ def _write_table_using_overwrite_partition(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using OVERWRITE_PARTITION.
+
     Parameters
     ----------
     spark : SparkSession
@@ -422,6 +440,7 @@ def _write_table_using_append_all(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using APPEND_ALL.
+
     Parameters
     ----------
     spark : SparkSession
@@ -476,6 +495,7 @@ def _write_table_using_append_new(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using APPEND_NEW.
+
     Parameters
     ----------
     spark : SparkSession
@@ -531,6 +551,7 @@ def _write_table_using_upsert(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using UPSERT.
+
     Parameters
     ----------
     spark : SparkSession
@@ -588,6 +609,7 @@ def _write_table_using_type_2_scd(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
     """Write the DataFrame using TYPE_2_SCD.
+
     Parameters
     ----------
     spark : SparkSession
@@ -648,6 +670,7 @@ def _write_table_using_type_2_scd(
         )
 
     else:
+        print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         _write_table_using_append_all(
             spark=spark,
             df=df,
@@ -661,22 +684,33 @@ def _generate_type_2_scd_metadata_columns(
     df: DataFrame,
 ) -> DataFrame:
     """Create or replace Type-2 SCD metadata columns in the given DataFrame.
+
     The following columns are created/replaced:
         - __hash_key: used as both a surrogate key and a checksum.
         - __start_date: timestamp of when the record started being effective.
         - __end_date: timestamp of when the record ceased being effective.
         - __is_active: whether the record is currently effective.
+
     Parameters
     ----------
     df : DataFrame
         PySpark DataFrame to modify.
+
     Returns
     -------
     DataFrame
         Pyspark Dataframe with new Type-2 SCD metadata columns.
+
+    Notes
+    -----
+    __hash_key uses the Base64 representation of the MD5 hash of all columns,
+    except for metadata columns (those whose name starts with two underscores).
     """
     all_cols = [col for col in df.columns if not col.startswith("__")]
-    df = df.withColumn("__hash_key", F.md5(F.to_json(F.struct(*all_cols))))
+    df = df.withColumn(
+        "__hash_key",
+        F.substring(F.base64(F.unhex(F.md5(F.to_json(F.struct(*all_cols))))), 0, 22)
+    )
     df = df.withColumn("__start_date", F.current_timestamp())
     df = df.withColumn("__end_date", F.lit(None).cast("timestamp"))
     df = df.withColumn("__is_active", F.lit(True))
@@ -689,11 +723,14 @@ def _merge_dataframe_for_type_2_scd(
     key_columns: List[str] = [],
 ) -> DataFrame:
     """Create the merge DataFrame for TYPE_2_SCD load type.
+
     This DataFrame contains all the hash keys of target records which
     should be deactivated. Their __is_active column is set to False.
+
     Additionally, it also contains all the new records that will be inserted
     if, and only if, their hash key is not already active in the target table.
     Their __is_active columns is set to True.
+
     Parameters
     ----------
     source_df : DataFrame
@@ -702,10 +739,12 @@ def _merge_dataframe_for_type_2_scd(
         PySpark DataFrame containing target table records.
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
+
     Returns
     -------
     Dataframe
         Pyspark Dataframe ready to be merged into target table.
+
     Examples
     --------
     source_df:
@@ -715,14 +754,17 @@ def _merge_dataframe_for_type_2_scd(
     | 1  | Alice | 42          | 11aa22bb   | 2022-01-02   | null       | True        |
     | 2  | Bob   | 1           | a1b2c3d4   | 2022-01-02   | null       | True        |
     +----+-------+-------------+------------+--------------+------------+-------------+
+
     target_df:
     +----+-------+-------------+------------+--------------+------------+-------------+
     | id | name  | status_code | __hash_key | __start_date | __end_date | __is_active |
     +----+-------+-------------+------------+--------------+------------+-------------+
     | 1  | Alice | 1           | 0a0b0c0d   | 2022-01-01   | null       | True        |
     +----+-------+-------------+------------+--------------+------------+-------------+
+
     key_columns:
     [id]
+
     result:
     +------------+-------------+------+-------+-------------+--------------+------------+
     | __hash_key | __is_active |  id  | name  | status_code | __start_date | __end_date |
