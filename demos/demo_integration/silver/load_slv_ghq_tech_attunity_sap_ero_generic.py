@@ -66,8 +66,6 @@ help(read_utils)
 
 # COMMAND ----------
 
-convert_watermark_format = lambda x : datetime.datetime.strptime(x, "%Y-%m-%d %H:%M:%S.%f").strftime("%Y-%m-%dT%H:%M:%SZ")
-
 target_schema = []
 for row in silver_schema:
     target_schema.append(common_utils.RowSchema(row))
@@ -95,13 +93,14 @@ common_utils.configure_spn_access_for_adls(
 
 brz_df = spark.sql(f"select * from {source_hive_database}.{target_hive_table} where TARGET_APPLY_DT >= TO_DATE('{data_interval_start}')")
 if not data_interval_end:
-    watermark_upper_bound = brz_df.select(F.max(F.col(watermark_column))).collect()[0][0]
-    data_interval_end = convert_watermark_format(watermark_upper_bound)
+    watermark_upper_bound = brz_df.select(F.max(F.to_timestamp(watermark_column))).collect()[0][0]
+    data_interval_end = watermark_upper_bound.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 filtered_df = brz_df.filter(F.col(watermark_column).between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(data_interval_end)),
     ))
+print(data_interval_end)
 
 # COMMAND ----------
 

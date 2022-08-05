@@ -99,12 +99,12 @@ clean_ct_df = transform_utils.clean_column_names(dbutils=dbutils, df=ct_raw_df)
 
 max_base_watermark_value = clean_base_df.select(F.max(F.col(watermark_column))).collect()[0][0]
 max_ct_watermark_value = clean_ct_df.select(F.max(F.col(watermark_column))).collect()[0][0]
-new_upper_bound = max_ct_watermark_value if max_ct_watermark_value > max_base_watermark_value else max_base_watermark_value
-data_interval_end = new_upper_bound.strftime("%Y-%m-%dT%H:%M:%SZ")
+watermark_upper_bound = max_ct_watermark_value if max_ct_watermark_value > max_base_watermark_value else max_base_watermark_value
+data_interval_end = watermark_upper_bound.strftime("%Y-%m-%d %H:%M:%S.%f")
 
 # COMMAND ----------
 
-print(max_base_watermark_value, max_ct_watermark_value, new_upper_bound, data_interval_end)
+print(max_base_watermark_value, max_ct_watermark_value, data_interval_start, data_interval_end)
 
 # COMMAND ----------
 
