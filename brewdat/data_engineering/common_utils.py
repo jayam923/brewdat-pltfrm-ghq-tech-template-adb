@@ -3,19 +3,18 @@ import sys
 import traceback
 from enum import Enum, unique
 from typing import List
-from delta.tables import DeltaTable
+
 from pyspark.sql import SparkSession
 
 
 @unique
 class RunStatus(str, Enum):
     """Available run statuses.
-
-    SUCCEEDED: Represents a succeeded run status.
-    FAILED: Represents a failed run status.
     """
     SUCCEEDED = "SUCCEEDED"
+    """Represents a succeeded run status."""
     FAILED = "FAILED"
+    """Represents a failed run status."""
 
 
 class ReturnObject():
@@ -39,13 +38,11 @@ class ReturnObject():
     def __init__(
         self,
         status: RunStatus,
-        delta_table : DeltaTable,
         target_object: str,
         num_records_read: int = 0,
         num_records_loaded: int = 0,
         error_message: str = "",
         error_details: str = "",
-        
     ):
         self.status = status
         self.target_object = target_object
@@ -54,7 +51,6 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
-        self.delta_table = delta_table
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):
@@ -97,7 +93,6 @@ def exit_with_last_exception(dbutils: object):
     results = ReturnObject(
         status=RunStatus.FAILED,
         target_object=None,
-        delta_table = None,
         error_message=f"{exc_type.__name__}: {exc_value}",
         error_details=traceback.format_exc(),
     )
