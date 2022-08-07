@@ -31,6 +31,10 @@ dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_inte
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"data_interval_end: {data_interval_end}")
 
+dbutils.widgets.text("partition_columns", "__ref_dt", "9 - partition_columns")
+partition_columns = dbutils.widgets.get("partition_columns")
+print(f"partition_columns: {partition_columns}")
+
 # COMMAND ----------
 
 import sys
@@ -80,7 +84,7 @@ from pyspark.sql import functions as F
 
 transformed_df = (
     clean_df
-    .filter(F.col("__ref_dt").between(
+    .filter(F.col(partition_columns).between(
         F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
     ))
@@ -113,7 +117,7 @@ results = write_utils.write_delta_table(
     schema_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
-    partition_columns=["__ref_dt"],
+    partition_columns=[partition_columns],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 

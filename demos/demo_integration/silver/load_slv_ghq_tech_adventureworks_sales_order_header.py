@@ -31,6 +31,14 @@ dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_inte
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"data_interval_end: {data_interval_end}")
 
+dbutils.widgets.text("key_columns","sales_order_id", "9 - key_columns")
+key_columns = dbutils.widgets.get("key_columns")
+print(f"key_columns: {key_columns}")
+
+dbutils.widgets.text("watermark_column","__ref_dt", "10 - watermark_column")
+watermark_column = dbutils.widgets.get("watermark_column")
+print(f"watermark_column: {watermark_column}")
+
 # COMMAND ----------
 
 import os
@@ -60,7 +68,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-key_columns = ["sales_order_id"]
+key_columns = [key_columns]
 
 df = spark.sql("""
         SELECT
@@ -112,7 +120,7 @@ dedup_df = transform_utils.deduplicate_records(
     dbutils=dbutils,
     df=df,
     key_columns=key_columns,
-    watermark_column="__ref_dt",
+    watermark_column=watermark_column,
 )
 
 #display(dedup_df)
