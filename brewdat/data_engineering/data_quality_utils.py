@@ -9,13 +9,17 @@ from . import common_utils
 def check_narrow_condition(
     dbutils: object,
     df: DataFrame,
-    expected_condition: Column,
+    expected_condition: Union[str, Column],
     failure_message: Union[str, Column],
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Run a data quality check against every row in a DataFrame.
 
-    If the given condition is False, append a failure message to
+    If the expected condition is False, append a failure message to
     the __data_quality_issues metadata column.
+
+    Optionally, apply this check only to a subset of rows that match
+    a custom filter condition.
 
     Parameters
     ----------
@@ -23,12 +27,16 @@ def check_narrow_condition(
         A Databricks utils object.
     df : DataFrame
         PySpark DataFrame to validate.
-    expected_condition : Column
+    expected_condition : Union[str, Column]
         PySpark Column expression to evaluate. If this expression
         evaluates to False, the record is considered a bad record.
     failure_message : Union[str, Column]
         String or PySpark Column expression that generates a message which
         is appended to validation results when expected condition is False.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -36,19 +44,28 @@ def check_narrow_condition(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if type(failure_message) == str:
+        if isinstance(failure_message, str):
             failure_message = F.lit(failure_message)
 
+        if isinstance(expected_condition, str):
+            expected_condition = F.expr(expected_condition)
+
+        if filter_condition is None:
+            filter_condition = F.expr("1 = 1")
+        elif isinstance(filter_condition, str):
+            filter_condition = F.expr(filter_condition)
+
         if "__data_quality_issues" not in df.columns:
-            df = df.withColumn("__data_quality_issues", F.array())
+            df = df.withColumn("__data_quality_issues", F.lit(None).cast("array<string>"))
 
         return (
             df
             .withColumn(
                 "__data_quality_issues",
+                F.when(~filter_condition, F.col("__data_quality_issues"))
                 F.when(
                     ~expected_condition,
-                    F.concat("__data_quality_issues", F.array(failure_message))
+                    F.concat(F.coalesce("__data_quality_issues", F.array()), F.array(failure_message))
                 )
                 .otherwise(F.col("__data_quality_issues"))
             )
@@ -63,6 +80,7 @@ def check_column_type_cast(
     df: DataFrame,
     column_name: str,
     data_type: str,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate whether a column's value can be safely cast
     to the given data type without generating a null value.
@@ -79,6 +97,10 @@ def check_column_type_cast(
         Name of the column to be validated.
     data_type : str
         Spark data type used in cast function.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -90,15 +112,16 @@ def check_column_type_cast(
 
         expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
         failure_message = F.concat(
-            f"Column `{column_name}` has value ",
+            F.lit(f"Column `{column_name}` has value "),
             F.col(column_name),
-            f", which cannot be safely cast to type {data_type}"
+            F.lit(f", which cannot be safely cast to type {data_type}")
         )
         df = check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
         df = df.drop("__value_after_cast")
@@ -112,6 +135,7 @@ def check_column_is_not_null(
     dbutils: object,
     df: DataFrame,
     column_name: str,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's value is not null.
 
@@ -123,6 +147,10 @@ def check_column_is_not_null(
         PySpark DataFrame to validate.
     column_name : str
         Name of the column to be validated.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -137,6 +165,7 @@ def check_column_is_not_null(
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -148,6 +177,7 @@ def check_column_max_length(
     df: DataFrame,
     column_name: str,
     maximum_length: int,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's length does not exceed a maximum length.
 
@@ -161,6 +191,10 @@ def check_column_max_length(
         Name of the column to be validated.
     maximum_length : int
         Maximum length for column values.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -182,6 +216,7 @@ def check_column_max_length(
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -193,6 +228,7 @@ def check_column_min_length(
     df: DataFrame,
     column_name: str,
     minimum_length: int,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's length is greater than
     or equal to a minimum length.
@@ -207,6 +243,10 @@ def check_column_min_length(
         Name of the column to be validated.
     minimum_length : int
         Minimum length for column values.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -219,15 +259,16 @@ def check_column_min_length(
 
         expected_condition = F.length(column_name) >= minimum_length
         failure_message = F.concat(
-            f"Column `{column_name}` has length ",
+            F.lit(f"Column `{column_name}` has length "),
             F.length(column_name),
-            f", which is less than {minimum_length}"
+            F.lit(f", which is less than {minimum_length}")
         )
         return check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -240,6 +281,7 @@ def check_column_length_between(
     column_name: str,
     minimum_length: int,
     maximum_length: int,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's length is within a given range.
 
@@ -255,6 +297,10 @@ def check_column_length_between(
         Minimum length for column values.
     maximum_length : int
         Maximum length for column values.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -270,15 +316,112 @@ def check_column_length_between(
 
         expected_condition = F.length(column_name).between(minimum_length, maximum_length)
         failure_message = F.concat(
-            f"Column `{column_name}` has length ",
+            F.lit(f"Column `{column_name}` has length "),
             F.length(column_name),
-            f", which is not between {minimum_length} and {maximum_length}"
+            F.lit(f", which is not between {minimum_length} and {maximum_length}")
         )
         return check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
+def check_column_max_value(
+    dbutils: object,
+    df: DataFrame,
+    column_name: str,
+    maximum_value: Any,
+    filter_condition: Union[str, Column] = None,
+) -> DataFrame:
+    """Validate that a column's value is within a given range.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        PySpark DataFrame to validate.
+    column_name : str
+        Name of the column to be validated.
+    maximum_value : Any
+        Maximum value for the column.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame with updated validation results.
+    """
+    try:
+        expected_condition = F.col(column_name) <= F.lit(maximum_value)
+        failure_message = F.concat(
+            F.lit(f"Column `{column_name}` has value "),
+            F.col(column_name),
+            F.lit(f", which is greater than {maximum_value}")
+        )
+        return check_narrow_condition(
+            dbutils=dbutils,
+            df=df,
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
+def check_column_min_value(
+    dbutils: object,
+    df: DataFrame,
+    column_name: str,
+    minimum_value: Any,
+    filter_condition: Union[str, Column] = None,
+) -> DataFrame:
+    """Validate that a column's value is within a given range.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        PySpark DataFrame to validate.
+    column_name : str
+        Name of the column to be validated.
+    minimum_value : Any
+        Minimum value for the column.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame with updated validation results.
+    """
+    try:
+        expected_condition = F.col(column_name) >= F.lit(minimum_value)
+        failure_message = F.concat(
+            F.lit(f"Column `{column_name}` has value "),
+            F.col(column_name),
+            F.lit(f", which is less than {minimum_value}")
+        )
+        return check_narrow_condition(
+            dbutils=dbutils,
+            df=df,
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -291,6 +434,7 @@ def check_column_value_between(
     column_name: str,
     minimum_value: Any,
     maximum_value: Any,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's value is within a given range.
 
@@ -306,6 +450,10 @@ def check_column_value_between(
         Minimum value for the column.
     maximum_value : Any
         Maximum value for the column.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -315,15 +463,16 @@ def check_column_value_between(
     try:
         expected_condition = F.col(column_name).between(minimum_value, maximum_value)
         failure_message = F.concat(
-            f"Column `{column_name}` has value ",
+            F.lit(f"Column `{column_name}` has value "),
             F.col(column_name),
-            f", which is not between {minimum_value} and {maximum_value}"
+            F.lit(f", which is not between {minimum_value} and {maximum_value}")
         )
         return check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -335,6 +484,7 @@ def check_column_value_is_in(
     df: DataFrame,
     column_name: str,
     valid_values: List[Any],
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's value is in a list of valid values.
 
@@ -348,6 +498,10 @@ def check_column_value_is_in(
         Name of the column to be validated.
     valid_values : List[Any]
         List of valid values.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -357,15 +511,16 @@ def check_column_value_is_in(
     try:
         expected_condition = F.col(column_name).isin(valid_values)
         failure_message = F.concat(
-            f"Column `{column_name}` has value ",
+            F.lit(f"Column `{column_name}` has value "),
             F.col(column_name),
-            ", which is not in the list of valid values"
+            F.lit()", which is not in the list of valid values")
         )
         return check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -377,6 +532,7 @@ def check_column_value_is_not_in(
     df: DataFrame,
     column_name: str,
     invalid_values: List[Any],
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's value is not in a list of invalid values.
 
@@ -390,6 +546,10 @@ def check_column_value_is_not_in(
         Name of the column to be validated.
     invalid_values : List[Any]
         List of invalid values.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -399,15 +559,16 @@ def check_column_value_is_not_in(
     try:
         expected_condition = ~F.col(column_name).isin(invalid_values)
         failure_message = F.concat(
-            f"Column `{column_name}` has value ",
+            F.lit(f"Column `{column_name}` has value "),
             F.col(column_name),
-            ", which is in the list of invalid values"
+            F.lit()", which is in the list of invalid values")
         )
         return check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -419,6 +580,7 @@ def check_column_matches_regular_expression(
     df: DataFrame,
     column_name: str,
     regular_expression: str,
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's value matches the given regular expression.
 
@@ -432,6 +594,10 @@ def check_column_matches_regular_expression(
         Name of the column to be validated.
     regular_expression : str
         Regular expression that column values should match.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -441,15 +607,16 @@ def check_column_matches_regular_expression(
     try:
         expected_condition = F.col(column_name).rlike(regular_expression)
         failure_message = F.concat(
-            f"Column `{column_name}` has value ",
+            F.lit(f"Column `{column_name}` has value "),
             F.col(column_name),
-            f", which does not match the regular expression '{regular_expression}'"
+            F.lit(f", which does not match the regular expression '{regular_expression}'")
         )
         return check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
     except Exception:
@@ -460,6 +627,7 @@ def check_composite_columns_value_is_unique(
     dbutils: object,
     df: DataFrame,
     column_names: List[str],
+    filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a set of columns has unique values across the entire DataFrame.
 
@@ -473,6 +641,10 @@ def check_composite_columns_value_is_unique(
         PySpark DataFrame to validate.
     column_names : List[str]
         List of columns whose composite values should be unique in the DataFrame.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
 
     Returns
     -------
@@ -486,15 +658,16 @@ def check_composite_columns_value_is_unique(
 
         expected_condition = F.col("__duplicate_count") == 1
         failure_message = F.concat(
-            f"Column(s) `{column_names}` has value(s) ",
+            F.lit(f"Column(s) `{column_names}` has value(s) "),
             F.concat_ws(", ", *column_names),
-            ", which is a duplicate value"
+            F.lit(", which is a duplicate value")
         )
         df = check_narrow_condition(
             dbutils=dbutils,
             df=df,
             expected_condition=expected_condition,
             failure_message=failure_message,
+            filter_condition=filter_condition,
         )
 
         df = df.drop("__duplicate_indicator")
@@ -510,7 +683,9 @@ def check_columns_exist(
     column_names: List[str],
     raise_exception: bool = True,
 ) -> List[str]:
-    """Checks the field column values against valid values
+    """Validate that a column exists in the given DataFrame.
+
+    Optionally raise an exception in case of missing columns.
 
     Parameters
     ----------
@@ -520,7 +695,7 @@ def check_columns_exist(
         PySpark DataFrame to validate.
     column_names : List[str]
         List of columns that should be present in the DataFrame.
-    raise_error : boolean, default=True
+    raise_exception : boolean, default=True
         Whether to raise an exception if any column is missing.
 
     Returns
