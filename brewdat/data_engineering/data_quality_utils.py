@@ -36,7 +36,7 @@ def check_narrow_condition(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if type(failure_message) == "str":
+        if type(failure_message) == str:
             failure_message = F.lit(failure_message)
 
         if "__data_quality_issues" not in df.columns:
