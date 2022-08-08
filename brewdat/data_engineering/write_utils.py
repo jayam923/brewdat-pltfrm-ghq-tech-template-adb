@@ -73,7 +73,7 @@ def write_delta_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
-    update_condition: str = "1=1"
+    update_condition: str = None,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -108,7 +108,7 @@ def write_delta_table(
     auto_broadcast_join_threshold : int, default=52428800
         Configures the maximum size in bytes for a table that will be broadcast to all worker
         nodes when performing a join. Default value in bytes represents 50 MB.
-    update_condition : int, default="1=1"
+    update_condition : int, default=None
         An optional update condition to be used before merging the updated rows in target. 
 
     Returns
@@ -551,7 +551,7 @@ def _write_table_using_upsert(
     spark: SparkSession,
     df: DataFrame,
     location: str,
-    update_condition: str,
+    update_condition: str = None,
     key_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ):
@@ -565,6 +565,8 @@ def _write_table_using_upsert(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
+    update_condition: str
+        An optional update condition to be used before merging the updated rows in target.
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.

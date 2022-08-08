@@ -16,6 +16,14 @@ class RunStatus(str, Enum):
     FAILED = "FAILED"
     """Represents a failed run status."""
 
+@unique
+class MissingColumnsEvolution(str, Enum):
+    """Available run statuses.
+    """
+    IGNORE = "IGNORE"
+    """Ignore the missing columns in input schema."""
+    FAIL = "FAIL"
+    """Raise exception when columns are missing from input schema."""    
 
 class ReturnObject():
     """Object that holds metadata from a data write operation.
@@ -34,6 +42,10 @@ class ReturnObject():
         Error message describing whichever error that occurred.
     error_details : str, default=""
         Detailed error message or stack trace for the above error.
+    data_interval_start : str, default=""
+        The lower bound of the input dataframe.
+    data_interval_end : str, default=""
+        The upper bound of the input dataframe.
     """
     def __init__(
         self,
@@ -43,6 +55,8 @@ class ReturnObject():
         num_records_loaded: int = 0,
         error_message: str = "",
         error_details: str = "",
+        data_interval_start: str = "",
+        data_interval_end: str = "",
     ):
         self.status = status
         self.target_object = target_object
@@ -51,23 +65,31 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
+        self.data_interval_start = data_interval_start
+        self.data_interval_end = data_interval_end
+        
 
 class RowSchema():
-    """Object the holds the schema information of each column"
+    """Object the holds the schema information of each column.
     
     Attributes
     ----------
-    column_map : dict
-        column_map: Dictionary containing source_attribute_name, target_attribute_name and target_attribute_type
-    """
-    
+    source_attribute_name : str
+        Attribute name in the input dataframe.
+    target_attribute_name : str
+        Attribute name to which input column will be renamed.
+    target_data_type : str
+        The data type to which input column will be cast to.
+    """   
     def __init__(
-            self,
-            column_map: dict
+        self,
+        source_attribute_name: str,
+        target_attribute_name: str,
+        target_data_type: str,
     ):
-        self.source_attribute_name = column_map["source_attribute_name"]
-        self.target_attribute_name = column_map["target_attribute_name"]
-        self.target_data_type = column_map["target_data_type"]
+        self.source_attribute_name = source_attribute_name
+        self.target_attribute_name = target_attribute_name
+        self.target_data_type = target_data_type
         
 def exit_with_object(dbutils: object, results: ReturnObject):
     """Finish execution returning an object to the notebook's caller.

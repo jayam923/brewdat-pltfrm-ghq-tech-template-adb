@@ -8,6 +8,7 @@ from pyspark.sql.types import DataType
 from pyspark.sql.window import Window
 
 from . import common_utils
+from .common_utils import MissingColumnsEvolution, RowSchema
 
 
 def clean_column_names(
@@ -407,39 +408,48 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
 def apply_schema(
         dbutils: object,
         df: DataFrame,
-        schema: List[common_utils.RowSchema]
+        schema: List[RowSchema],
+        missing_col_evolution: MissingColumnsEvolution = MissingColumnsEvolution.IGNORE,
 ) -> DataFrame:
     """Cast all DataFrame columns to required data types and column names 
     as received from the input schema.
+    
     Parameters
     ----------
     dbutils : object
         A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to cast.
-    silver_schema: List[RowSchema]
-        List containing column details of target table. The element of the list is an object containing
-          source_attribute_name, target_data_type, target_attribute_name
+    schema: List[RowSchema]
+        List of objects containing source_attribute_name, target_data_type, target_attribute_name.
+    missing_col_evolution: str
+        MissingColumnsEvolution, default=IGNORE
+        Specifies the way in which schema mismatches should be handled.
+    
     Returns
     -------
     DataFrame
+        The modified PySpark DataFrame with all columns renamed and cast to required attribute name and data type.
+    str
+        The error message for missing columns in input schema if any. 
     """
     try:
         expressions = []
+        missing_cols_msg = ""
         audit_columns = ['__src_file', '__insert_gmt_ts', '__update_gmt_ts']
-        target_columns = [c.source_attribute_name for c in schema]
         schema_missing_cols = list(
             set(map(str.lower, [c for c in df.columns if c not in audit_columns]))
-            - set(map(str.lower, target_columns))
+            - set(map(str.lower, [c.source_attribute_name for c in schema]))
         )
         for s in schema:
             expressions.append(
                 f"CAST(`{s.source_attribute_name}` AS {s.target_data_type}) AS `{s.target_attribute_name}`")
-        for col in audit_columns:
-            expressions.append(f"`{col}`")
+ 
+        if missing_col_evolution == "FAIL":
+            raise ValueError(f"The columns {(',').join(schema_missing_cols)} are not present in schema.")
+            
         if schema_missing_cols:
-            print(
-                f"The columns {(',').join(schema_missing_cols)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target.")
-        return df.selectExpr(*expressions)
+            missing_cols_msg = f"The columns {(',').join(schema_missing_cols)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target."
+        return df.selectExpr(*expressions), missing_cols_msg
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
