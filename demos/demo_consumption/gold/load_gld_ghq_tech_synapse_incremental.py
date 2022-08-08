@@ -81,12 +81,12 @@ df= spark.sql(f"SELECT * FROM {target_hive_database}.{target_hive_table} WHERE _
 { 
 df.write
   .format("com.databricks.spark.sqldw")
-  .option("url", "jdbc:sqlserver://brewdat-pltfrm-synwks-d.sql.azuresynapse.net:1433;database=poc_sqlpool;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.sql.azuresynapse.net;loginTimeout=30;Authentication=ActiveDirectoryIntegrated")
+  .option("url", url_syn_jdbc)
   .option("enableServicePrincipalAuth", "true")
   .option("useAzureMSI", "true")
   .option("dbTable", f"dbo.stg_{target_hive_table}")
   .option("tableOptions", "heap")
-  .option("tempDir", f"abfss://temp-csa@brewdatpltfrmsynwkssad.dfs.core.windows.net/{target_hive_table}")
+  .option("tempDir", f"{lakehouse_blob_root}/{target_hive_table}")
   .mode("overwrite")
   .save()
 }   
