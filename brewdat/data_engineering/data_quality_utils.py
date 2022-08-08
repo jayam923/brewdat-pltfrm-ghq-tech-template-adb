@@ -40,7 +40,7 @@ def check_narrow_condition(
             failure_message = F.lit(failure_message)
 
         if "__data_quality_issues" not in df.columns:
-            df = df.withColumn("__data_quality_issues", F.lit(None).cast("string"))
+            df = df.withColumn("__data_quality_issues", F.array())
 
         return (
             df
@@ -48,7 +48,7 @@ def check_narrow_condition(
                 "__data_quality_issues",
                 F.when(
                     ~expected_condition,
-                    F.concat_ws("; ", "__data_quality_issues", failure_message)
+                    F.concat("__data_quality_issues", F.array(failure_message))
                 )
                 .otherwise(F.col("__data_quality_issues"))
             )
@@ -173,9 +173,9 @@ def check_column_max_length(
 
         expected_condition = F.length(column_name) <= maximum_length
         failure_message = F.concat(
-            f"Column `{column_name}` has length ",
+            F.lit(f"Column `{column_name}` has length "),
             F.length(column_name),
-            f", which is greater than {maximum_length}"
+            F.lit(f", which is greater than {maximum_length}")
         )
         return check_narrow_condition(
             dbutils=dbutils,
