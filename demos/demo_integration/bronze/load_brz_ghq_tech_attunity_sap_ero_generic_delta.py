@@ -111,7 +111,6 @@ filtered_base_df = (
         F.to_timestamp(F.lit(max_base_watermark_value)),
     ))
 )
-
 #display(filtered_base_df)
 
 # COMMAND ----------

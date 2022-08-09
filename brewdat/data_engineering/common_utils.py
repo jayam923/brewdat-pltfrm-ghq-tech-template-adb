@@ -18,7 +18,7 @@ class RunStatus(str, Enum):
 
 @unique
 class MissingColumnsEvolution(str, Enum):
-    """Available run statuses.
+    """Specifies the way in which missing columns from input schema should be handled.
     """
     IGNORE = "IGNORE"
     """Ignore the missing columns in input schema."""

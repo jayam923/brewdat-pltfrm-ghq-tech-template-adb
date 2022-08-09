@@ -409,7 +409,7 @@ def apply_schema(
         dbutils: object,
         df: DataFrame,
         schema: List[RowSchema],
-        missing_col_evolution: MissingColumnsEvolution = MissingColumnsEvolution.IGNORE,
+        missing_cols_evolution: MissingColumnsEvolution = MissingColumnsEvolution.IGNORE,
 ) -> DataFrame:
     """Cast all DataFrame columns to required data types and column names 
     as received from the input schema.
@@ -422,9 +422,9 @@ def apply_schema(
         The PySpark DataFrame to cast.
     schema: List[RowSchema]
         List of objects containing source_attribute_name, target_data_type, target_attribute_name.
-    missing_col_evolution: str
+    missing_cols_evolution: str
         MissingColumnsEvolution, default=IGNORE
-        Specifies the way in which schema mismatches should be handled.
+        Specifies the way in which missing columns from input schema should be handled.
     
     Returns
     -------
@@ -445,7 +445,7 @@ def apply_schema(
             expressions.append(
                 f"CAST(`{s.source_attribute_name}` AS {s.target_data_type}) AS `{s.target_attribute_name}`")
  
-        if missing_col_evolution == "FAIL":
+        if missing_cols_evolution == "FAIL":
             raise ValueError(f"The columns {(',').join(schema_missing_cols)} are not present in schema.")
             
         if schema_missing_cols:
