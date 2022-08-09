@@ -76,33 +76,33 @@ bronze_df = (
 
 # COMMAND ----------
 
-dq_df = bronze_df
-data_quality_utils.check_columns_exist(dbutils=dbutils, df=dq_df, column_names=["SalesOrderID", "CustomerID"])
-dq_df = data_quality_utils.check_column_is_not_null(dbutils=dbutils, df=dq_df, column_name="SalesOrderID")
-dq_df = data_quality_utils.check_column_is_not_null(dbutils=dbutils, df=dq_df, column_name="CustomerID")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="SalesOrderID", data_type="int")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="RevisionNumber", data_type="tinyint")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="OrderDate", data_type="date")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="DueDate", data_type="date")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="ShipDate", data_type="date")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="Status", data_type="tinyint")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="OnlineOrderFlag", data_type="boolean")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="CustomerID", data_type="int")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="ShipToAddressID", data_type="int")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="BillToAddressID", data_type="int")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="SubTotal", data_type="decimal(19,4)")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="TaxAmt", data_type="decimal(19,4)")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="Freight", data_type="decimal(19,4)")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="TotalDue", data_type="decimal(19,4)")
-dq_df = data_quality_utils.check_column_type_cast(dbutils=dbutils, df=dq_df, column_name="ModifiedDate", data_type="timestamp")
-dq_df = data_quality_utils.check_column_value_is_in(dbutils=dbutils, df=dq_df, column_name="Status", valid_values=[1, 2, 3, 4, 5, 6])
-dq_df = data_quality_utils.check_column_max_length(dbutils=dbutils, df=dq_df, column_name="SalesOrderNumber", maximum_length=30)
-dq_df = data_quality_utils.check_column_max_length(dbutils=dbutils, df=dq_df, column_name="PurchaseOrderNumber", maximum_length=30)
-dq_df = data_quality_utils.check_column_max_length(dbutils=dbutils, df=dq_df, column_name="ShipMethod", maximum_length=100)
-dq_df = data_quality_utils.check_column_max_length(dbutils=dbutils, df=dq_df, column_name="AccountNumber", maximum_length=15)
-dq_df = data_quality_utils.check_column_matches_regular_expression(dbutils=dbutils, df=dq_df, column_name="AccountNumber", regular_expression="^\d{2}-\d{4}-\d{6}$")
+bronze_dq_df = bronze_df
+data_quality_utils.check_columns_exist(dbutils, bronze_dq_df, column_names=["SalesOrderID", "CustomerID"])
+bronze_dq_df = data_quality_utils.check_column_is_not_null(dbutils, bronze_dq_df, column_name="SalesOrderID")
+bronze_dq_df = data_quality_utils.check_column_is_not_null(dbutils, bronze_dq_df, column_name="CustomerID")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="SalesOrderID", data_type="int")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="RevisionNumber", data_type="tinyint")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="OrderDate", data_type="date")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="DueDate", data_type="date")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="ShipDate", data_type="date")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="Status", data_type="tinyint")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="OnlineOrderFlag", data_type="boolean")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="CustomerID", data_type="int")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="ShipToAddressID", data_type="int")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="BillToAddressID", data_type="int")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="SubTotal", data_type="decimal(19,4)")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="TaxAmt", data_type="decimal(19,4)")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="Freight", data_type="decimal(19,4)")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="TotalDue", data_type="decimal(19,4)")
+bronze_dq_df = data_quality_utils.check_column_type_cast(dbutils, bronze_dq_df, column_name="ModifiedDate", data_type="timestamp")
+bronze_dq_df = data_quality_utils.check_column_value_is_in(dbutils, bronze_dq_df, column_name="Status", valid_values=[1, 2, 3, 4, 5, 6])
+bronze_dq_df = data_quality_utils.check_column_max_length(dbutils, bronze_dq_df, column_name="SalesOrderNumber", maximum_length=30)
+bronze_dq_df = data_quality_utils.check_column_max_length(dbutils, bronze_dq_df, column_name="PurchaseOrderNumber", maximum_length=30)
+bronze_dq_df = data_quality_utils.check_column_max_length(dbutils, bronze_dq_df, column_name="ShipMethod", maximum_length=100)
+bronze_dq_df = data_quality_utils.check_column_max_length(dbutils, bronze_dq_df, column_name="AccountNumber", maximum_length=15)
+bronze_dq_df = data_quality_utils.check_column_matches_regular_expression(dbutils, bronze_dq_df, column_name="AccountNumber", regular_expression="^\d{2}-\d{4}-\d{6}$")
 
-dq_df.createOrReplaceTempView("v_bronze_dq_df")
+bronze_dq_df.createOrReplaceTempView("v_bronze_dq_df")
 
 #display(dq_df)
 
@@ -153,7 +153,7 @@ dedup_df = transform_utils.deduplicate_records(
     dbutils=dbutils,
     df=transformed_df,
     key_columns=key_columns,
-    watermark_column="__ref_dt",
+    watermark_column="ModifiedDate",
 )
 
 #display(dedup_df)
@@ -163,6 +163,20 @@ dedup_df = transform_utils.deduplicate_records(
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=dedup_df)
 
 #display(audit_df)
+
+# COMMAND ----------
+
+silver_dq_df = audit_df
+silver_dq_df = data_quality_utils.check_composite_column_value_is_unique(dbutils, silver_dq_df, column_names=key_columns)
+silver_dq_df = data_quality_utils.check_column_value_is_not_in(dbutils, silver_dq_df, column_name="StatusDescription", invalid_values=["--MAPPING ERROR--"])
+silver_dq_df = data_quality_utils.check_narrow_condition(
+    dbutils,
+    silver_dq_df,
+    expected_condition="TotalDue - SubTotal - TaxAmt - Freight < 0.01",
+    failure_message="CHECK_TOTAL_DUE: TotalDue should be equal to SubTotal + TaxAmt + Freight",
+)
+
+#display(silver_dq_df)
 
 # COMMAND ----------
 
@@ -177,7 +191,7 @@ location = lakehouse_utils.generate_silver_table_location(
 
 results = write_utils.write_delta_table(
     spark=spark,
-    df=audit_df,
+    df=silver_dq_df,
     location=location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
