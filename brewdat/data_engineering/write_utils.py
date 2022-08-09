@@ -266,7 +266,7 @@ def _get_df_writer(
         schema_evolution_mode: SchemaEvolutionMode,
         partition_columns: List[str] = []
 ) -> DataFrame:
-    """Write the DataFrame using OVERWRITE_TABLE.
+    """Prepare dataframe writer accordingly to schema evolution mode.
 
     Parameters
     ----------
@@ -313,7 +313,7 @@ def _prepare_for_merge_operation(
         location: str,
         schema_evolution_mode: SchemaEvolutionMode,
 ) -> DataFrame:
-    """Write the DataFrame using OVERWRITE_TABLE.
+    """Prepare dataframe for merge into operation accordingly to schema evolution mode.
 
     Parameters
     ----------
