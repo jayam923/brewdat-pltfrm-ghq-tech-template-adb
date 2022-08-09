@@ -62,8 +62,8 @@ def check_narrow_condition(
             df
             .withColumn(
                 "__data_quality_issues",
-                F.when(~filter_condition, F.col("__data_quality_issues")),
-                F.when(
+                F.when(~filter_condition, F.col("__data_quality_issues"))
+                .when(
                     ~expected_condition,
                     F.concat(F.coalesce("__data_quality_issues", F.array()), F.array(failure_message))
                 )
