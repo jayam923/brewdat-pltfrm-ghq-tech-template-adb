@@ -836,7 +836,7 @@ def test_write_delta_table_overwrite_table(tmpdir):
         location=location,
         schema_name=schema_name,
         table_name=table_name,
-        load_type=LoadType.APPEND_ALL,
+        load_type=LoadType.OVERWRITE_TABLE,
         )
     result = write_delta_table(
         spark=spark,
@@ -883,7 +883,7 @@ def test_write_delta_table_overwrite_partition(tmpdir):
         location=location,
         schema_name=schema_name,
         table_name=table_name,
-        load_type=LoadType.APPEND_ALL,
+        load_type=LoadType.OVERWRITE_PARTITION,
         partition_columns=['phone_number'],
         )
     result = write_delta_table(
@@ -931,7 +931,7 @@ def test_write_delta_table_upsert(tmpdir):
         location=location,
         schema_name=schema_name,
         table_name=table_name,
-        load_type=LoadType.APPEND_ALL,
+        load_type=LoadType.UPSERT,
         key_columns=['phone_number'],
         )
     result = write_delta_table(

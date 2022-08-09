@@ -266,7 +266,7 @@ def _get_df_writer(
         schema_evolution_mode: SchemaEvolutionMode,
         partition_columns: List[str] = []
 ) -> DataFrame:
-     """Write the DataFrame using OVERWRITE_TABLE.
+    """Write the DataFrame using OVERWRITE_TABLE.
 
     Parameters
     ----------
@@ -284,9 +284,7 @@ def _get_df_writer(
     -------
     df
         After adding all options based on the conditions it returns dataframe
-        
     """
-
     df_writer = df.write
 
     if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
@@ -353,6 +351,7 @@ def _prepare_for_merge_operation(
     else:
         raise NotImplementedError
 
+    return df
 
 
 def _drop_new_columns(
