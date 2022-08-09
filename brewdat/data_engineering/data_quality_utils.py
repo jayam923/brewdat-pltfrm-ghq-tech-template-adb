@@ -62,7 +62,7 @@ def check_narrow_condition(
             df
             .withColumn(
                 "__data_quality_issues",
-                F.when(~filter_condition, F.col("__data_quality_issues"))
+                F.when(~filter_condition, F.col("__data_quality_issues")),
                 F.when(
                     ~expected_condition,
                     F.concat(F.coalesce("__data_quality_issues", F.array()), F.array(failure_message))
@@ -562,7 +562,7 @@ def check_column_value_is_in(
         failure_message = F.concat(
             F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
             F.col(column_name),
-            F.lit()", which is not in the list of valid values")
+            F.lit(", which is not in the list of valid values")
         )
         return check_narrow_condition(
             dbutils=dbutils,
@@ -615,7 +615,7 @@ def check_column_value_is_not_in(
         failure_message = F.concat(
             F.lit(f"CHECK_VALUE_NOT_IN: Column `{column_name}` has value "),
             F.col(column_name),
-            F.lit()", which is in the list of invalid values")
+            F.lit(", which is in the list of invalid values")
         )
         return check_narrow_condition(
             dbutils=dbutils,
@@ -929,7 +929,7 @@ def check_columns_exist(
         missing_columns = [col for col in column_names if col not in df.columns]
 
         if len(missing_columns) > 0 and raise_exception:
-            raise KeyError(f"DataFrame is missing required column(s): {", ".join(missing_columns)}")
+            raise KeyError(f"DataFrame is missing required column(s): {', '.join(missing_columns)}")
 
         return missing_columns
 
