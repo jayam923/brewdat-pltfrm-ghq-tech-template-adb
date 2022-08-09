@@ -931,12 +931,13 @@ def check_composite_column_value_is_unique(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
+       
+        if not column_names:
+            raise ValueError("No column was given")
+            
         for column_name in column_names:
             if len(column_name)==0:
                 raise ValueError("Please enter valid column_name.")
-        
-        if not column_names:
-            raise ValueError("No column was given")
 
         df = df.withColumn("__duplicate_count", F.count("*").over(
             Window.partitionBy(*column_names)

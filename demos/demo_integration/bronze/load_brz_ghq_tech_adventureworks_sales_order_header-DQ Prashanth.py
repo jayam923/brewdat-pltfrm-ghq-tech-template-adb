@@ -86,7 +86,7 @@ clean_df=raw_df
 #clean_df = data_quality_utils.valid_values(dbutils =dbutils, field_name = "Lname" ,valid_values=['sun', 'mon'],df = clean_df) 
 #clean_df = data_quality_utils.invalid_values(dbutils =dbutils, field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],df = clean_df)   
 #clean_df = data_quality_utils.valid_regular_expression(dbutils =dbutils, field_name = "_c1" ,regex="^[s-t]",df = clean_df)
-clean_df = data_quality_utils.check_composite_column_value_is_unique(dbutils =dbutils, column_names = ["Name","","Lname"],df = clean_df)
+clean_df = data_quality_utils.check_composite_column_value_is_unique(dbutils =dbutils, column_names = [],df = clean_df)
 #tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
 display(clean_df)
 
