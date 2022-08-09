@@ -35,6 +35,10 @@ dbutils.widgets.text("partition_columns", "__ref_dt", "9 - partition_columns")
 partition_columns = dbutils.widgets.get("partition_columns")
 print(f"partition_columns: {partition_columns}")
 
+dbutils.widgets.text("raw_file_path", "", "10 - raw_file_path")
+raw_file_path = dbutils.widgets.get("raw_file_path")
+print(f"raw_file_path: {raw_file_path}")
+
 # COMMAND ----------
 
 import sys
@@ -67,7 +71,7 @@ raw_df = read_utils.read_raw_dataframe(
     spark=spark,
     dbutils=dbutils,
     file_format=read_utils.RawFileFormat.ORC,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    location=f"{lakehouse_raw_root}/{raw_file_path}",
 )
 
 #display(raw_df)
