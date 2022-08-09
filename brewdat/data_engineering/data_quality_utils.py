@@ -75,6 +75,55 @@ def check_narrow_condition(
         common_utils.exit_with_last_exception(dbutils)
 
 
+def check_column_is_not_null(
+    dbutils: object,
+    df: DataFrame,
+    column_name: str,
+    filter_condition: Union[str, Column] = None,
+) -> DataFrame:
+    """Validate that a column's value is not null.
+
+    If the check fails, append a failure message to __data_quality_issues.
+
+    Optionally, apply this check only to a subset of rows that match
+    a custom filter condition.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        PySpark DataFrame to validate.
+    column_name : str
+        Name of the column to be validated.
+    filter_condition : Union[str, Column], default=None
+        PySpark Column expression for filtering the rows that this check
+        applies to. If this expression evaluates to False, the record
+        is not checked.
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame with updated validation results.
+    """
+    try:
+        if not column_name:
+            raise ValueError("Invalid column name")
+
+        expected_condition = F.col(column_name).isNotNull()
+        failure_message = f"CHECK_NOT_NULL: Column `{column_name}` is null"
+        return check_narrow_condition(
+            dbutils=dbutils,
+            df=df,
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
 def check_column_type_cast(
     dbutils: object,
     df: DataFrame,
@@ -113,9 +162,9 @@ def check_column_type_cast(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         df = df.withColumn("__value_after_cast", F.col(column_name).cast(data_type))
 
         expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
@@ -134,56 +183,6 @@ def check_column_type_cast(
 
         df = df.drop("__value_after_cast")
         return df
-
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
-
-def check_column_is_not_null(
-    dbutils: object,
-    df: DataFrame,
-    column_name: str,
-    filter_condition: Union[str, Column] = None,
-) -> DataFrame:
-    """Validate that a column's value is not null.
-
-    If the check fails, append a failure message to __data_quality_issues.
-
-    Optionally, apply this check only to a subset of rows that match
-    a custom filter condition.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    df : DataFrame
-        PySpark DataFrame to validate.
-    column_name : str
-        Name of the column to be validated.
-    filter_condition : Union[str, Column], default=None
-        PySpark Column expression for filtering the rows that this check
-        applies to. If this expression evaluates to False, the record
-        is not checked.
-
-    Returns
-    -------
-    DataFrame
-        The modified PySpark DataFrame with updated validation results.
-    """
-    try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-        
-        
-        expected_condition = F.col(column_name).isNotNull()
-        failure_message = f"CHECK_NOT_NULL: Column `{column_name}` is null"
-        return check_narrow_condition(
-            dbutils=dbutils,
-            df=df,
-            expected_condition=expected_condition,
-            failure_message=failure_message,
-            filter_condition=filter_condition,
-        )
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
@@ -224,9 +223,9 @@ def check_column_max_length(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         if maximum_length <= 0:
             raise ValueError("Maximum length must be greater than 0.")
 
@@ -284,9 +283,9 @@ def check_column_min_length(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         if minimum_length <= 0:
             raise ValueError("Minimum length must be greater than 0.")
 
@@ -346,9 +345,9 @@ def check_column_length_between(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         if minimum_length <= 0:
             raise ValueError("Minimum length must be greater than 0.")
 
@@ -411,9 +410,9 @@ def check_column_max_value(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         expected_condition = F.col(column_name) <= F.lit(maximum_value)
         failure_message = F.concat(
             F.lit(f"CHECK_MAX_VALUE: Column `{column_name}` has value "),
@@ -468,9 +467,9 @@ def check_column_min_value(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         expected_condition = F.col(column_name) >= F.lit(minimum_value)
         failure_message = F.concat(
             F.lit(f"CHECK_MIN_VALUE: Column `{column_name}` has value "),
@@ -527,26 +526,9 @@ def check_column_value_between(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-        
-        if not isinstance(minimum_value, int):
-            raise ValueError("Please enter valid minimum_length values.")
-            
-        if not isinstance(maximum_value, int):
-            raise ValueError("Please enter valid maximum_value values.")
-            
-        if minimum_value <= 0:
-            raise ValueError("Minimum length must be greater than 0.")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-        if maximum_value <= 0:
-            raise ValueError("Maximum length must be greater than 0.")
-
-        if minimum_value > maximum_value:
-            raise ValueError("Minimum length must be less than or equal to maximum length.")
-         
-
-        
         expected_condition = F.col(column_name).between(minimum_value, maximum_value)
         failure_message = F.concat(
             F.lit(f"CHECK_VALUE_RANGE: Column `{column_name}` has value "),
@@ -600,9 +582,9 @@ def check_column_value_is_in(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         expected_condition = F.col(column_name).isin(valid_values)
         failure_message = F.concat(
             F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
@@ -656,9 +638,9 @@ def check_column_value_is_not_in(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         expected_condition = ~F.col(column_name).isin(invalid_values)
         failure_message = F.concat(
             F.lit(f"CHECK_VALUE_NOT_IN: Column `{column_name}` has value "),
@@ -712,9 +694,9 @@ def check_column_matches_regular_expression(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         expected_condition = F.col(column_name).rlike(regular_expression)
         failure_message = F.concat(
             F.lit(f"CHECK_REGEX_MATCH: Column `{column_name}` has value "),
@@ -768,9 +750,9 @@ def check_column_does_not_match_regular_expression(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
+        if not column_name:
+            raise ValueError("Invalid column name")
+
         expected_condition = ~F.col(column_name).rlike(regular_expression)
         failure_message = F.concat(
             F.lit(f"CHECK_REGEX_NOT_MATCH: Column `{column_name}` has value "),
@@ -796,7 +778,7 @@ def check_column_is_numeric(
     filter_condition: Union[str, Column] = None,
 ) -> DataFrame:
     """Validate that a column's value is numeric, that is, it matches
-    the regular expression '^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$'.
+    the regular expression '^[0-9]*\\.?[0-9]*([Ee][+-]?[0-9]+)?$'.
 
     If the check fails, append a failure message to __data_quality_issues.
 
@@ -822,14 +804,14 @@ def check_column_is_numeric(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
-        expected_condition = F.col(column_name).rlike("^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$")
+        if not column_name:
+            raise ValueError("Invalid column name")
+
+        expected_condition = F.col(column_name).rlike(r"^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$")
         failure_message = F.concat(
             F.lit(f"CHECK_NUMERIC: Column `{column_name}` has value "),
             F.col(column_name),
-            F.lit(f", which is not a numeric value")
+            F.lit(", which is not a numeric value")
         )
         return check_narrow_condition(
             dbutils=dbutils,
@@ -876,14 +858,14 @@ def check_column_is_alphanumeric(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-        if len(column_name)==0:
-            raise ValueError("Please enter valid column_name.")
-            
-        expected_condition = F.col(column_name).rlike("^[A-Za-z0-9]*$")
+        if not column_name:
+            raise ValueError("Invalid column name")
+
+        expected_condition = F.col(column_name).rlike(r"^[A-Za-z0-9]*$")
         failure_message = F.concat(
             F.lit(f"CHECK_ALPHANUMERIC: Column `{column_name}` has value "),
             F.col(column_name),
-            F.lit(f", which is not an alphanumeric value")
+            F.lit(", which is not an alphanumeric value")
         )
         return check_narrow_condition(
             dbutils=dbutils,
@@ -931,23 +913,23 @@ def check_composite_column_value_is_unique(
         The modified PySpark DataFrame with updated validation results.
     """
     try:
-       
         if not column_names:
             raise ValueError("No column was given")
-            
+
         for column_name in column_names:
-            if len(column_name)==0:
-                raise ValueError("Please enter valid column_name.")
+            if not column_name:
+                raise ValueError("Invalid column name")
 
         df = df.withColumn("__duplicate_count", F.count("*").over(
             Window.partitionBy(*column_names)
         ))
 
         expected_condition = F.col("__duplicate_count") == 1
+        formatted_columns = ", ".join([f"`{col}`" for col in column_names])
         failure_message = F.concat(
-            F.lit(f"CHECK_UNIQUE: Column(s) `{column_names}` has value(s) "),
+            F.lit(f"CHECK_UNIQUE: Column(s) {formatted_columns} has value ("),
             F.concat_ws(", ", *column_names),
-            F.lit(", which is a duplicate value")
+            F.lit("), which is a duplicate value")
         )
         df = check_narrow_condition(
             dbutils=dbutils,
@@ -957,7 +939,7 @@ def check_composite_column_value_is_unique(
             filter_condition=filter_condition,
         )
 
-        df = df.drop("__duplicate_indicator")
+        df = df.drop("__duplicate_count")
         return df
 
     except Exception:
@@ -992,13 +974,14 @@ def check_columns_exist(
     """
     try:
         for column_name in column_names:
-            if len(column_name)==0:
-                raise ValueError("Please enter valid column_name.")
-                
+            if not column_name:
+                raise ValueError("Invalid column name")
+
         missing_columns = [col for col in column_names if col not in df.columns]
 
         if len(missing_columns) > 0 and raise_exception:
-            raise KeyError(f"DataFrame is missing required column(s): {', '.join(missing_columns)}")
+            formatted_columns = ", ".join([f"`{col}`" for col in missing_columns])
+            raise KeyError(f"DataFrame is missing required column(s): {formatted_columns}")
 
         return missing_columns
 
