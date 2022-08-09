@@ -135,6 +135,7 @@ results = write_utils.write_delta_table(
     schema_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.UPSERT,
+    partition_columns=["TARGET_APPLY_DT"],
     key_columns=key_columns_list,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     update_condition="source.SOURCE_COMMIT_TS > target.SOURCE_COMMIT_TS",
