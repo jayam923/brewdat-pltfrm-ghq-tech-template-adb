@@ -148,12 +148,15 @@ class DataQualityChecker():
         self,
         column_name: str,
         data_type: str,
+        date_format: str = None,
         filter_condition: Union[str, Column] = None,
     ) -> "DataQualityChecker":
         """Validate whether a column's value can be safely cast
         to the given data type without generating a null value.
 
         If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, cast to date/timestamp types using a custom date format.
 
         Optionally, apply this check only to a subset of rows that match
         a custom filter condition.
@@ -166,6 +169,9 @@ class DataQualityChecker():
             Name of the column to be validated.
         data_type : str
             Spark data type used in cast function.
+        date_format : str, default=None
+            Optional format string used with to_date() and to_timestamp()
+            functions when data_type is date or timestamp, respectively.
         filter_condition : Union[str, Column], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
@@ -180,7 +186,15 @@ class DataQualityChecker():
             if not column_name:
                 raise ValueError("Invalid column name")
 
-            self.df = self.df.withColumn("__value_after_cast", F.col(column_name).cast(data_type))
+            if not data_type:
+                raise ValueError("Invalid data type")
+
+            if data_type == "date":
+                self.df = self.df.withColumn("__value_after_cast", F.to_date(column_name, date_format))
+            elif data_type == "timestamp":
+                self.df = self.df.withColumn("__value_after_cast", F.to_timestamp(column_name, date_format))
+            else:
+                self.df = self.df.withColumn("__value_after_cast", F.col(column_name).cast(data_type))
 
             expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
             failure_message = F.concat(
@@ -551,6 +565,9 @@ class DataQualityChecker():
             if not column_name:
                 raise ValueError("Invalid column name")
 
+            if not valid_values:
+                raise ValueError("No valid value was given")
+
             expected_condition = F.col(column_name).isin(valid_values)
             failure_message = F.concat(
                 F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
@@ -599,6 +616,9 @@ class DataQualityChecker():
         try:
             if not column_name:
                 raise ValueError("Invalid column name")
+
+            if not invalid_values:
+                raise ValueError("No invalid value was given")
 
             expected_condition = ~F.col(column_name).isin(invalid_values)
             failure_message = F.concat(
@@ -649,6 +669,9 @@ class DataQualityChecker():
             if not column_name:
                 raise ValueError("Invalid column name")
 
+            if not regular_expression:
+                raise ValueError("Invalid regular expression")
+
             expected_condition = F.col(column_name).rlike(regular_expression)
             failure_message = F.concat(
                 F.lit(f"CHECK_REGEX_MATCH: Column `{column_name}` has value "),
@@ -697,6 +720,9 @@ class DataQualityChecker():
         try:
             if not column_name:
                 raise ValueError("Invalid column name")
+
+            if not regular_expression:
+                raise ValueError("Invalid regular expression")
 
             expected_condition = ~F.col(column_name).rlike(regular_expression)
             failure_message = F.concat(
@@ -897,11 +923,16 @@ class DataQualityChecker():
             The list of missing columns.
         """
         try:
+            if not column_names:
+                raise ValueError("No column name was given")
+
             for column_name in column_names:
                 if not column_name:
                     raise ValueError("Invalid column name")
 
-            missing_columns = [col for col in column_names if col not in df.columns]
+            # Use case insensitive comparison like Spark does
+            existing_columns = [col.lower() for col in df.columns]
+            missing_columns = [col for col in column_names if col.lower() not in existing_columns]
 
             if len(missing_columns) > 0 and raise_exception:
                 formatted_columns = ", ".join([f"`{col}`" for col in missing_columns])
