@@ -92,7 +92,7 @@ def exit_with_last_exception(dbutils: object):
     exc_type, exc_value, _ = sys.exc_info()
     results = ReturnObject(
         status=RunStatus.FAILED,
-        target_object=None,
+        target_object="",
         error_message=f"{exc_type.__name__}: {exc_value}",
         error_details=traceback.format_exc(),
     )

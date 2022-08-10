@@ -3,9 +3,8 @@ from datetime import datetime
 from typing import List
 
 import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DataType
-from pyspark.sql.window import Window
 
 from . import common_utils
 
