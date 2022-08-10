@@ -81,17 +81,17 @@ data_quality_utils=data_quality_utils.DataQualityChecker(dbutils=dbutils,df=raw_
 # DBTITLE 1,Test Individual Function
 #clean_df = data_quality_utils.create_required_columns_for_dq_check(raw_df)
 
-clean_df = data_quality_utils.check_column_type_cast(column_name = "Avgdays" ,data_type = "double") 
-
-clean_df = data_quality_utils.check_column_is_not_null(column_name = "RegistrationNo" )
-#clean_df = data_quality_utils.max_length(column_name = "City" ,maximum_length = 10)
-#clean_df = data_quality_utils.min_length( column_name = "City" , minimum_length 89.41= 5)
-clean_df = data_quality_utils.check_column_value_between( column_name = "" , minimum_value = 10000,maximum_value = 30000)
-#clean_df = data_quality_utils.valid_values( column_name = "Lname" ,valid_values=['sun', 'mon']) 
-#clean_df = data_quality_utils.invalid_values( column_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'])   
-#clean_df = data_quality_utils.valid_regular_expression( column_name = "_c1" ,regex="^[s-t]")
-#clean_df = data_quality_utils.check_composite_column_value_is_unique(column_names = [])
-#tes_df = data_quality_utils.column_check(column_names=['Lname','Salary',"test"])
+data_quality_utils.check_column_type_cast(column_name = "Avgdays" ,data_type = "double")
+data_quality_utils.check_column_type_cast(column_name = "Salary" ,data_type = "Integer") 
+data_quality_utils.check_column_is_not_null(column_name = "RegistrationNo" )
+data_quality_utils.check_column_max_length(column_name = "City" ,maximum_length = 10)
+#data_quality_utils.min_length( column_name = "City" , minimum_length 89.41= 5)
+data_quality_utils.check_column_value_between( column_name = "Salary" , minimum_value = 10000,maximum_value = 30000)
+data_quality_utils.check_column_value_is_in( column_name = "Lname" ,valid_values=['sun', 'mon']) 
+#data_quality_utils.invalid_values( column_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'])   
+#data_quality_utils.valid_regular_expression( column_name = "_c1" ,regex="^[s-t]")
+data_quality_utils.check_composite_column_value_is_unique(column_names = ['EmployeeNo'])
+#data_quality_utils.column_check(column_names=['Lname','Salary',"test"])
 build_df=data_quality_utils.build_df()
 display(build_df)
 
