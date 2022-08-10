@@ -84,10 +84,14 @@ df.write
   .option("url", url_syn_jdbc)
   .option("enableServicePrincipalAuth", "true")
   .option("useAzureMSI", "true")
-  .option("dbTable", f"dbo.stg01_{target_hive_table}")
+  .option("dbTable", f"dbo.stg_{target_hive_table}")
   .option("tableOptions", "HEAP")
   .option("tempDir", f"{lakehouse_blob_root}/{target_hive_table}")
   .mode("overwrite")
   .save()
 }   
     
+
+# COMMAND ----------
+
+
