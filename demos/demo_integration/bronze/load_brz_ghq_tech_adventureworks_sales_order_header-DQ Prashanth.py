@@ -36,7 +36,7 @@ print(f"data_interval_end: {data_interval_end}")
 import sys
 
 # Import BrewDat Library modules
-#sys.path.append(f"/Workspace/Repos/brewdat_library/next-release")
+sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils
 
 # Print a module's help
@@ -74,21 +74,26 @@ display(raw_df)
 
 # COMMAND ----------
 
+data_quality_utils=data_quality_utils.DataQualityChecker(dbutils=dbutils,df=raw_df)
+
+# COMMAND ----------
+
 # DBTITLE 1,Test Individual Function
 #clean_df = data_quality_utils.create_required_columns_for_dq_check(raw_df)
 
-clean_df=raw_df
-#clean_df = data_quality_utils.check_column_type_cast(dbutils =dbutils, column_name = "Avgdays" ,data_type = "double", df = clean_df) 
-#clean_df = data_quality_utils.null_check(dbutils =dbutils,field_name = "RegistrationNo" ,df = clean_df)
-#clean_df = data_quality_utils.max_length(dbutils =dbutils,field_name = "City" ,maximum_length = 10, df = clean_df)
-#clean_df = data_quality_utils.min_length(dbutils =dbutils, field_name = "City" , minimum_length 89.41= 5, df = clean_df)
-#clean_df = data_quality_utils.check_column_value_between(dbutils =dbutils, column_name = "" , minimum_value = 10000,maximum_value = 60000, df = clean_df)
-#clean_df = data_quality_utils.valid_values(dbutils =dbutils, field_name = "Lname" ,valid_values=['sun', 'mon'],df = clean_df) 
-#clean_df = data_quality_utils.invalid_values(dbutils =dbutils, field_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'],df = clean_df)   
-#clean_df = data_quality_utils.valid_regular_expression(dbutils =dbutils, field_name = "_c1" ,regex="^[s-t]",df = clean_df)
-clean_df = data_quality_utils.check_composite_column_value_is_unique(dbutils =dbutils, column_names = [],df = clean_df)
-#tes_df = data_quality_utils.column_check(col_list=['Lname','Salary',"test"], src_df = clean_df)
-display(clean_df)
+clean_df = data_quality_utils.check_column_type_cast(column_name = "Avgdays" ,data_type = "double") 
+
+clean_df = data_quality_utils.check_column_is_not_null(column_name = "RegistrationNo" )
+#clean_df = data_quality_utils.max_length(column_name = "City" ,maximum_length = 10)
+#clean_df = data_quality_utils.min_length( column_name = "City" , minimum_length 89.41= 5)
+clean_df = data_quality_utils.check_column_value_between( column_name = "" , minimum_value = 10000,maximum_value = 30000)
+#clean_df = data_quality_utils.valid_values( column_name = "Lname" ,valid_values=['sun', 'mon']) 
+#clean_df = data_quality_utils.invalid_values( column_name = "Lname" ,invalid_values=['tue', 'wed', 'thu'])   
+#clean_df = data_quality_utils.valid_regular_expression( column_name = "_c1" ,regex="^[s-t]")
+#clean_df = data_quality_utils.check_composite_column_value_is_unique(column_names = [])
+#tes_df = data_quality_utils.column_check(column_names=['Lname','Salary',"test"])
+build_df=data_quality_utils.build_df()
+display(build_df)
 
 
 # COMMAND ----------
