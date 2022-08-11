@@ -19,11 +19,11 @@ dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "0
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "bkpf", "06 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "kna1", "06 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
-dbutils.widgets.text("data_interval_start", "2022-06-21T00:00:00Z", "07 - data_interval_start")
+dbutils.widgets.text("data_interval_start", "2022-08-05 00:00:00.000000", "07 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
@@ -35,6 +35,7 @@ print(f"prelz_path: {prelz_path}")
 
 import sys
 from pyspark.sql import functions as F
+from datetime import datetime
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
@@ -71,7 +72,8 @@ base_raw_df = read_utils.read_raw_dataframe(
     location=f"{attunity_sap_root}/{prelz_path}",
     cast_all_to_string=False,
 )
-
+max_base_watermark_value = base_raw_df.select(F.max(F.col("TARGET_APPLY_TS"))).collect()[0][0]
+print(max_base_watermark_value)
 #display(base_raw_df)
 
 # COMMAND ----------
@@ -83,7 +85,8 @@ ct_raw_df = read_utils.read_raw_dataframe(
     location=f"{attunity_sap_root}/{prelz_path}__ct",
     cast_all_to_string=False,
 )
-
+max_ct_watermark_value = ct_raw_df.select(F.max(F.col("TARGET_APPLY_TS"))).collect()[0][0]
+print(max_ct_watermark_value)
 #display(ct_raw_df)
 
 # COMMAND ----------
@@ -93,14 +96,12 @@ clean_ct_df = transform_utils.clean_column_names(dbutils=dbutils, df=ct_raw_df)
 
 # COMMAND ----------
 
-max_base_watermark_value = clean_base_df.select(F.max(F.col("TARGET_APPLY_TS"))).collect()[0][0]
-max_ct_watermark_value = clean_ct_df.select(F.max(F.col("TARGET_APPLY_TS"))).collect()[0][0]
-watermark_upper_bound = max_ct_watermark_value if max_ct_watermark_value > max_base_watermark_value else max_base_watermark_value
+default_data_interval_end = datetime.strptime(data_interval_start, "%Y-%m-%d %H:%M:%S.%f")
+base_watermark_upper_bound = max_base_watermark_value if max_base_watermark_value else default_data_interval_end
+ct_watermark_upper_bound = max_ct_watermark_value if max_ct_watermark_value else default_data_interval_end
+watermark_upper_bound = ct_watermark_upper_bound if ct_watermark_upper_bound > base_watermark_upper_bound else base_watermark_upper_bound
 data_interval_end = watermark_upper_bound.strftime("%Y-%m-%d %H:%M:%S.%f")
-
-# COMMAND ----------
-
-print(max_base_watermark_value, max_ct_watermark_value, data_interval_start, data_interval_end)
+print(data_interval_end)
 
 # COMMAND ----------
 
