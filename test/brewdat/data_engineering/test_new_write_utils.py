@@ -237,7 +237,7 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
         [
             StructField('id', StringType(), True),
             StructField('phone_number', StringType(), True),
-            StructField('__data_quality_issues', ArrayType(StructType()), True),
+            StructField('__data_quality_issues', ArrayType(StringType()), True),
         ]
     )
 
@@ -300,7 +300,6 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     )
 
     # ASSERT
-    print(vars(result1))
     assert RunStatus.SUCCEEDED == result1.status
     assert 3 == result1.num_records_read
     assert 2 == result1.num_records_loaded
@@ -321,7 +320,9 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     assert 0 == result4.num_records_loaded
     assert 1 == result4.num_records_errored_out
 
-    result_df = spark.table(result3.target_object)
+    result_df = spark.table(f"{schema_name}.{table_name}")
     assert "__data_quality_issues" not in result_df.columns
     assert 4 == result_df.count()
-    
+
+    error_df = spark.table(f"{schema_name}.{table_name}_err")
+    assert 2 == error_df.count()

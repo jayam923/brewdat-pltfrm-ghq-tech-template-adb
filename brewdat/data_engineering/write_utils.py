@@ -1,4 +1,5 @@
 import os
+import re
 import traceback
 from enum import Enum, unique
 from typing import List
@@ -132,7 +133,6 @@ def write_delta_table(
     """
     num_records_read = 0
     num_records_loaded = 0
-    num_records_errored_out = 0
 
     try:
         # Check if the table already exists with a different location
@@ -168,8 +168,15 @@ def write_delta_table(
         previous_delta_version_number = latest_delta_version["version"] if latest_delta_version else None
 
         # Handle bad records
-        if "__data_quality_issues" in df.columns:
-            df, num_records_errored_out = _handle_bad_records(df=df, bad_records_handling_mode=bad_records_handling_mode)
+        df, num_records_errored_out = _handle_bad_records(
+            spark=spark,
+            df=df,
+            bad_records_handling_mode=bad_records_handling_mode,
+            location=location,
+            schema_name=schema_name,
+            table_name=table_name,
+            time_travel_retention_days=time_travel_retention_days
+        )
 
         # Write data with the selected load_type
         if load_type == LoadType.OVERWRITE_TABLE:
@@ -231,23 +238,15 @@ def write_delta_table(
             raise NotImplementedError
 
         # Create the Hive database and table
-        spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
-        spark.sql(f"""
-            CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
-            USING DELTA
-            LOCATION '{location}';
-        """)
+        _create_hive_table(spark=spark, schema_name=schema_name, table_name=table_name, location=location)
 
         # Vacuum the delta table
-        spark.sql(f"""
-            ALTER TABLE `{schema_name}`.`{table_name}`
-            SET TBLPROPERTIES (
-                'delta.deletedFileRetentionDuration' = 'interval {time_travel_retention_days} days',
-                'delta.logRetentionDuration' = 'interval {time_travel_retention_days} days'
-            );
-        """)
-        spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
-        spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
+        _vacuum_delta_table(
+            spark=spark,
+            schema_name=schema_name,
+            table_name=table_name,
+            time_travel_retention_days=time_travel_retention_days
+        )
 
         # Get final delta version number
         final_delta_version = get_latest_delta_version_details(spark=spark, location=location)["version"]
@@ -286,16 +285,62 @@ def write_delta_table(
         )
 
 
+def _create_hive_table(
+        spark: SparkSession,
+        schema_name: str,
+        table_name: str,
+        location: str
+):
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
+    spark.sql(f"""
+                CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
+                USING DELTA
+                LOCATION '{location}';
+            """)
+
+
+def _vacuum_delta_table(
+        spark: SparkSession,
+        schema_name: str,
+        table_name: str,
+        time_travel_retention_days: int,
+):
+    spark.sql(f"""
+                ALTER TABLE `{schema_name}`.`{table_name}`
+                SET TBLPROPERTIES (
+                    'delta.deletedFileRetentionDuration' = 'interval {time_travel_retention_days} days',
+                    'delta.logRetentionDuration' = 'interval {time_travel_retention_days} days'
+                );
+            """)
+    spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
+    spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
+
+
 def _handle_bad_records(
+        spark: SparkSession,
         df: DataFrame,
         bad_records_handling_mode: BadRecordsHandlingMode,
+        location: str,
+        schema_name: str,
+        table_name: str,
+        time_travel_retention_days: int
 ) -> (DataFrame, int):
+
+    if "__data_quality_issues" not in df.columns:
+        return df, 0
+
+    output_df = df
     bad_records_filter = (F.size("__data_quality_issues") > 0)
     bad_records_df = df.filter(bad_records_filter)
-    output_df = df
     bad_records_count = bad_records_df.count()
     if bad_records_handling_mode == BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION:
-        # TODO: write bad records
+        _write_to_error_table(
+            spark=spark,
+            df=bad_records_df,
+            location=location,
+            schema_name=schema_name,
+            table_name=table_name,
+            time_travel_retention_days=time_travel_retention_days)
         output_df = df.filter(~bad_records_filter).drop("__data_quality_issues")
     elif bad_records_handling_mode == BadRecordsHandlingMode.IGNORE:
         pass
@@ -303,6 +348,37 @@ def _handle_bad_records(
         raise NotImplementedError
 
     return output_df, bad_records_count
+
+
+def _write_to_error_table(
+    spark: SparkSession,
+    df: DataFrame,
+    location: str,
+    schema_name: str,
+    table_name: str,
+    time_travel_retention_days: int,
+):
+    error_table_name = f"{table_name}_err"
+    error_location = f"{re.sub(r'(/$)', '', location)}_err"
+    _write_table_using_append_all(
+        spark=spark,
+        df=df,
+        location=error_location,
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
+        # TODO
+        # partition_columns=[""]
+    )
+
+    # Create the Hive database and table
+    _create_hive_table(spark=spark, schema_name=schema_name, table_name=error_table_name, location=error_location)
+
+    # Vacuum the delta table
+    _vacuum_delta_table(
+        spark=spark,
+        schema_name=schema_name,
+        table_name=error_table_name,
+        time_travel_retention_days=time_travel_retention_days
+    )
 
 
 def _get_df_writer(
