@@ -3,7 +3,7 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_v
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_hive_database", "gld_ghq_tech_adventureworks", "2 - source_hive_database")
+dbutils.widgets.text("source_hive_database", "gld_ghq_tech_demo_consumption", "2 - source_hive_database")
 source_hive_database = dbutils.widgets.get("source_hive_database")
 print(f"source_hive_database: {source_hive_database}")
 
@@ -47,13 +47,9 @@ spark.conf.set("spark.databricks.sqldw.jdbc.service.principal.client.secret", db
 
 # COMMAND ----------
 
-df = spark.read.table(f"{source_hive_database}.{source_hive_table}")
-
-#display(df)
-
-# COMMAND ----------
-
 try:
+    df = spark.read.table(f"{source_hive_database}.{source_hive_table}")
+
     row_count = df.count()
     target_table_name = f"dbo.stg_{source_hive_table}"
 
