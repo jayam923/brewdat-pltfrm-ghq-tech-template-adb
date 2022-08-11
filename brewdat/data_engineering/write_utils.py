@@ -6,7 +6,7 @@ from typing import List
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
 from py4j.protocol import Py4JJavaError
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame, DataFrameWriter, SparkSession
 
 from .common_utils import ReturnObject, RunStatus
 
@@ -113,7 +113,6 @@ def write_delta_table(
     ReturnObject
         Object containing the results of a write operation.
     """
-    # TODO: refactor
     num_records_read = 0
     num_records_loaded = 0
 
@@ -136,7 +135,7 @@ def write_delta_table(
             print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
             load_type = LoadType.APPEND_ALL
 
-        # Use optimized writes to create less small files
+        # Use optimized writes to reduce number of small files
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
 
@@ -159,9 +158,6 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.OVERWRITE_PARTITION:
-            if not partition_columns:
-                raise ValueError("No partition column was given")
-
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a partition with an empty dataset. Operation aborted.")
 
@@ -181,9 +177,6 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.APPEND_NEW:
-            if not key_columns:
-                raise ValueError("No key column was given")
-
             _write_table_using_append_new(
                 spark=spark,
                 df=df,
@@ -192,9 +185,6 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.UPSERT:
-            if not key_columns:
-                raise ValueError("No key column was given")
-
             _write_table_using_upsert(
                 spark=spark,
                 df=df,
@@ -203,9 +193,6 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.TYPE_2_SCD:
-            if not key_columns:
-                raise ValueError("No key column was given")
-
             _write_table_using_type_2_scd(
                 spark=spark,
                 df=df,
@@ -260,7 +247,6 @@ def write_delta_table(
             error_message=str(e.java_exception).replace("\n", " "),
             error_details=traceback.format_exc(),
         )
-
     except Exception as e:
         return ReturnObject(
             status=RunStatus.FAILED,
@@ -270,6 +256,128 @@ def write_delta_table(
             error_message=str(e),
             error_details=traceback.format_exc(),
         )
+
+
+def _create_df_writer_with_options(
+    spark: SparkSession,
+    df: DataFrame,
+    location: str,
+    schema_evolution_mode: SchemaEvolutionMode,
+    partition_columns: List[str] = []
+) -> DataFrameWriter:
+    """Create DataFrameWriter for a DataFrame according to schema evolution mode.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    df : DataFrame
+        PySpark DataFrame to write.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode
+        Specifies the way in which schema mismatches should be handled.
+        See documentation for BrewDatLibrary.SchemaEvolutionMode.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
+
+    Returns
+    -------
+    DataFrameWriter
+        DataFrameWriter using selected schema evolution mode and partition columns.
+    """
+    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        df_writer = df.write
+    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
+        df_writer = df.write.option("mergeSchema", True)
+    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+        df = _drop_new_columns(spark=spark, df=df, location=location)
+        df_writer = df.write
+    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        df_writer = df.write.option("overwriteSchema", True)
+    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        raise NotImplementedError
+    else:
+        raise NotImplementedError
+
+    df_writer = df_writer.format("delta")
+
+    if partition_columns:
+        df_writer = df_writer.partitionBy(partition_columns)
+
+    return df_writer
+
+
+def _prepare_df_for_merge_operation(
+    spark: SparkSession,
+    df: DataFrame,
+    location: str,
+    schema_evolution_mode: SchemaEvolutionMode,
+) -> DataFrame:
+    """Prepare DataFrame for a merge operation according to schema evolution mode.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    df : DataFrame
+        PySpark DataFrame to write.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode
+        Specifies the way in which schema mismatches should be handled.
+        See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame modified according to schema evolution mode.
+    """
+    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
+        pass
+    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
+        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
+    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
+        df = _drop_new_columns(spark=spark, df=df, location=location)
+    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
+        raise ValueError("OVERWRITE_SCHEMA is not supported for this load type")
+    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
+        raise NotImplementedError
+    else:
+        raise NotImplementedError
+
+    return df
+
+
+def _drop_new_columns(
+    spark: SparkSession,
+    df: DataFrame,
+    location: str,
+) -> DataFrame:
+    """Drop DataFrame column which do not exist in the target Delta table.
+
+    Used by IGNORE_NEW_COLUMNS schema evolution mode.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    df : DataFrame
+        PySpark DataFrame to modify.
+    location : str
+        Absolute Delta Lake path for the physical location of the target delta table.
+
+    Returns
+    -------
+    DataFrame
+        DataFrame with only columns that exist in the target delta table.
+        DataFrame is not modified if the delta table does not exist yet.
+    """
+    if DeltaTable.isDeltaTable(spark, location):
+        table_columns = DeltaTable.forPath(spark, location).toDF().columns
+        new_df_columns = [col for col in df.columns if col not in table_columns]
+        df = df.drop(*new_df_columns)
+    return df
 
 
 def _table_exists_in_different_location(
@@ -333,36 +441,14 @@ def _write_table_using_overwrite_table(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor
-    df_writer = (
-        df.write
-        .format("delta")
-        .mode("overwrite")
+    df_writer = _create_df_writer_with_options(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_evolution_mode=schema_evolution_mode,
+        partition_columns=partition_columns
     )
-
-    # Set partition options
-    if partition_columns:
-        df_writer = df_writer.partitionBy(partition_columns)
-
-    # Set schema_evolution_mode options
-    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-        pass
-    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        df_writer = df_writer.option("mergeSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-        if DeltaTable.isDeltaTable(spark, location):
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in df.columns if col not in table_columns]
-            df = df.drop(*new_df_columns)
-    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        df_writer = df_writer.option("overwriteSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
-
-    # Write to the delta table
-    df_writer.save(location)
+    df_writer.mode("overwrite").save(location)
 
 
 def _write_table_using_overwrite_partition(
@@ -388,7 +474,9 @@ def _write_table_using_overwrite_partition(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor
+    if not partition_columns:
+        raise ValueError("No partition column was given")
+
     df_partitions = df.select(partition_columns).distinct()
 
     if df_partitions.count() != 1:
@@ -400,36 +488,14 @@ def _write_table_using_overwrite_partition(
         replace_where_clauses.append(f"`{partition_column}` = '{value}'")
     replace_where_clause = " AND ".join(replace_where_clauses)
 
-    df_writer = (
-        df.write
-        .format("delta")
-        .mode("overwrite")
-        .option("replaceWhere", replace_where_clause)
+    df_writer = _create_df_writer_with_options(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_evolution_mode=schema_evolution_mode,
+        partition_columns=partition_columns
     )
-
-    # Set partition options
-    if partition_columns:
-        df_writer = df_writer.partitionBy(partition_columns)
-
-    # Set schema_evolution_mode options
-    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-        pass
-    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        df_writer = df_writer.option("mergeSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-        if DeltaTable.isDeltaTable(spark, location):
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in df.columns if col not in table_columns]
-            df = df.drop(*new_df_columns)
-    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        df_writer = df_writer.option("overwriteSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
-
-    # Write to the delta table
-    df_writer.save(location)
+    df_writer.mode("overwrite").option("replaceWhere", replace_where_clause).save(location)
 
 
 def _write_table_using_append_all(
@@ -455,36 +521,14 @@ def _write_table_using_append_all(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor
-    df_writer = (
-        df.write
-        .format("delta")
-        .mode("append")
+    df_writer = _create_df_writer_with_options(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_evolution_mode=schema_evolution_mode,
+        partition_columns=partition_columns
     )
-
-    # Set partition options
-    if partition_columns:
-        df_writer = df_writer.partitionBy(partition_columns)
-
-    # Set schema_evolution_mode options
-    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-        pass
-    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        df_writer = df_writer.option("mergeSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-        if DeltaTable.isDeltaTable(spark, location):
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in df.columns if col not in table_columns]
-            df = df.drop(*new_df_columns)
-    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        df_writer = df_writer.option("overwriteSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
-
-    # Write to the delta table
-    df_writer.save(location)
+    df_writer.mode("append").save(location)
 
 
 def _write_table_using_append_new(
@@ -511,23 +555,15 @@ def _write_table_using_append_new(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor
-    # Set schema_evolution_mode options
-    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-        pass
-    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-        if DeltaTable.isDeltaTable(spark, location):
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in df.columns if col not in table_columns]
-            df = df.drop(*new_df_columns)
-    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        raise ValueError("OVERWRITE_SCHEMA is not supported in APPEND_NEW load type")
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
+    if not key_columns:
+        raise ValueError("No key column was given")
+
+    df = _prepare_df_for_merge_operation(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_evolution_mode=schema_evolution_mode,
+    )
 
     # Build merge condition
     merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
@@ -567,23 +603,15 @@ def _write_table_using_upsert(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
-    # TODO: refactor
-    # Set schema_evolution_mode options
-    if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-        pass
-    elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-        if DeltaTable.isDeltaTable(spark, location):
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in df.columns if col not in table_columns]
-            df = df.drop(*new_df_columns)
-    elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-        raise ValueError("OVERWRITE_SCHEMA is not supported in UPSERT load type")
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
-    else:
-        raise NotImplementedError
+    if not key_columns:
+        raise ValueError("No key column was given")
+
+    df = _prepare_df_for_merge_operation(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_evolution_mode=schema_evolution_mode,
+    )
 
     # Build merge condition
     merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
@@ -626,28 +654,21 @@ def _write_table_using_type_2_scd(
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
     """
+    if not key_columns:
+        raise ValueError("No key column was given")
+
     df = _generate_type_2_scd_metadata_columns(df)
 
     if DeltaTable.isDeltaTable(spark, location):
         # Prepare DataFrame for merge operation
         table_df = spark.read.format("delta").load(location)
         merge_df = _merge_dataframe_for_type_2_scd(source_df=df, target_df=table_df, key_columns=key_columns)
-
-        # Set schema_evolution_mode options
-        if schema_evolution_mode == SchemaEvolutionMode.FAIL_ON_SCHEMA_MISMATCH:
-            pass
-        elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
-            spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
-        elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
-            table_columns = DeltaTable.forPath(spark, location).toDF().columns
-            new_df_columns = [col for col in merge_df.columns if col not in table_columns]
-            merge_df = merge_df.drop(*new_df_columns)
-        elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
-            raise ValueError("OVERWRITE_SCHEMA is not supported in TYPE_2_SCD load type")
-        elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-            raise NotImplementedError
-        else:
-            raise NotImplementedError
+        merge_df = _prepare_df_for_merge_operation(
+            spark=spark,
+            df=merge_df,
+            location=location,
+            schema_evolution_mode=schema_evolution_mode,
+        )
 
         # Build merge conditions
         merge_condition = "source.__hash_key = target.__hash_key"
@@ -676,7 +697,7 @@ def _write_table_using_type_2_scd(
             df=df,
             location=location,
             partition_columns=partition_columns,
-            schema_evolution_mode=schema_evolution_mode
+            schema_evolution_mode=schema_evolution_mode,
         )
 
 

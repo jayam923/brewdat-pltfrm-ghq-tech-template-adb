@@ -755,3 +755,198 @@ def test_write_duplicated_data_for_upsert(tmpdir):
     assert result.error_message.startswith(expected_message_for_merging_duplicated_records)
     assert 1 == result_df.count()
 
+def test_write_delta_table_append_new(tmpdir):
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": "my address"
+            },])
+    
+    df2 = spark.createDataFrame([
+        {
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": "my address"
+        },
+
+        {
+            "phone_number": "1111111111",
+            "name": "Joao",
+            "address": "Street 01"
+            }
+    ])
+    location = f"file://{tmpdir}/test_write_delta_table_append_new"
+    schema_name = "test_schema"
+    table_name = "test_write_delta_table_append_new"
+    # ACT
+    
+    result = write_delta_table(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.APPEND_NEW,
+        key_columns=['phone_number'],
+        )
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.APPEND_NEW,
+        key_columns=['phone_number'],
+        )
+    print(vars(result))
+    
+    # ASSERT
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
+    assert 2 == result_df.count()
+    
+
+def test_write_delta_table_overwrite_table(tmpdir):
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": "my address"
+            },])
+    
+    df2 = spark.createDataFrame([
+        {
+            "phone_number": "111111111111",
+            "name": "my name",
+            "address": "my address"
+        },
+
+    ])
+    location = f"file://{tmpdir}/test_write_delta_table_overwrite_table"
+    schema_name = "test_schema"
+    table_name = "test_write_delta_table_overwrite_table"
+    # ACT
+    
+    result = write_delta_table(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.OVERWRITE_TABLE,
+        )
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.OVERWRITE_TABLE,
+        key_columns=['phone_number'],
+        )
+    print(vars(result))
+    
+    # ASSERT
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
+    assert 1 == result_df.count()
+
+
+def test_write_delta_table_overwrite_partition(tmpdir):
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": "my address"
+            },])
+    
+    df2 = spark.createDataFrame([
+        {
+            "phone_number": "111111111111",
+            "name": "my name",
+            "address": "my address"
+        },
+
+    ])
+    location = f"file://{tmpdir}/test_write_delta_table_overwrite_partition"
+    schema_name = "test_schema"
+    table_name = "test_write_delta_table_overwrite_partition"
+    # ACT
+    
+    result = write_delta_table(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.OVERWRITE_PARTITION,
+        partition_columns=['phone_number'],
+        )
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.OVERWRITE_PARTITION,
+        partition_columns=['phone_number'],
+        )
+    print(vars(result))
+    
+    # ASSERT
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
+    assert 2 == result_df.count()
+
+
+def test_write_delta_table_upsert(tmpdir):
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": "my address"
+            },])
+    
+    df2 = spark.createDataFrame([
+        {
+            "phone_number": "00000000000",
+            "name": "my name",
+            "address": "Street"
+        },
+
+    ])
+    location = f"file://{tmpdir}/test_write_delta_table_upsert"
+    schema_name = "test_schema"
+    table_name = "test_write_delta_table_upsert"
+    # ACT
+    
+    result = write_delta_table(
+        spark=spark,
+        df=df,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.UPSERT,
+        key_columns=['phone_number'],
+        )
+    result = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.UPSERT,
+        key_columns=['phone_number'],
+        )
+    print(vars(result))
+    
+    # ASSERT
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
+    assert 1 == result_df.count()
+
