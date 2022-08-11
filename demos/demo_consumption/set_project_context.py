@@ -58,6 +58,3 @@ print(f"lakehouse_silver_root: {lakehouse_silver_root}")
 
 lakehouse_gold_root = f"abfss://gold@{adls_silver_gold_storage_account_name}.dfs.core.windows.net"
 print(f"lakehouse_gold_root: {lakehouse_gold_root}")
-
-lakehouse_blob_root = f"abfss://temp-csa@{blob_storage_account_name}.dfs.core.windows.net"
-print(f"lakehouse_blob_root: {lakehouse_blob_root}") 
