@@ -8,7 +8,7 @@ import pyspark.sql.functions as F
 from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 
-from .common_utils import ReturnObject, RunStatus
+from .common_utils import ReturnObject, RunStatus, get_latest_delta_version_details
 
 
 @unique
@@ -146,7 +146,7 @@ def write_delta_table(
         num_records_read = df.count()
 
         # Current delta version
-        latest_delta_version = _get_latest_delta_version_details(spark=spark, location=location)
+        latest_delta_version = get_latest_delta_version_details(spark=spark, location=location)
         previous_delta_version_number = latest_delta_version["version"] if latest_delta_version else None
 
         # Write data with the selected load_type
@@ -228,7 +228,7 @@ def write_delta_table(
         spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
 
         # Get final delta version number
-        final_delta_version = _get_latest_delta_version_details(spark=spark, location=location)["version"]
+        final_delta_version = get_latest_delta_version_details(spark=spark, location=location)["version"]
 
         return ReturnObject(
             status=RunStatus.SUCCEEDED,
@@ -330,9 +330,7 @@ def _prepare_for_merge_operation(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
-    partition_columns : List[str], default=[]
-        The names of the columns used to partition the table.
-    
+
     Returns
     -------
     df
@@ -425,13 +423,13 @@ def _table_exists_in_different_location(
     return os.path.normpath(current_location) != os.path.normpath(expected_location)
 
 
-def _get_loaded_records_count(
+def _get_latest_loaded_records_count(
         spark: SparkSession,
         location: str,
         ignore_merge_mode: bool = False
 ) -> int:
     #   TODO: add pydoc
-    latest_delta_version = _get_latest_delta_version_details(spark=spark, location=location)
+    latest_delta_version = get_latest_delta_version_details(spark=spark, location=location)
     num_records_loaded = int(latest_delta_version["operationMetrics"]["numOutputRows"])
     if latest_delta_version["operation"] == "MERGE" and not ignore_merge_mode:
         num_records_loaded = (
@@ -439,20 +437,6 @@ def _get_loaded_records_count(
                 + int(latest_delta_version["operationMetrics"]["numTargetRowsUpdated"])
         )
     return num_records_loaded
-
-
-def _get_latest_delta_version_details(
-        spark: SparkSession,
-        location: str
-) -> dict:
-    #   TODO: add pydoc
-    if DeltaTable.isDeltaTable(spark, location):
-        delta_table = DeltaTable.forPath(spark, location)
-        history_df = delta_table.history(1)
-        return history_df.collect()[0].asDict(recursive=True)
-
-    else:
-        return None
 
 
 def _write_table_using_overwrite_table(
@@ -495,7 +479,7 @@ def _write_table_using_overwrite_table(
         .save(location)
     )
 
-    return _get_loaded_records_count(spark=spark, location=location)
+    return _get_latest_loaded_records_count(spark=spark, location=location)
 
 
 def _write_table_using_overwrite_partition(
@@ -553,7 +537,7 @@ def _write_table_using_overwrite_partition(
         .save(location)
     )
 
-    return _get_loaded_records_count(spark=spark, location=location)
+    return _get_latest_loaded_records_count(spark=spark, location=location)
 
 
 def _write_table_using_append_all(
@@ -596,7 +580,7 @@ def _write_table_using_append_all(
         .save(location)
     )
 
-    return _get_loaded_records_count(spark=spark, location=location)
+    return _get_latest_loaded_records_count(spark=spark, location=location)
 
 
 def _write_table_using_append_new(
@@ -650,7 +634,7 @@ def _write_table_using_append_new(
         .execute()
     )
 
-    return _get_loaded_records_count(spark=spark, location=location, ignore_merge_mode=True)
+    return _get_latest_loaded_records_count(spark=spark, location=location, ignore_merge_mode=True)
 
 
 def _write_table_using_upsert(
@@ -705,7 +689,7 @@ def _write_table_using_upsert(
         .execute()
     )
 
-    return _get_loaded_records_count(spark=spark, location=location)
+    return _get_latest_loaded_records_count(spark=spark, location=location)
 
 
 def _write_table_using_type_2_scd(
@@ -774,7 +758,7 @@ def _write_table_using_type_2_scd(
             .execute()
         )
 
-        return _get_loaded_records_count(spark=spark, location=location)
+        return _get_latest_loaded_records_count(spark=spark, location=location)
 
     else:
         print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
