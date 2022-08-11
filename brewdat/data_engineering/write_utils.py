@@ -64,16 +64,12 @@ class SchemaEvolutionMode(str, Enum):
 @unique
 class BadRecordsHandlingMode(str, Enum):
     """Specifies the way in which bad records should be handled.
-    Bad records are detected when column __
-    """
-    FAIL = "FAIL"
-    """Fail if any bad record is found on Dataframe."""
-    WARNING = "WARNING"
-    """WARNING"""
-    FILTER_OUT = "FILTER_OUT"
-    """FILTER_OUT
+    Bad records are detected when column __data_quality_issues exists and contains any item for a record.
     """
     WRITE_TO_ERROR_LOCATION = "WRITE_TO_ERROR_LOCATION"
+    """
+    """
+    IGNORE = "IGNORE"
     """
     """
 
@@ -90,6 +86,7 @@ def write_delta_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
+    bad_records_handling_mode: BadRecordsHandlingMode = BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -124,6 +121,9 @@ def write_delta_table(
     auto_broadcast_join_threshold : int, default=52428800
         Configures the maximum size in bytes for a table that will be broadcast to all worker
         nodes when performing a join. Default value in bytes represents 50 MB.
+    bad_records_handling_mode : BrewDatLibrary.BadRecordsHandlingMode, default=WRITE_TO_ERROR_LOCATION
+        Specifies the way in which bad records should be handled.
+        See documentation for BrewDatLibrary.BadRecordsHandlingMode.
 
     Returns
     -------
@@ -132,6 +132,7 @@ def write_delta_table(
     """
     num_records_read = 0
     num_records_loaded = 0
+    num_records_errored_out = 0
 
     try:
         # Check if the table already exists with a different location
@@ -165,6 +166,10 @@ def write_delta_table(
         # Current delta version
         latest_delta_version = get_latest_delta_version_details(spark=spark, location=location)
         previous_delta_version_number = latest_delta_version["version"] if latest_delta_version else None
+
+        # Handle bad records
+        if "__data_quality_issues" in df.columns:
+            df, num_records_errored_out = _handle_bad_records(df=df, bad_records_handling_mode=bad_records_handling_mode)
 
         # Write data with the selected load_type
         if load_type == LoadType.OVERWRITE_TABLE:
@@ -252,6 +257,7 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
+            num_records_errored_out=num_records_errored_out,
             target_previous_version=previous_delta_version_number,
             target_current_version=final_delta_version
         )
@@ -264,7 +270,7 @@ def write_delta_table(
             num_records_errored_out=num_records_read,
             error_message=str(e.java_exception).replace("\n", " "),
             error_details=traceback.format_exc(),
-            previous_delta_version_number=previous_delta_version_number
+            target_previous_version=previous_delta_version_number
         )
 
     except Exception as e:
@@ -276,8 +282,27 @@ def write_delta_table(
             num_records_errored_out=num_records_read,
             error_message=str(e),
             error_details=traceback.format_exc(),
-            previous_delta_version_number=previous_delta_version_number
+            target_previous_version=previous_delta_version_number
         )
+
+
+def _handle_bad_records(
+        df: DataFrame,
+        bad_records_handling_mode: BadRecordsHandlingMode,
+) -> (DataFrame, int):
+    bad_records_filter = (F.size("__data_quality_issues") > 0)
+    bad_records_df = df.filter(bad_records_filter)
+    output_df = df
+    bad_records_count = bad_records_df.count()
+    if bad_records_handling_mode == BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION:
+        # TODO: write bad records
+        output_df = df.filter(~bad_records_filter).drop("__data_quality_issues")
+    elif bad_records_handling_mode == BadRecordsHandlingMode.IGNORE:
+        pass
+    else:
+        raise NotImplementedError
+
+    return output_df, bad_records_count
 
 
 def _get_df_writer(
