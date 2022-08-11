@@ -61,6 +61,23 @@ class SchemaEvolutionMode(str, Enum):
     *Attention*: This schema evolution mode is not implemented on this library yet!"""
 
 
+@unique
+class BadRecordsHandlingMode(str, Enum):
+    """Specifies the way in which bad records should be handled.
+    Bad records are detected when column __
+    """
+    FAIL = "FAIL"
+    """Fail if any bad record is found on Dataframe."""
+    WARNING = "WARNING"
+    """WARNING"""
+    FILTER_OUT = "FILTER_OUT"
+    """FILTER_OUT
+    """
+    WRITE_TO_ERROR_LOCATION = "WRITE_TO_ERROR_LOCATION"
+    """
+    """
+
+
 def write_delta_table(
     spark: SparkSession,
     df: DataFrame,
