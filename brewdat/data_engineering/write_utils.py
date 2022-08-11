@@ -145,12 +145,16 @@ def write_delta_table(
         # Count source records
         num_records_read = df.count()
 
+        # Current delta version
+        latest_delta_version = _get_latest_delta_version_details(spark=spark, location=location)
+        previous_delta_version_number = latest_delta_version["version"] if latest_delta_version else None
+
         # Write data with the selected load_type
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
 
-            _write_table_using_overwrite_table(
+            num_records_loaded = _write_table_using_overwrite_table(
                 spark=spark,
                 df=df,
                 location=location,
@@ -161,7 +165,7 @@ def write_delta_table(
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a partition with an empty dataset. Operation aborted.")
 
-            _write_table_using_overwrite_partition(
+            num_records_loaded = _write_table_using_overwrite_partition(
                 spark=spark,
                 df=df,
                 location=location,
@@ -169,7 +173,7 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.APPEND_ALL:
-            _write_table_using_append_all(
+            num_records_loaded = _write_table_using_append_all(
                 spark=spark,
                 df=df,
                 location=location,
@@ -177,7 +181,7 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.APPEND_NEW:
-            _write_table_using_append_new(
+            num_records_loaded = _write_table_using_append_new(
                 spark=spark,
                 df=df,
                 location=location,
@@ -185,7 +189,7 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.UPSERT:
-            _write_table_using_upsert(
+            num_records_loaded = _write_table_using_upsert(
                 spark=spark,
                 df=df,
                 location=location,
@@ -193,7 +197,7 @@ def write_delta_table(
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.TYPE_2_SCD:
-            _write_table_using_type_2_scd(
+            num_records_loaded = _write_table_using_type_2_scd(
                 spark=spark,
                 df=df,
                 location=location,
@@ -203,15 +207,6 @@ def write_delta_table(
             )
         else:
             raise NotImplementedError
-
-        # Find out how many records we have just written
-        delta_table = DeltaTable.forPath(spark, location)
-        history_df = (
-            delta_table
-            .history(1)
-            .select(F.col("operationMetrics.numOutputRows").cast("int"))
-        )
-        num_records_loaded = history_df.first()[0]
 
         # Create the Hive database and table
         spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
@@ -232,11 +227,16 @@ def write_delta_table(
         spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
         spark.sql(f"VACUUM `{schema_name}`.`{table_name}`;")
 
+        # Get final delta version number
+        final_delta_version = _get_latest_delta_version_details(spark=spark, location=location)["version"]
+
         return ReturnObject(
             status=RunStatus.SUCCEEDED,
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
+            target_previous_version=previous_delta_version_number,
+            target_current_version=final_delta_version
         )
     except Py4JJavaError as e:
         return ReturnObject(
@@ -244,8 +244,10 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
+            num_records_errored_out=num_records_read,
             error_message=str(e.java_exception).replace("\n", " "),
             error_details=traceback.format_exc(),
+            previous_delta_version_number=previous_delta_version_number
         )
 
     except Exception as e:
@@ -254,8 +256,10 @@ def write_delta_table(
             target_object=f"{schema_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
+            num_records_errored_out=num_records_read,
             error_message=str(e),
             error_details=traceback.format_exc(),
+            previous_delta_version_number=previous_delta_version_number
         )
 
 
@@ -421,13 +425,43 @@ def _table_exists_in_different_location(
     return os.path.normpath(current_location) != os.path.normpath(expected_location)
 
 
+def _get_loaded_records_count(
+        spark: SparkSession,
+        location: str,
+        ignore_merge_mode: bool = False
+) -> int:
+    #   TODO: add pydoc
+    latest_delta_version = _get_latest_delta_version_details(spark=spark, location=location)
+    num_records_loaded = int(latest_delta_version["operationMetrics"]["numOutputRows"])
+    if latest_delta_version["operation"] == "MERGE" and not ignore_merge_mode:
+        num_records_loaded = (
+                int(latest_delta_version["operationMetrics"]["numTargetRowsInserted"])
+                + int(latest_delta_version["operationMetrics"]["numTargetRowsUpdated"])
+        )
+    return num_records_loaded
+
+
+def _get_latest_delta_version_details(
+        spark: SparkSession,
+        location: str
+) -> dict:
+    #   TODO: add pydoc
+    if DeltaTable.isDeltaTable(spark, location):
+        delta_table = DeltaTable.forPath(spark, location)
+        history_df = delta_table.history(1)
+        return history_df.collect()[0].asDict(recursive=True)
+
+    else:
+        return None
+
+
 def _write_table_using_overwrite_table(
     spark: SparkSession,
     df: DataFrame,
     location: str,
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-):
+) -> int:
     """Write the DataFrame using OVERWRITE_TABLE.
 
     Parameters
@@ -443,6 +477,11 @@ def _write_table_using_overwrite_table(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    int
+        Number of loaded records into target delta table location.
     """
     (
         _get_df_writer(
@@ -456,6 +495,8 @@ def _write_table_using_overwrite_table(
         .save(location)
     )
 
+    return _get_loaded_records_count(spark=spark, location=location)
+
 
 def _write_table_using_overwrite_partition(
     spark: SparkSession,
@@ -463,7 +504,7 @@ def _write_table_using_overwrite_partition(
     location: str,
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-):
+) -> int:
     """Write the DataFrame using OVERWRITE_PARTITION.
 
     Parameters
@@ -479,6 +520,11 @@ def _write_table_using_overwrite_partition(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    int
+        Number of loaded records into target delta table location.
     """
     if not partition_columns:
         raise ValueError("No partition column was given")
@@ -507,6 +553,8 @@ def _write_table_using_overwrite_partition(
         .save(location)
     )
 
+    return _get_loaded_records_count(spark=spark, location=location)
+
 
 def _write_table_using_append_all(
     spark: SparkSession,
@@ -514,7 +562,7 @@ def _write_table_using_append_all(
     location: str,
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-):
+) -> int:
     """Write the DataFrame using APPEND_ALL.
 
     Parameters
@@ -530,6 +578,11 @@ def _write_table_using_append_all(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    int
+        Number of loaded records into target delta table location.
     """
     (
         _get_df_writer(
@@ -543,6 +596,8 @@ def _write_table_using_append_all(
         .save(location)
     )
 
+    return _get_loaded_records_count(spark=spark, location=location)
+
 
 def _write_table_using_append_new(
     spark: SparkSession,
@@ -550,7 +605,7 @@ def _write_table_using_append_new(
     location: str,
     key_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-):
+) -> int:
     """Write the DataFrame using APPEND_NEW.
 
     Parameters
@@ -567,6 +622,11 @@ def _write_table_using_append_new(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    int
+        Number of loaded records into target delta table location.
     """
     if not key_columns:
         raise ValueError("No key column was given")
@@ -590,6 +650,8 @@ def _write_table_using_append_new(
         .execute()
     )
 
+    return _get_loaded_records_count(spark=spark, location=location, ignore_merge_mode=True)
+
 
 def _write_table_using_upsert(
     spark: SparkSession,
@@ -597,7 +659,7 @@ def _write_table_using_upsert(
     location: str,
     key_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-):
+) -> int:
     """Write the DataFrame using UPSERT.
 
     Parameters
@@ -614,6 +676,11 @@ def _write_table_using_upsert(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    int
+        Number of loaded records into target delta table location.
     """
     if not key_columns:
         raise ValueError("No key column was given")
@@ -638,6 +705,8 @@ def _write_table_using_upsert(
         .execute()
     )
 
+    return _get_loaded_records_count(spark=spark, location=location)
+
 
 def _write_table_using_type_2_scd(
     spark: SparkSession,
@@ -646,7 +715,7 @@ def _write_table_using_type_2_scd(
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-):
+) -> int:
     """Write the DataFrame using TYPE_2_SCD.
 
     Parameters
@@ -664,6 +733,11 @@ def _write_table_using_type_2_scd(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+
+    Returns
+    -------
+    int
+        Number of loaded records into target delta table location.
     """
     if not key_columns:
         raise ValueError("No key column was given")
@@ -700,9 +774,11 @@ def _write_table_using_type_2_scd(
             .execute()
         )
 
+        return _get_loaded_records_count(spark=spark, location=location)
+
     else:
         print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
-        _write_table_using_append_all(
+        return _write_table_using_append_all(
             spark=spark,
             df=df,
             location=location,

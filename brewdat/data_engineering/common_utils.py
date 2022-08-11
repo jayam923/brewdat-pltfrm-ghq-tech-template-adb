@@ -30,10 +30,16 @@ class ReturnObject():
         Number of records read from the DataFrame.
     num_records_loaded : int, default=0
         Number of records written to the target table.
+    num_records_errored_out: int, default=0
+        Number of records containing errors.
     error_message : str, default=""
         Error message describing whichever error that occurred.
     error_details : str, default=""
         Detailed error message or stack trace for the above error.
+    target_previous_version: int, default=None
+        Version number of target object before write operation.
+    target_current_version: int, default=None
+        Version number of target object after write operation.
     """
     def __init__(
         self,
@@ -41,16 +47,21 @@ class ReturnObject():
         target_object: str,
         num_records_read: int = 0,
         num_records_loaded: int = 0,
+        num_records_errored_out: int = 0,
         error_message: str = "",
         error_details: str = "",
+        target_previous_version: int = None,
+        target_current_version: int = None,
     ):
         self.status = status
         self.target_object = target_object
         self.num_records_read = num_records_read
         self.num_records_loaded = num_records_loaded
-        self.num_records_errored_out = num_records_read - num_records_loaded
+        self.num_records_errored_out = num_records_errored_out
         self.error_message = error_message[:8000]
         self.error_details = error_details
+        self.target_previous_version = target_previous_version
+        self.target_current_version = target_current_version
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):
