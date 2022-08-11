@@ -283,7 +283,9 @@ def _get_df_writer(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
-    
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
+
     Returns
     -------
     df
@@ -428,7 +430,25 @@ def _get_latest_loaded_records_count(
         location: str,
         ignore_merge_mode: bool = False
 ) -> int:
-    #   TODO: add pydoc
+    """
+
+    Parameters
+    ----------
+    spark: SparkSession
+        A Spark session.
+    location: str
+        Absolute Delta Lake path for the physical location of this delta table.
+    ignore_merge_mode: bool, default=False
+        If False, when latest operation on delta table is a MERGE, loaded records count will be considered the sum
+        of numTargetRowsInserted and numTargetRowsUpdated from history operation metrics.
+        If True, loaded records count will always be considered equals to numOutputRows from history operation metrics,
+        even when latest operation is a MERGE.
+
+    Returns
+    -------
+    int
+        Number of records loaded into a delta table on latest operation.
+    """
     latest_delta_version = get_latest_delta_version_details(spark=spark, location=location)
     num_records_loaded = int(latest_delta_version["operationMetrics"]["numOutputRows"])
     if latest_delta_version["operation"] == "MERGE" and not ignore_merge_mode:
