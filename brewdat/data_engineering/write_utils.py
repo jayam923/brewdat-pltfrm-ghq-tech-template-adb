@@ -2,10 +2,10 @@ import os
 import traceback
 from enum import Enum, unique
 from typing import List
-from py4j.protocol import Py4JJavaError
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
+from py4j.protocol import Py4JJavaError
 from pyspark.sql import DataFrame, SparkSession
 
 from .common_utils import ReturnObject, RunStatus, get_latest_delta_version_details
