@@ -8,7 +8,20 @@ def create_hive_table(
         table_name: str,
         location: str
 ):
-    # TODO: pydoc
+    """Create Hive table on metastore from a Delta location.
+
+    Parameters
+    ----------
+    spark: SparkSession
+        A Spark session.
+    schema_name : str
+        Name of the schema/database for the table in the metastore.
+        Schema is created if it does not exist.
+    table_name : str
+        Name of the table in the metastore.
+    location: str
+        Absolute Delta Lake path for the physical location of this delta table.
+    """
     spark.sql(f"CREATE DATABASE IF NOT EXISTS `{schema_name}`;")
     spark.sql(f"""
                 CREATE TABLE IF NOT EXISTS `{schema_name}`.`{table_name}`
@@ -23,7 +36,21 @@ def vacuum_table(
         table_name: str,
         time_travel_retention_days: int,
 ):
-    # TODO: pydoc
+    """Vacuum a Delta table.
+
+    Parameters
+    ----------
+    spark: SparkSession
+        A Spark session.
+    schema_name : str
+        Name of the schema/database for the table in the metastore.
+    table_name : str
+        Name of the table in the metastore.
+    time_travel_retention_days : int, default=30
+        Number of days for retaining time travel data in the Delta table.
+        Used to limit how many old snapshots are preserved during the VACUUM operation.
+        For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+    """
     spark.sql(f"""
                 ALTER TABLE `{schema_name}`.`{table_name}`
                 SET TBLPROPERTIES (
@@ -39,7 +66,7 @@ def get_latest_delta_version_details(
         spark: SparkSession,
         location: str
 ) -> dict:
-    """Gets information about latest delta version of provided delta table location.
+    """Gets information about latest version of provided Delta table location.
 
     The structure of result dictionary follows history schema for delta tables,
     For more information:https://docs.databricks.com/delta/delta-utility.html#history-schema
@@ -56,7 +83,7 @@ def get_latest_delta_version_details(
     Returns
     -------
     dict
-        Dictionary with information about latest delta version.
+        Dictionary with information about latest Delta table version.
 
     """
     if DeltaTable.isDeltaTable(spark, location):
@@ -72,7 +99,20 @@ def get_latest_delta_version_number(
     spark: SparkSession,
     location: str
 ) -> int:
-    # TODO pydoc
+    """Get latest version of Delta table in location.
+
+    Parameters
+    ----------
+    spark: SparkSession
+        A Spark session.
+    location: str
+        Absolute Delta Lake path for the physical location of this delta table.
+
+    Returns
+    -------
+    int
+        Latest Delta table version.
+    """
     latest_delta_version = get_latest_delta_version_details(spark=spark, location=location)
     return latest_delta_version["version"] if latest_delta_version else None
 

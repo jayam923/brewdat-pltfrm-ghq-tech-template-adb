@@ -268,6 +268,7 @@ def write_delta_table(
             target_previous_version=previous_delta_version_number,
             target_current_version=final_delta_version
         )
+
     except Py4JJavaError as e:
         return ReturnObject(
             status=RunStatus.FAILED,
@@ -364,6 +365,32 @@ def _write_to_error_table(
     table_name: str,
     time_travel_retention_days: int,
 ) -> int:
+    """Write Dataframe to standard error table.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    df : DataFrame
+        PySpark DataFrame to write.
+    location: str
+        Absolute Delta Lake path for the physical location of this delta table.
+        This will be used to determine proper error location.
+    schema_name : str
+        Name of the schema/database for the table in the metastore.
+        Schema is created if it does not exist.
+    table_name : str
+        Name of the table in the metastore to be used to determine proper error table name.
+    time_travel_retention_days : int, default=30
+        Number of days for retaining time travel data in the error Delta table.
+        Used to limit how many old snapshots are preserved during the VACUUM operation.
+        For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+
+    Returns
+    -------
+    int
+        Number of records written to error location.
+    """
     error_table_name = f"{table_name}_err"
     error_location = f"{re.sub(r'(/$)', '', location)}_err"
 
