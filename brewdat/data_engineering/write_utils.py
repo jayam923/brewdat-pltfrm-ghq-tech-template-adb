@@ -68,7 +68,8 @@ class BadRecordsHandlingMode(str, Enum):
     Bad records are detected when column __data_quality_issues exists and contains any item for a record.
     """
     WRITE_TO_ERROR_LOCATION = "WRITE_TO_ERROR_LOCATION"
-    """
+    """Bad records are filtered out from Dataframe and re-routed to an error location. 
+    __data_quality_issues column is dropped from final Dataframe.
     """
     IGNORE = "IGNORE"
     """
@@ -360,13 +361,18 @@ def _write_to_error_table(
 ):
     error_table_name = f"{table_name}_err"
     error_location = f"{re.sub(r'(/$)', '', location)}_err"
+
+    df = (
+        df.withColumn("__data_quality_eval_date", F.current_date())
+        .withColumn("__data_quality_eval_timestamp", F.current_timestamp())
+    )
+
     _write_table_using_append_all(
         spark=spark,
         df=df,
         location=error_location,
-        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
-        # TODO
-        # partition_columns=[""]
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
+        partition_columns=["__data_quality_eval_date"],
     )
 
     # Create the Hive database and table
