@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.3.0", "01 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
@@ -107,21 +107,31 @@ print(data_interval_end)
 
 filtered_base_df = (
     clean_base_df
+    .filter(F.col("TARGET_APPLY_DT").between(
+        F.to_timestamp(F.lit(data_interval_start)),
+        F.to_timestamp(F.lit(max_base_watermark_value)),
+    ))
     .filter(F.col("TARGET_APPLY_TS").between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(max_base_watermark_value)),
     ))
 )
+
 #display(filtered_base_df)
 
 # COMMAND ----------
 
 filtered_ct_df = (
     clean_ct_df
+    .filter(F.col("TARGET_APPLY_DT").between(
+        F.to_date(F.lit(data_interval_start)),
+        F.to_date(F.lit(max_ct_watermark_value)),
+    ))
     .filter(F.col("TARGET_APPLY_TS").between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(max_ct_watermark_value)),
     ))
+    # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
 )
 
