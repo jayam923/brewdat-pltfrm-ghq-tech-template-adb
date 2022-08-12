@@ -53,7 +53,7 @@ def test_check_column_is_not_null_dataframe_with_previous_check():
 
     assert "previous error" == bad_record_1['__data_quality_issues'][0]
     assert "CHECK_NOT_NULL: Column `name` is null" == bad_record_2['__data_quality_issues'][0]
-    assert ["previous error", "CHECK_NOT_NULL: Column `name` is null"] == bad_record_3['__data_quality_issues'].tolist()
+    assert ["previous error", "CHECK_NOT_NULL: Column `name` is null"] == bad_record_3['__data_quality_issues']
     assert not good_record_4['__data_quality_issues']
 
 
