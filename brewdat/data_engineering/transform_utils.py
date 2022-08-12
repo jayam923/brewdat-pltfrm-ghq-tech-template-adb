@@ -13,7 +13,7 @@ from .common_utils import RowSourceToTargetMapping
 @unique
 class UnmappedColumnBehavior(str, Enum):
     """Specifies the way in which unmapped DataFrame columns should
-    be handled in apply_source_target_mapping function.
+    be handled in apply_source_to_target_mappings() function.
     """
     IGNORE_UNMAPPED_COLUMNS = "IGNORE_UNMAPPED_COLUMNS"
     """Ignore unmapped columns in the source-to-target-mapping."""
