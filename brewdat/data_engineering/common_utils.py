@@ -4,7 +4,7 @@ import traceback
 from enum import Enum, unique
 from typing import List
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 
 @unique
@@ -94,6 +94,24 @@ class RowSourceToTargetMapping():
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
         self.nullable = nullable
+
+
+def list_non_metadata_columns(df: DataFrame) -> List[str]:
+    """Obtain a list of DataFrame columns except for metadata columns.
+
+    Metadata columns are all columns whose name begins with "__".
+
+    Parameters
+    ----------
+    df : DataFrame
+        The PySpark DataFrame to inspect.
+
+    Returns
+    -------
+    List[str]
+        The list of DataFrame columns, except for metadata columns.
+    """
+    return [col for col in df.columns if not col.startswith("__")]
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):

@@ -1,13 +1,25 @@
 import re
 from datetime import datetime
-from typing import List
+from typing import List, Tuple
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DataType
 
 from . import common_utils
-from .common_utils import MissingColumnsEvolution, RowSchema
+from .common_utils import RowSourceToTargetMapping
+
+
+@unique
+class UnmappedColumnBehavior(str, Enum):
+    """Specifies the way in which unmapped DataFrame columns should
+    be handled in apply_source_target_mapping function.
+    """
+    IGNORE_UNMAPPED_COLUMNS = "IGNORE_UNMAPPED_COLUMNS"
+    """Ignore unmapped columns in the source-to-target-mapping."""
+    FAIL_ON_UNMAPPED_COLUMNS = "FAIL_ON_UNMAPPED_COLUMNS"
+    """Raise exception when input columns are missing from
+    the source-to-target-mapping."""    
 
 
 def clean_column_names(
@@ -311,6 +323,58 @@ def flatten_dataframe(
         common_utils.exit_with_last_exception(dbutils)
 
 
+def apply_source_to_target_mappings(
+    dbutils: object,
+    df: DataFrame,
+    mappings: List[RowSourceToTargetMapping],
+    unmapped_behavior: UnmappedColumnBehavior = UnmappedColumnBehavior.IGNORE_UNMAPPED_COLUMNS,
+) -> Tuple[DataFrame, List[str]]:
+    """Cast and rename DataFrame columns according to a list of source-to-target-mappings.
+
+    Optionally raise an exception if the mapping is missing any source column, except
+    for metadata columns.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to cast.
+    mappings: List[RowSourceToTargetMapping]
+        List of source-to-target-mapping objects.
+    unmapped_behavior: UnmappedColumnBehavior, default=IGNORE_UNMAPPED_COLUMNS
+        Specifies the way in which unmapped DataFrame columns should be handled.
+
+    Returns
+    -------
+    (DataFrame, List[str])
+        DataFrame
+            The modified PySpark DataFrame with columns properly cast and renamed.
+        List[str]
+            The list of unmapped DataFrame columns.
+    """
+    try:
+        # Use case insensitive comparison like Spark does
+        all_columns = common_utils.list_non_metadata_columns(df)
+        mapped_columns = [m.source_column_name.lower() for m in mappings]
+        unmapped_columns = [col for col in all_columns if col.lower() not in mapped_columns]
+        if unmapped_columns and unmapped_behavior == UnmappedColumnBehavior.FAIL_ON_UNMAPPED_COLUMNS:
+            formatted_columns = ", ".join([f"`{col}`" for col in unmapped_columns])
+            raise ValueError(f"Columns {formatted_columns} are missing from schema mappings")
+
+        expressions = []
+        for mapping in mappings:
+            source_expression = mapping.sql_expression or f"`{mapping.source_column_name}`"
+            expression = f"CAST({source_expression} AS {mapping.target_data_type}) AS `{mapping.target_column_name}`"
+            expressions.append(expression)
+        df = df.selectExpr(*expressions)
+ 
+        return df, unmapped_columns
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
 def _clean_column_name(column_name: str) -> str:
     """Returns column name formatted into proper pattern.
 
@@ -403,52 +467,3 @@ def _spark_type_to_string_recurse(spark_type: DataType) -> str:
             new_field_types.append(f"`{name}`: {new_field_type}")
         return "struct<" + ", ".join(new_field_types) + ">"
     return "string"
-
-def apply_schema(
-        dbutils: object,
-        df: DataFrame,
-        schema: List[RowSchema],
-        missing_cols_evolution: MissingColumnsEvolution = MissingColumnsEvolution.IGNORE,
-) -> DataFrame:
-    """Cast all DataFrame columns to required data types and column names 
-    as received from the input schema.
-    
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    df : DataFrame
-        The PySpark DataFrame to cast.
-    schema: List[RowSchema]
-        List of objects containing source_attribute_name, target_data_type, target_attribute_name.
-    missing_cols_evolution: str
-        MissingColumnsEvolution, default=IGNORE
-        Specifies the way in which missing columns from input schema should be handled.
-    
-    Returns
-    -------
-    DataFrame
-        The modified PySpark DataFrame with all columns renamed and cast to required attribute name and data type.
-    str
-        The error message for missing columns in input schema if any. 
-    """
-    try:
-        expressions = []
-        missing_cols_msg = ""
-        audit_columns = ['__src_file', '__insert_gmt_ts', '__update_gmt_ts']
-        schema_missing_cols = list(
-            set(map(str.lower, [c for c in df.columns if c not in audit_columns]))
-            - set(map(str.lower, [c.source_attribute_name for c in schema]))
-        )
-        for s in schema:
-            expressions.append(
-                f"CAST(`{s.source_attribute_name}` AS {s.target_data_type}) AS `{s.target_attribute_name}`")
- 
-        if missing_cols_evolution == "FAIL":
-            raise ValueError(f"The columns {(',').join(schema_missing_cols)} are not present in schema.")
-            
-        if schema_missing_cols:
-            missing_cols_msg = f"The columns {(',').join(schema_missing_cols)} are available in source however not persent in schema and has been ignored. Please define these as part of schema to be included in target."
-        return df.selectExpr(*expressions), missing_cols_msg
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)

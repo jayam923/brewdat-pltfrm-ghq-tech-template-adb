@@ -8,6 +8,7 @@ from delta.tables import DeltaTable
 from py4j.protocol import Py4JJavaError
 from pyspark.sql import DataFrame, SparkSession
 
+from . import common_utils
 from .common_utils import ReturnObject, RunStatus
 
 
@@ -713,7 +714,7 @@ def _generate_type_2_scd_metadata_columns(
     __hash_key uses the Base64 representation of the MD5 hash of all columns,
     except for metadata columns (those whose name starts with two underscores).
     """
-    all_cols = [col for col in df.columns if not col.startswith("__")]
+    all_cols = common_utils.list_non_metadata_columns(df)
     df = df.withColumn(
         "__hash_key",
         F.substring(F.base64(F.unhex(F.md5(F.to_json(F.struct(*all_cols))))), 0, 22)
