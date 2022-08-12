@@ -2,14 +2,13 @@ import os
 import re
 import traceback
 from enum import Enum, unique
-from typing import List
+from typing import List, Tuple
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
 from py4j.protocol import Py4JJavaError
 from pyspark.sql import DataFrame, DataFrameWriter, SparkSession
 
-from brewdat.data_engineering import delta_lake_utils
 from .common_utils import ReturnObject, RunStatus
 
 
@@ -64,26 +63,23 @@ class SchemaEvolutionMode(str, Enum):
 
 
 @unique
-class BadRecordsHandlingMode(str, Enum):
+class BadRecordHandlingMode(str, Enum):
     """Specifies the way in which bad records should be handled.
 
-    Bad records are detected when column __data_quality_issues exists and contains any item for a record.
+    Bad records are rows where `__data_quality_issues` column exists and is not null.
     """
-    WRITE_TO_ERROR_LOCATION = "WRITE_TO_ERROR_LOCATION"
-    """Bad records are filtered out from Dataframe and re-routed to an error location. 
-    The `__data_quality_issues` column is not written to target location.
-    """
-    IGNORE = "IGNORE"
-    """Bad records are written to target location alongside with all other records.
-    The `__data_quality_issues` column is written to target location.
-    """
+    WARN = "WARN"
+    """Write both bad and good records to target location.
+    The `__data_quality_issues` column is written to target location as well."""
+    REJECT = "REJECT"
+    """Filter out bad records and append them to a separate error table."""
 
 
 def write_delta_table(
     spark: SparkSession,
     df: DataFrame,
     location: str,
-    schema_name: str,
+    database_name: str,
     table_name: str,
     load_type: LoadType,
     key_columns: List[str] = [],
@@ -91,7 +87,7 @@ def write_delta_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
-    bad_records_handling_mode: BadRecordsHandlingMode = BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION,
+    bad_records_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WRITE_TO_ERROR_LOCATION,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -103,8 +99,8 @@ def write_delta_table(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    schema_name : str
-        Name of the schema/database for the table in the metastore.
+    database_name : str
+        Name of the database/schema for the table in the metastore.
         Schema is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
@@ -126,9 +122,9 @@ def write_delta_table(
     auto_broadcast_join_threshold : int, default=52428800
         Configures the maximum size in bytes for a table that will be broadcast to all worker
         nodes when performing a join. Default value in bytes represents 50 MB.
-    bad_records_handling_mode : BrewDatLibrary.BadRecordsHandlingMode, default=WRITE_TO_ERROR_LOCATION
+    bad_records_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WRITE_TO_ERROR_LOCATION
         Specifies the way in which bad records should be handled.
-        See documentation for BrewDatLibrary.BadRecordsHandlingMode.
+        See documentation for BrewDatLibrary.BadRecordHandlingMode.
 
     Returns
     -------
@@ -137,23 +133,24 @@ def write_delta_table(
     """
     num_records_read = 0
     num_records_loaded = 0
-    previous_delta_version_number = None
+    old_version_number = None
+    cached_df = None
 
     try:
         # Current delta version
-        previous_delta_version_number = delta_lake_utils.get_latest_delta_version_number(spark=spark, location=location)
+        old_version_number = _get_current_delta_version_number(spark=spark, location=location)
 
         # Check if the table already exists with a different location
         location_mismatch = _table_exists_in_different_location(
             spark=spark,
-            schema_name=schema_name,
+            database_name=database_name,
             table_name=table_name,
             expected_location=location,
         )
         if location_mismatch:
             raise ValueError(
                 "Metastore table already exists with a different location."
-                f" To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`"
+                f" To drop the existing table, use: DROP TABLE `{database_name}`.`{table_name}`"
             )
 
         # Table must exist if we are merging data
@@ -165,10 +162,11 @@ def write_delta_table(
         spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
         spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
 
-        # Set maximum size in bytes for a table that will be broadcast to all worker nodes when performing a join
+        # Set maximum size in bytes for a table to be broadcast to all worker nodes when performing a join
         spark.conf.set("spark.sql.autoBroadcastJoinThreshold", auto_broadcast_join_threshold)
 
         # Count source records
+        cached_df = df.cache()
         num_records_read = df.count()
 
         # Handle bad records
@@ -177,9 +175,9 @@ def write_delta_table(
             df=df,
             bad_records_handling_mode=bad_records_handling_mode,
             location=location,
-            schema_name=schema_name,
+            database_name=database_name,
             table_name=table_name,
-            time_travel_retention_days=time_travel_retention_days
+            time_travel_retention_days=time_travel_retention_days,
         )
 
         # Write data with the selected load_type
@@ -242,66 +240,187 @@ def write_delta_table(
             raise NotImplementedError
 
         # Create the Hive database and table
-        delta_lake_utils.create_hive_table(
+        _create_hive_table(
             spark=spark,
-            schema_name=schema_name,
+            database_name=database_name,
             table_name=table_name,
-            location=location)
+            location=location,
+        )
 
         # Vacuum the delta table
-        delta_lake_utils.vacuum_table(
+        _vacuum_delta_table(
             spark=spark,
-            schema_name=schema_name,
+            database_name=database_name,
             table_name=table_name,
-            time_travel_retention_days=time_travel_retention_days
+            time_travel_retention_days=time_travel_retention_days,
         )
 
         # Get final delta version number
-        final_delta_version = delta_lake_utils.get_latest_delta_version_number(spark=spark, location=location)
+        new_version_number = _get_current_delta_version_number(spark=spark, location=location)
+
+        if cached_df:
+            cached_df.unpersist()
 
         return ReturnObject(
             status=RunStatus.SUCCEEDED,
-            target_object=f"{schema_name}.{table_name}",
+            target_object=f"{database_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
             num_records_errored_out=num_records_errored_out,
-            target_previous_version=previous_delta_version_number,
-            target_current_version=final_delta_version
+            old_version_number=old_version_number,
+            new_version_number=new_version_number,
         )
 
     except Py4JJavaError as e:
+        if cached_df:
+            cached_df.unpersist()
         return ReturnObject(
             status=RunStatus.FAILED,
-            target_object=f"{schema_name}.{table_name}",
+            target_object=f"{database_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
             num_records_errored_out=num_records_read,
             error_message=str(e.java_exception).replace("\n", " "),
             error_details=traceback.format_exc(),
-            target_previous_version=previous_delta_version_number
+            old_version_number=old_version_number,
         )
     except Exception as e:
+        if cached_df:
+            cached_df.unpersist()
         return ReturnObject(
             status=RunStatus.FAILED,
-            target_object=f"{schema_name}.{table_name}",
+            target_object=f"{database_name}.{table_name}",
             num_records_read=num_records_read,
             num_records_loaded=num_records_loaded,
             num_records_errored_out=num_records_read,
             error_message=str(e),
             error_details=traceback.format_exc(),
-            target_previous_version=previous_delta_version_number
+            old_version_number=old_version_number,
         )
+
+def _create_external_hive_table(
+    spark: SparkSession,
+    database_name: str,
+    table_name: str,
+    location: str,
+):
+    """Create external delta table on Hive metastore if it does not exist yet.
+    Also create the database if it does not exist yet.
+
+    Parameters
+    ----------
+    spark: SparkSession
+        A Spark session.
+    database_name : str
+        Name of the database/schema for the external table in the metastore.
+        Database is created if it does not exist.
+    table_name : str
+        Name of the external table in the metastore.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    """
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS `{database_name}`;")
+    spark.sql(f"""
+        CREATE TABLE IF NOT EXISTS `{database_name}`.`{table_name}`
+        USING DELTA
+        LOCATION '{location}';
+    """)
+
+
+def _vacuum_delta_table(
+    spark: SparkSession,
+    database_name: str,
+    table_name: str,
+    time_travel_retention_days: int = 30,
+):
+    """Vacuum a Delta table using given retention period.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    database_name : str
+        Name of the database/schema for the table in the metastore.
+    table_name : str
+        Name of the table in the metastore.
+    time_travel_retention_days : int, default=30
+        Number of days for retaining time travel data in the Delta table.
+        Used to limit the number of old snapshots preserved during the VACUUM operation.
+        For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+    """
+    spark.sql(f"""
+        ALTER TABLE `{database_name}`.`{table_name}`
+        SET TBLPROPERTIES (
+            'delta.deletedFileRetentionDuration' = 'interval {time_travel_retention_days} days',
+            'delta.logRetentionDuration' = 'interval {time_travel_retention_days} days'
+        );
+    """)
+    spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
+    spark.sql(f"VACUUM `{database_name}`.`{table_name}`;")
+
+
+def _get_current_delta_version_details(
+    spark: SparkSession,
+    location: str,
+) -> dict:
+    """Get information about latest version of provided Delta table location.
+
+    Resulting dictionary follows history schema for delta tables.
+    For more information: https://docs.databricks.com/delta/delta-utility.html#history-schema
+
+    Returns None if provided location is not a Delta Table.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+
+    Returns
+    -------
+    dict
+        Dictionary with information about current delta table version.
+    """
+    if not DeltaTable.isDeltaTable(spark, location):
+        return None
+
+    delta_table = DeltaTable.forPath(spark, location)
+    history_df = delta_table.history(1)
+    return history_df.first().asDict(recursive=True)
+
+
+def _get_current_delta_version_number(
+    spark: SparkSession,
+    location: str,
+) -> int:
+    """Get a delta table's current version number.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+
+    Returns
+    -------
+    int
+        Current delta table version number.
+    """
+    current_version_details = get_current_delta_version_details(spark=spark, location=location)
+    return current_version_details["version"] if current_version_details else None
 
 
 def _handle_bad_records(
-        spark: SparkSession,
-        df: DataFrame,
-        bad_records_handling_mode: BadRecordsHandlingMode,
-        location: str,
-        schema_name: str,
-        table_name: str,
-        time_travel_retention_days: int = 30
-) -> (DataFrame, int):
+    spark: SparkSession,
+    df: DataFrame,
+    bad_records_handling_mode: BadRecordHandlingMode,
+    location: str,
+    database_name: str,
+    table_name: str,
+    time_travel_retention_days: int = 30,
+) -> Tuple[DataFrame, int]:
     """Handle bad records on input Dataframe according to a provided mode.
 
     Parameters
@@ -310,13 +429,13 @@ def _handle_bad_records(
          A Spark session.
     df : DataFrame
         PySpark DataFrame to modify.
-    bad_records_handling_mode : BrewDatLibrary.BadRecordsHandlingMode
+    bad_records_handling_mode : BrewDatLibrary.BadRecordHandlingMode
         Specifies the way in which bad records should be handled.
-        See documentation for BrewDatLibrary.BadRecordsHandlingMode.
+        See documentation for BrewDatLibrary.BadRecordHandlingMode.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    schema_name : str
-        Name of the schema/database for the table in the metastore.
+    database_name : str
+        Name of the database/schema for the table in the metastore.
         Schema is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
@@ -327,10 +446,11 @@ def _handle_bad_records(
 
     Returns
     -------
-    DataFrame
-        Dataframe with bad records handled.
-    int
-        Number of bad records detected on input Dataframe.
+    Tuple[DataFrame, int]
+        DataFrame
+            DataFrame with bad records handled.
+        int
+            Number of bad records detected on input Dataframe.
     """
     if "__data_quality_issues" not in df.columns:
         return df, 0
@@ -339,16 +459,16 @@ def _handle_bad_records(
     bad_records_filter = (F.size("__data_quality_issues") > 0)
     bad_records_df = df.filter(bad_records_filter)
 
-    if bad_records_handling_mode == BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION:
+    if bad_records_handling_mode == BadRecordHandlingMode.WRITE_TO_ERROR_LOCATION:
         bad_records_count = _write_to_error_table(
             spark=spark,
             df=bad_records_df,
             location=location,
-            schema_name=schema_name,
+            database_name=database_name,
             table_name=table_name,
             time_travel_retention_days=time_travel_retention_days)
         output_df = df.filter(~bad_records_filter).drop("__data_quality_issues")
-    elif bad_records_handling_mode == BadRecordsHandlingMode.IGNORE:
+    elif bad_records_handling_mode == BadRecordHandlingMode.IGNORE:
         bad_records_count = bad_records_df.count()
     else:
         raise NotImplementedError
@@ -360,7 +480,7 @@ def _write_to_error_table(
     spark: SparkSession,
     df: DataFrame,
     location: str,
-    schema_name: str,
+    database_name: str,
     table_name: str,
     time_travel_retention_days: int,
 ) -> int:
@@ -372,11 +492,11 @@ def _write_to_error_table(
         A Spark session.
     df : DataFrame
         PySpark DataFrame to write.
-    location: str
+    location : str
         Absolute Delta Lake path for the physical location of this delta table.
         This will be used to determine proper error location.
-    schema_name : str
-        Name of the schema/database for the table in the metastore.
+    database_name : str
+        Name of the database/schema for the table in the metastore.
         Schema is created if it does not exist.
     table_name : str
         Name of the table in the metastore to be used to determine proper error table name.
@@ -391,10 +511,11 @@ def _write_to_error_table(
         Number of records written to error location.
     """
     error_table_name = f"{table_name}_err"
-    error_location = f"{re.sub(r'(/$)', '', location)}_err"
+    error_location = re.sub(r"(/$)", "", location) + "_err"
 
     df = (
-        df.withColumn("__data_quality_eval_date", F.current_date())
+        df
+        .withColumn("__data_quality_eval_date", F.current_date())
         .withColumn("__data_quality_eval_timestamp", F.current_timestamp())
     )
 
@@ -407,19 +528,19 @@ def _write_to_error_table(
     )
 
     # Create the Hive database and table
-    delta_lake_utils.create_hive_table(
+    _create_hive_table(
         spark=spark,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=error_table_name,
-        location=error_location
+        location=error_location,
     )
 
     # Vacuum the delta table
-    delta_lake_utils.vacuum_table(
+    _vacuum_table(
         spark=spark,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=error_table_name,
-        time_travel_retention_days=time_travel_retention_days
+        time_travel_retention_days=time_travel_retention_days,
     )
 
     return loaded_count
@@ -462,8 +583,6 @@ def _create_df_writer_with_options(
         df_writer = df.write
     elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
         df_writer = df.write.option("overwriteSchema", True)
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
     else:
         raise NotImplementedError
 
@@ -508,8 +627,6 @@ def _prepare_df_for_merge_operation(
         df = _drop_new_columns(spark=spark, df=df, location=location)
     elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
         raise ValueError("OVERWRITE_SCHEMA is not supported for this load type")
-    elif schema_evolution_mode == SchemaEvolutionMode.RESCUE_NEW_COLUMNS:
-        raise NotImplementedError
     else:
         raise NotImplementedError
 
@@ -549,7 +666,7 @@ def _drop_new_columns(
 
 def _table_exists_in_different_location(
     spark: SparkSession,
-    schema_name: str,
+    database_name: str,
     table_name: str,
     expected_location: str
 ) -> bool:
@@ -559,8 +676,8 @@ def _table_exists_in_different_location(
     ----------
     spark : SparkSession
         A Spark session.
-    schema_name : str
-        Name of the schema/database for the table in the metastore.
+    database_name : str
+        Name of the database/schema for the table in the metastore.
     table_name : str
         Name of the table in the metastore.
     expected_location : str
@@ -572,13 +689,13 @@ def _table_exists_in_different_location(
         True if table exists and its location is NOT the expected location.
     """
     # Check if the table exists
-    table_exists = spark.catalog._jcatalog.tableExists(f"{schema_name}.{table_name}")
+    table_exists = spark.catalog._jcatalog.tableExists(f"{database_name}.{table_name}")
     if not table_exists:
         return False
 
     # Compare current location and expected location
     current_location = (
-        spark.sql(f"DESCRIBE DETAIL `{schema_name}`.`{table_name}`;")
+        spark.sql(f"DESCRIBE DETAIL `{database_name}`.`{table_name}`;")
         .select("location")
         .collect()[0][0]
     )
@@ -586,36 +703,32 @@ def _table_exists_in_different_location(
 
 
 def _get_latest_loaded_records_count(
-        spark: SparkSession,
-        location: str,
-        ignore_merge_mode: bool = False
+    spark: SparkSession,
+    location: str,
+    ignore_merge_mode: bool = False,
 ) -> int:
-    """
+    """TODO: docstring
 
     Parameters
     ----------
-    spark: SparkSession
+    spark : SparkSession
         A Spark session.
-    location: str
+    location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    ignore_merge_mode: bool, default=False
-        If False, when latest operation on delta table is a MERGE, loaded records count will be considered the sum
-        of numTargetRowsInserted and numTargetRowsUpdated from history operation metrics.
-        If True, loaded records count will always be considered equals to numOutputRows from history operation metrics,
-        even when latest operation is a MERGE.
 
     Returns
     -------
     int
         Number of records loaded into a delta table on latest operation.
     """
-    latest_delta_version = delta_lake_utils.get_latest_delta_version_details(spark=spark, location=location)
-    num_records_loaded = int(latest_delta_version["operationMetrics"]["numOutputRows"])
-    if latest_delta_version["operation"] == "MERGE" and not ignore_merge_mode:
+    current_version_details = _get_current_delta_version_details(spark=spark, location=location)
+    if latest_delta_version["operation"] == "MERGE":
         num_records_loaded = (
-                int(latest_delta_version["operationMetrics"]["numTargetRowsInserted"])
-                + int(latest_delta_version["operationMetrics"]["numTargetRowsUpdated"])
+            int(current_version_details["operationMetrics"]["numTargetRowsInserted"])
+            + int(current_version_details["operationMetrics"]["numTargetRowsUpdated"])
         )
+    else:
+        num_records_loaded = int(current_version_details["operationMetrics"]["numOutputRows"])
     return num_records_loaded
 
 
@@ -900,40 +1013,7 @@ def _write_table_using_type_2_scd(
 
     df = _generate_type_2_scd_metadata_columns(df)
 
-    if DeltaTable.isDeltaTable(spark, location):
-        # Prepare DataFrame for merge operation
-        table_df = spark.read.format("delta").load(location)
-        merge_df = _merge_dataframe_for_type_2_scd(source_df=df, target_df=table_df, key_columns=key_columns)
-        merge_df = _prepare_df_for_merge_operation(
-            spark=spark,
-            df=merge_df,
-            location=location,
-            schema_evolution_mode=schema_evolution_mode,
-        )
-
-        # Build merge conditions
-        merge_condition = "source.__hash_key = target.__hash_key"
-        update_condition = "source.__is_active = false and target.__is_active = true"
-
-        # Write to the delta table
-        delta_table = DeltaTable.forPath(spark, location)
-        (
-            delta_table.alias("target")
-            .merge(merge_df.alias("source"), merge_condition)
-            .whenMatchedUpdate(
-                condition=update_condition,
-                set={
-                    "__end_date": F.current_timestamp(),
-                    "__is_active": F.lit(False),
-                },
-            )
-            .whenNotMatchedInsertAll()
-            .execute()
-        )
-
-        return _get_latest_loaded_records_count(spark=spark, location=location)
-
-    else:
+    if not DeltaTable.isDeltaTable(spark, location):
         print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         return _write_table_using_append_all(
             spark=spark,
@@ -942,6 +1022,38 @@ def _write_table_using_type_2_scd(
             partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
+
+    # Prepare DataFrame for merge operation
+    table_df = spark.read.format("delta").load(location)
+    merge_df = _merge_dataframe_for_type_2_scd(source_df=df, target_df=table_df, key_columns=key_columns)
+    merge_df = _prepare_df_for_merge_operation(
+        spark=spark,
+        df=merge_df,
+        location=location,
+        schema_evolution_mode=schema_evolution_mode,
+    )
+
+    # Build merge conditions
+    merge_condition = "source.__hash_key = target.__hash_key"
+    update_condition = "source.__is_active = false and target.__is_active = true"
+
+    # Write to the delta table
+    delta_table = DeltaTable.forPath(spark, location)
+    (
+        delta_table.alias("target")
+        .merge(merge_df.alias("source"), merge_condition)
+        .whenMatchedUpdate(
+            condition=update_condition,
+            set={
+                "__end_date": F.current_timestamp(),
+                "__is_active": F.lit(False),
+            },
+        )
+        .whenNotMatchedInsertAll()
+        .execute()
+    )
+
+    return _get_latest_loaded_records_count(spark=spark, location=location)
 
 
 def _generate_type_2_scd_metadata_columns(
