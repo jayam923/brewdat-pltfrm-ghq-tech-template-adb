@@ -34,10 +34,10 @@ class ReturnObject():
         Error message describing whichever error that occurred.
     error_details : str, default=""
         Detailed error message or stack trace for the above error.
-    data_interval_start : str, default=""
-        The lower bound of the input dataframe.
-    data_interval_end : str, default=""
-        The upper bound of the input dataframe.
+    effective_data_interval_start : str, default=""
+        The effective watermark lower bound of the input DataFrame.
+    effective_data_interval_end : str, default=""
+        The effective watermark upper bound of the input DataFrame.
     """
     def __init__(
         self,
@@ -47,8 +47,8 @@ class ReturnObject():
         num_records_loaded: int = 0,
         error_message: str = "",
         error_details: str = "",
-        data_interval_start: str = "",
-        data_interval_end: str = "",
+        effective_data_interval_start: str = "",
+        effective_data_interval_end: str = "",
     ):
         self.status = status
         self.target_object = target_object
@@ -57,8 +57,8 @@ class ReturnObject():
         self.num_records_errored_out = num_records_read - num_records_loaded
         self.error_message = error_message[:8000]
         self.error_details = error_details
-        self.data_interval_start = data_interval_start
-        self.data_interval_end = data_interval_end
+        self.effective_data_interval_start = effective_data_interval_start
+        self.effective_data_interval_end = effective_data_interval_end
 
 
 class RowSourceToTargetMapping():
