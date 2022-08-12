@@ -300,6 +300,7 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     )
 
     # ASSERT
+    print(vars(result1))
     assert RunStatus.SUCCEEDED == result1.status
     assert 3 == result1.num_records_read
     assert 2 == result1.num_records_loaded
@@ -326,3 +327,99 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
 
     error_df = spark.table(f"{schema_name}.{table_name}_err")
     assert 2 == error_df.count()
+
+
+def test_write_bad_records_ignore_mode(tmpdir):
+    # ARRANGE
+    df_schema = StructType(
+        [
+            StructField('id', StringType(), True),
+            StructField('phone_number', StringType(), True),
+            StructField('__data_quality_issues', ArrayType(StringType()), True),
+        ]
+    )
+
+    df1 = spark.createDataFrame([
+        {"id": "000", "phone_number": "00000000000"},
+        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
+        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": []},
+    ])
+    df2 = spark.createDataFrame([
+        {"id": "000", "phone_number": "00000000000"},
+    ])
+    df3 = spark.createDataFrame([
+        {"id": "000", "phone_number": "00000000000", "__data_quality_issues": []},
+    ], schema=df_schema)
+    df4 = spark.createDataFrame([
+        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
+    ])
+    location = f"file://{tmpdir}/test_write_bad_records_ignore_mode"
+    table_name = "test_write_bad_records_ignore_mode"
+
+    # ACT
+    result1 = write_delta_table(
+        spark=spark,
+        df=df1,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.APPEND_ALL,
+        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+    )
+
+    result2 = write_delta_table(
+        spark=spark,
+        df=df2,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.APPEND_ALL,
+        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+    )
+
+    result3 = write_delta_table(
+        spark=spark,
+        df=df3,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.APPEND_ALL,
+        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+    )
+
+    result4 = write_delta_table(
+        spark=spark,
+        df=df4,
+        location=location,
+        schema_name=schema_name,
+        table_name=table_name,
+        load_type=LoadType.APPEND_ALL,
+        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+    )
+
+    # ASSERT
+    print(vars(result1))
+    assert RunStatus.SUCCEEDED == result1.status
+    assert 3 == result1.num_records_read
+    assert 3 == result1.num_records_loaded
+    assert 1 == result1.num_records_errored_out
+
+    assert RunStatus.SUCCEEDED == result2.status
+    assert 1 == result2.num_records_read
+    assert 1 == result2.num_records_loaded
+    assert 0 == result2.num_records_errored_out
+
+    assert RunStatus.SUCCEEDED == result3.status
+    assert 1 == result3.num_records_read
+    assert 1 == result3.num_records_loaded
+    assert 0 == result3.num_records_errored_out
+
+    assert RunStatus.SUCCEEDED == result4.status
+    assert 1 == result4.num_records_read
+    assert 1 == result4.num_records_loaded
+    assert 1 == result4.num_records_errored_out
+
+    result_df = spark.table(f"{schema_name}.{table_name}")
+    assert "__data_quality_issues" in result_df.columns
+    assert 6 == result_df.count()
+

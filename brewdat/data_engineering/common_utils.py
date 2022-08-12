@@ -169,36 +169,3 @@ def configure_spn_access_for_adls(
 
     except Exception:
         exit_with_last_exception(dbutils)
-
-
-def get_latest_delta_version_details(
-        spark: SparkSession,
-        location: str
-) -> dict:
-    """Gets information about latest delta version of provided delta table location.
-
-    The structure of result dictionary follows history schema for delta tables,
-    For more information:https://docs.databricks.com/delta/delta-utility.html#history-schema
-
-    In case provided location is not a Delta Table, None is returned.
-
-    Parameters
-    ----------
-    spark: SparkSession
-        A Spark session.
-    location: str
-        Absolute Delta Lake path for the physical location of this delta table.
-
-    Returns
-    -------
-    dict
-        Dictionary with information about latest delta version.
-
-    """
-    if DeltaTable.isDeltaTable(spark, location):
-        delta_table = DeltaTable.forPath(spark, location)
-        history_df = delta_table.history(1)
-        return history_df.collect()[0].asDict(recursive=True)
-
-    else:
-        return None
