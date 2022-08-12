@@ -16,14 +16,6 @@ class RunStatus(str, Enum):
     FAILED = "FAILED"
     """Represents a failed run status."""
 
-@unique
-class MissingColumnsEvolution(str, Enum):
-    """Specifies the way in which missing columns from input schema should be handled.
-    """
-    IGNORE = "IGNORE"
-    """Ignore the missing columns in input schema."""
-    FAIL = "FAIL"
-    """Raise exception when columns are missing from input schema."""    
 
 class ReturnObject():
     """Object that holds metadata from a data write operation.
@@ -67,30 +59,43 @@ class ReturnObject():
         self.error_details = error_details
         self.data_interval_start = data_interval_start
         self.data_interval_end = data_interval_end
-        
 
-class RowSchema():
-    """Object the holds the schema information of each column.
-    
+
+class RowSourceToTargetMapping():
+    """Object the holds the source-to-target-mapping information
+    for a single column in a DataFrame.
+
     Attributes
     ----------
-    source_attribute_name : str
-        Attribute name in the input dataframe.
-    target_attribute_name : str
-        Attribute name to which input column will be renamed.
+    source_column_name : str
+        Column name in the source DataFrame.
     target_data_type : str
         The data type to which input column will be cast to.
+    sql_expression : str, default=None
+        Spark SQL expression to create the target column.
+        If None, simply cast and possibly rename the source column.
+    target_column_name : str, default=None
+        Column name in the target DataFrame.
+        If None, use source_column_name as target_column_name.
+    nullable : bool, default=True
+        Whether the target column should allow null values.
+        Used for data quality checks.
     """   
     def __init__(
         self,
-        source_attribute_name: str,
-        target_attribute_name: str,
+        source_column_name: str,
         target_data_type: str,
+        sql_expression: str = None,
+        target_column_name: str = None,
+        nullable: bool = True,
     ):
-        self.source_attribute_name = source_attribute_name
-        self.target_attribute_name = target_attribute_name
+        self.source_column_name = source_column_name
         self.target_data_type = target_data_type
-        
+        self.sql_expression = sql_expression
+        self.target_column_name = target_column_name or source_column_name
+        self.nullable = nullable
+
+
 def exit_with_object(dbutils: object, results: ReturnObject):
     """Finish execution returning an object to the notebook's caller.
 
