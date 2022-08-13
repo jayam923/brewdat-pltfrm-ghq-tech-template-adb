@@ -27,7 +27,6 @@ class DataQualityChecker():
                 F.lit(None).cast("array<string>")
             )
 
-
     def build_df(self) -> DataFrame:
         """Obtain the resulting DataFrame with data quality checks applied.
 
@@ -37,7 +36,6 @@ class DataQualityChecker():
             The modified PySpark DataFrame with updated validation results.
         """
         return self.df
-
 
     def check_narrow_condition(
         self,
@@ -101,7 +99,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_is_not_null(
         self,
         column_name: str,
@@ -142,7 +139,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_type_cast(
         self,
@@ -214,7 +210,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_max_length(
         self,
         column_name: str,
@@ -265,7 +260,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_min_length(
         self,
@@ -318,7 +312,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_length_between(
         self,
@@ -380,7 +373,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_max_value(
         self,
         column_name: str,
@@ -428,7 +420,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_min_value(
         self,
@@ -478,7 +469,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_value_between(
         self,
@@ -531,7 +521,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_value_is_in(
         self,
         column_name: str,
@@ -582,7 +571,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_value_is_not_in(
         self,
@@ -635,7 +623,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_matches_regular_expression(
         self,
         column_name: str,
@@ -686,7 +673,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_column_does_not_match_regular_expression(
         self,
@@ -739,7 +725,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_is_numeric(
         self,
         column_name: str,
@@ -786,7 +771,6 @@ class DataQualityChecker():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
     def check_column_is_alphanumeric(
         self,
         column_name: str,
@@ -832,7 +816,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def check_composite_column_value_is_unique(
         self,
@@ -892,7 +875,6 @@ class DataQualityChecker():
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     @classmethod
     def check_columns_exist(

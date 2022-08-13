@@ -4,7 +4,6 @@ import traceback
 from enum import Enum, unique
 from typing import List
 
-from delta.tables import DeltaTable
 from pyspark.sql import SparkSession
 
 
