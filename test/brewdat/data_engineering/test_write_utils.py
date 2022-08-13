@@ -2,11 +2,11 @@ from test.spark_test import spark
 
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType
 
-from brewdat.data_engineering.write_utils import LoadType, write_delta_table, SchemaEvolutionMode, BadRecordsHandlingMode
+from brewdat.data_engineering.write_utils import LoadType, write_delta_table, SchemaEvolutionMode, BadRecordHandlingMode
 from brewdat.data_engineering.common_utils import RunStatus
 
 
-schema_name = "test_schema"
+database_name = "test_schema"
 
 
 def test_write_delta_table_append_all(tmpdir):
@@ -19,7 +19,7 @@ def test_write_delta_table_append_all(tmpdir):
         }
     ])
     location = f"file://{tmpdir}/test_write_delta_table_append_all"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_delta_table_append_all"
 
     # ACT
@@ -27,7 +27,7 @@ def test_write_delta_table_append_all(tmpdir):
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
     )
@@ -47,14 +47,14 @@ def test_location_already_exists(tmpdir):
         "address": "my address"
     }])
     location = f"{tmpdir}/test_location_exists"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_location_exists"
     
     result = write_delta_table(
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
     )
@@ -66,14 +66,14 @@ def test_location_already_exists(tmpdir):
         spark=spark,
         df=df,
         location=new_location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
     )
     print(vars(result_1))
     
     assert result_1.status == RunStatus.FAILED
-    assert result_1.error_message == f"Metastore table already exists with a different location. To drop the existing table, use: DROP TABLE `{schema_name}`.`{table_name}`"
+    assert result_1.error_message == f"Metastore table already exists with a different location. To drop the existing table, use: DROP TABLE `{database_name}`.`{table_name}`"
 
 
 def test_write_scd_type_2_first_write(tmpdir):
@@ -93,7 +93,7 @@ def test_write_scd_type_2_first_write(tmpdir):
         }
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_first_write"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_first_write"
 
     # ACT
@@ -101,7 +101,7 @@ def test_write_scd_type_2_first_write(tmpdir):
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -143,7 +143,7 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
         },
     ])
     location = f"file:{tmpdir}/test_write_scd_type_2_only_new_ids"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_only_new_ids"
 
     # ACT
@@ -151,7 +151,7 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -162,7 +162,7 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -205,7 +205,7 @@ def test_write_scd_type_2_only_updates(tmpdir):
         },
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_only_updates"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_only_updates"
 
     # ACT
@@ -213,7 +213,7 @@ def test_write_scd_type_2_only_updates(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -224,7 +224,7 @@ def test_write_scd_type_2_only_updates(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -274,7 +274,7 @@ def test_write_scd_type_2_same_id_same_data(tmpdir):
         },
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_same_id_same_data"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_same_id_same_data"
 
     # ACT
@@ -282,7 +282,7 @@ def test_write_scd_type_2_same_id_same_data(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -293,7 +293,7 @@ def test_write_scd_type_2_same_id_same_data(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -351,7 +351,7 @@ def test_write_scd_type_2_updates_and_new_records(tmpdir):
         },
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_updates_and_new_records"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_updates_and_new_records"
 
     # ACT
@@ -359,7 +359,7 @@ def test_write_scd_type_2_updates_and_new_records(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -370,7 +370,7 @@ def test_write_scd_type_2_updates_and_new_records(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -434,7 +434,7 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
         },
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_multiple_keys"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_multiple_keys"
 
     # ACT
@@ -442,7 +442,7 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id", "id2"],
         load_type=LoadType.TYPE_2_SCD,
@@ -453,7 +453,7 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id", "id2"],
         load_type=LoadType.TYPE_2_SCD,
@@ -509,7 +509,7 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
         },
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_schema_evolution"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_schema_evolution"
 
     # ACT
@@ -517,7 +517,7 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -529,7 +529,7 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -570,7 +570,7 @@ def test_write_scd_type_2_partition(tmpdir):
         
     ])
     location = f"file://{tmpdir}/test_write_scd_type_2_partition"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_partition"
 
     # ACT
@@ -578,7 +578,7 @@ def test_write_scd_type_2_partition(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         partition_columns=["id_series"],
@@ -591,7 +591,7 @@ def test_write_scd_type_2_partition(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         partition_columns=["id_series"],
@@ -601,8 +601,8 @@ def test_write_scd_type_2_partition(tmpdir):
     print(vars(result))
     
     assert result.status == RunStatus.SUCCEEDED
-    assert 2 == spark.sql(f"show partitions {schema_name}.{table_name}").count()
-    assert 2 == spark.sql(f"select * from {schema_name}.{table_name} where id_series=100").count()
+    assert 2 == spark.sql(f"show partitions {database_name}.{table_name}").count()
+    assert 2 == spark.sql(f"select * from {database_name}.{table_name} where id_series=100").count()
 
 
 def test_write_scd_type_2_struct_types(tmpdir):
@@ -650,7 +650,7 @@ def test_write_scd_type_2_struct_types(tmpdir):
         },
     ], schema=df_schema)
     location = f"file:{tmpdir}/test_write_scd_type_2_struct_types"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_scd_type_2_struct_types"
 
     # ACT
@@ -658,7 +658,7 @@ def test_write_scd_type_2_struct_types(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -669,7 +669,7 @@ def test_write_scd_type_2_struct_types(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -726,36 +726,39 @@ def test_write_duplicated_data_for_upsert(tmpdir):
 
     ])
     location = f"file://{tmpdir}/test_write_duplicated_data_for_upsert"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_duplicated_data_for_upsert"
 
     # ACT
-    result = write_delta_table(
+    result_1 = write_delta_table(
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
         schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
     )
+    print(vars(result_1))
 
-    result = write_delta_table(
+    result_2 = write_delta_table(
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
         schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS
     )
+    print(vars(result_2))
 
     # ASSERT
-    result_df = spark.table(result.target_object)
-    assert result.status == RunStatus.FAILED
-    assert result.error_message.startswith(expected_message_for_merging_duplicated_records)
+    assert result_1.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result_2.target_object)
+    assert result_2.status == RunStatus.FAILED
+    assert result_2.error_message.startswith(expected_message_for_merging_duplicated_records)
     assert 1 == result_df.count()
 
 def test_write_delta_table_append_new(tmpdir):
@@ -781,7 +784,7 @@ def test_write_delta_table_append_new(tmpdir):
             }
     ])
     location = f"file://{tmpdir}/test_write_delta_table_append_new"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_delta_table_append_new"
     # ACT
     
@@ -789,7 +792,7 @@ def test_write_delta_table_append_new(tmpdir):
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_NEW,
         key_columns=['phone_number'],
@@ -798,7 +801,7 @@ def test_write_delta_table_append_new(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_NEW,
         key_columns=['phone_number'],
@@ -829,7 +832,7 @@ def test_write_delta_table_overwrite_table(tmpdir):
 
     ])
     location = f"file://{tmpdir}/test_write_delta_table_overwrite_table"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_delta_table_overwrite_table"
     # ACT
     
@@ -837,7 +840,7 @@ def test_write_delta_table_overwrite_table(tmpdir):
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.OVERWRITE_TABLE,
         )
@@ -845,7 +848,7 @@ def test_write_delta_table_overwrite_table(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.OVERWRITE_TABLE,
         key_columns=['phone_number'],
@@ -876,7 +879,7 @@ def test_write_delta_table_overwrite_partition(tmpdir):
 
     ])
     location = f"file://{tmpdir}/test_write_delta_table_overwrite_partition"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_delta_table_overwrite_partition"
     # ACT
     
@@ -884,7 +887,7 @@ def test_write_delta_table_overwrite_partition(tmpdir):
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.OVERWRITE_PARTITION,
         partition_columns=['phone_number'],
@@ -893,7 +896,7 @@ def test_write_delta_table_overwrite_partition(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.OVERWRITE_PARTITION,
         partition_columns=['phone_number'],
@@ -924,7 +927,7 @@ def test_write_delta_table_upsert(tmpdir):
 
     ])
     location = f"file://{tmpdir}/test_write_delta_table_upsert"
-    schema_name = "test_schema"
+    database_name = "test_schema"
     table_name = "test_write_delta_table_upsert"
     # ACT
     
@@ -932,7 +935,7 @@ def test_write_delta_table_upsert(tmpdir):
         spark=spark,
         df=df,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.UPSERT,
         key_columns=['phone_number'],
@@ -941,7 +944,7 @@ def test_write_delta_table_upsert(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.UPSERT,
         key_columns=['phone_number'],
@@ -975,7 +978,7 @@ def test_append_upsert_load_count(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
@@ -986,7 +989,7 @@ def test_append_upsert_load_count(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
@@ -997,7 +1000,7 @@ def test_append_upsert_load_count(tmpdir):
         spark=spark,
         df=df3,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
@@ -1031,7 +1034,7 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
@@ -1042,7 +1045,7 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
@@ -1053,7 +1056,7 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
         spark=spark,
         df=df3,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.UPSERT,
@@ -1086,7 +1089,7 @@ def test_append_append_new_load_count(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.APPEND_NEW,
@@ -1097,7 +1100,7 @@ def test_append_append_new_load_count(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.APPEND_NEW,
@@ -1108,7 +1111,7 @@ def test_append_append_new_load_count(tmpdir):
         spark=spark,
         df=df3,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.APPEND_NEW,
@@ -1141,7 +1144,7 @@ def test_type2_scd_load_count(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -1152,7 +1155,7 @@ def test_type2_scd_load_count(tmpdir):
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -1163,7 +1166,7 @@ def test_type2_scd_load_count(tmpdir):
         spark=spark,
         df=df3,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         key_columns=["id"],
         load_type=LoadType.TYPE_2_SCD,
@@ -1188,13 +1191,13 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     df1 = spark.createDataFrame([
         {"id": "000", "phone_number": "00000000000"},
         {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
-        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": []},
+        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": None},
     ])
     df2 = spark.createDataFrame([
         {"id": "000", "phone_number": "00000000000"},
     ])
     df3 = spark.createDataFrame([
-        {"id": "000", "phone_number": "00000000000", "__data_quality_issues": []},
+        {"id": "000", "phone_number": "00000000000", "__data_quality_issues": None},
     ], schema=df_schema)
     df4 = spark.createDataFrame([
         {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
@@ -1207,40 +1210,40 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION,
+        bad_record_handling_mode=BadRecordHandlingMode.REJECT,
     )
 
     result2 = write_delta_table(
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION,
+        bad_record_handling_mode=BadRecordHandlingMode.REJECT,
     )
 
     result3 = write_delta_table(
         spark=spark,
         df=df3,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION,
+        bad_record_handling_mode=BadRecordHandlingMode.REJECT,
     )
 
     result4 = write_delta_table(
         spark=spark,
         df=df4,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.WRITE_TO_ERROR_LOCATION,
+        bad_record_handling_mode=BadRecordHandlingMode.REJECT,
     )
 
     # ASSERT
@@ -1265,11 +1268,11 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     assert 0 == result4.num_records_loaded
     assert 1 == result4.num_records_errored_out
 
-    result_df = spark.table(f"{schema_name}.{table_name}")
+    result_df = spark.table(f"{database_name}.{table_name}")
     assert "__data_quality_issues" not in result_df.columns
     assert 4 == result_df.count()
 
-    error_df = spark.table(f"{schema_name}.{table_name}_err")
+    error_df = spark.table(f"{database_name}.{table_name}_err")
     assert 2 == error_df.count()
 
 
@@ -1286,13 +1289,13 @@ def test_write_bad_records_ignore_mode(tmpdir):
     df1 = spark.createDataFrame([
         {"id": "000", "phone_number": "00000000000"},
         {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
-        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": []},
+        {"id": "111", "phone_number": "00000000000", "__data_quality_issues": None},
     ])
     df2 = spark.createDataFrame([
         {"id": "000", "phone_number": "00000000000"},
     ])
     df3 = spark.createDataFrame([
-        {"id": "000", "phone_number": "00000000000", "__data_quality_issues": []},
+        {"id": "000", "phone_number": "00000000000", "__data_quality_issues": None},
     ], schema=df_schema)
     df4 = spark.createDataFrame([
         {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
@@ -1305,40 +1308,40 @@ def test_write_bad_records_ignore_mode(tmpdir):
         spark=spark,
         df=df1,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+        bad_record_handling_mode=BadRecordHandlingMode.WARN,
     )
 
     result2 = write_delta_table(
         spark=spark,
         df=df2,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+        bad_record_handling_mode=BadRecordHandlingMode.WARN,
     )
 
     result3 = write_delta_table(
         spark=spark,
         df=df3,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+        bad_record_handling_mode=BadRecordHandlingMode.WARN,
     )
 
     result4 = write_delta_table(
         spark=spark,
         df=df4,
         location=location,
-        schema_name=schema_name,
+        database_name=database_name,
         table_name=table_name,
         load_type=LoadType.APPEND_ALL,
-        bad_records_handling_mode=BadRecordsHandlingMode.IGNORE,
+        bad_record_handling_mode=BadRecordHandlingMode.WARN,
     )
 
     # ASSERT
@@ -1363,7 +1366,7 @@ def test_write_bad_records_ignore_mode(tmpdir):
     assert 1 == result4.num_records_loaded
     assert 1 == result4.num_records_errored_out
 
-    result_df = spark.table(f"{schema_name}.{table_name}")
+    result_df = spark.table(f"{database_name}.{table_name}")
     assert "__data_quality_issues" in result_df.columns
     assert 6 == result_df.count()
 

@@ -68,7 +68,7 @@ class BadRecordHandlingMode(str, Enum):
     Bad records are rows where `__data_quality_issues` column exists and is not null.
     """
     WARN = "WARN"
-    """Write both bad and good records to target location."""
+    """Write both bad and good records to target table and warn if bad records are present."""
     REJECT = "REJECT"
     """Filter out bad records and append them to a separate error table."""
 
@@ -238,7 +238,7 @@ def write_delta_table(
             raise NotImplementedError
 
         # Create the Hive database and table
-        _create_hive_table(
+        _create_external_hive_table(
             spark=spark,
             database_name=database_name,
             table_name=table_name,
@@ -415,7 +415,7 @@ def _handle_bad_records(
             .filter(~bad_record_filter)
             .drop("__data_quality_issues")
         )
-    elif bad_record_handling_mode == BadRecordHandlingMode.IGNORE:
+    elif bad_record_handling_mode == BadRecordHandlingMode.WARN:
         bad_record_count = bad_record_df.count()
     else:
         raise NotImplementedError
@@ -470,18 +470,18 @@ def _write_to_error_table(
         spark=spark,
         df=df,
         location=error_location,
-        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
         partition_columns=["__data_quality_check_dt"],
+        schema_evolution_mode=SchemaEvolutionMode.ADD_NEW_COLUMNS,
     )
 
-    _create_hive_table(
+    _create_external_hive_table(
         spark=spark,
         database_name=database_name,
         table_name=error_table_name,
         location=error_location,
     )
 
-    _vacuum_table(
+    _vacuum_delta_table(
         spark=spark,
         database_name=database_name,
         table_name=error_table_name,
@@ -850,7 +850,6 @@ def _write_table_using_append_new(
             spark=spark,
             df=df,
             location=location,
-            partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
 
@@ -915,7 +914,6 @@ def _write_table_using_upsert(
             spark=spark,
             df=df,
             location=location,
-            partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
 
