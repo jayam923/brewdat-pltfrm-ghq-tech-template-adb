@@ -83,9 +83,10 @@ def write_delta_table(
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
-    bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
+    enable_caching: bool = True,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -123,6 +124,9 @@ def write_delta_table(
     auto_broadcast_join_threshold : int, default=52428800
         Configures the maximum size in bytes for a table that will be broadcast to all worker
         nodes when performing a join. Default value in bytes represents 50 MB.
+    enable_caching : bool, default=True
+        Cache the DataFrame so that transformations are not recomputed multiple times
+        during couting, bad record handling, or writing with TYPE_2_SCD.
 
     Returns
     -------
@@ -135,7 +139,7 @@ def write_delta_table(
     cached_df = None
 
     try:
-        # Current delta version
+        # Get original version number
         old_version_number = _get_current_delta_version_number(spark=spark, location=location)
 
         # Check if the table already exists with a different location
@@ -159,7 +163,8 @@ def write_delta_table(
         spark.conf.set("spark.sql.autoBroadcastJoinThreshold", auto_broadcast_join_threshold)
 
         # Cache the DataFrame and count source records
-        cached_df = df.cache()
+        if enable_caching:
+            cached_df = df.cache()
         num_records_read = df.count()
 
         # Handle bad records
@@ -173,7 +178,7 @@ def write_delta_table(
             time_travel_retention_days=time_travel_retention_days,
         )
 
-        # Write data with the selected load_type
+        # Write data with the selected load type
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
@@ -248,7 +253,7 @@ def write_delta_table(
             time_travel_retention_days=time_travel_retention_days,
         )
 
-        # Get final delta version number
+        # Get new version number
         new_version_number = _get_current_delta_version_number(spark=spark, location=location)
 
         if cached_df:
