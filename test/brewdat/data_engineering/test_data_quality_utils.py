@@ -53,7 +53,7 @@ def test_check_column_is_not_null_dataframe_with_previous_check():
 
     assert "previous error" == bad_record_1['__data_quality_issues'][0]
     assert "CHECK_NOT_NULL: Column `name` is null" == bad_record_2['__data_quality_issues'][0]
-    assert ["previous error", "CHECK_NOT_NULL: Column `name` is null"] == bad_record_3['__data_quality_issues']
+    assert ["previous error", "CHECK_NOT_NULL: Column `name` is null"] == bad_record_3['__data_quality_issues'].tolist()
     assert not good_record_4['__data_quality_issues']
 
 
@@ -81,4 +81,4 @@ def test_check_column_max_length_new_dataframe():
 
     record3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
     assert record3['__data_quality_issues']
-    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues']
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues'].tolist()
