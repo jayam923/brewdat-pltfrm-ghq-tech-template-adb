@@ -6,6 +6,9 @@ from pyspark.sql import Column, DataFrame, Window
 from . import common_utils
 
 
+DQ_RESULTS_COLUMN = "__data_quality_issues"
+
+
 class DataQualityChecker():
     """Helper class that provides data quality checks for
     a given DataFrame.
@@ -21,9 +24,9 @@ class DataQualityChecker():
         self.dbutils = dbutils
         self.df = df
 
-        if "__data_quality_issues" not in self.df.columns:
+        if DQ_RESULTS_COLUMN not in self.df.columns:
             self.df = self.df.withColumn(
-                "__data_quality_issues",
+                DQ_RESULTS_COLUMN,
                 F.lit(None).cast("array<string>")
             )
 
@@ -84,13 +87,13 @@ class DataQualityChecker():
             self.df = (
                 self.df
                 .withColumn(
-                    "__data_quality_issues",
-                    F.when(~filter_condition, F.col("__data_quality_issues"))
+                    DQ_RESULTS_COLUMN,
+                    F.when(~filter_condition, F.col(DQ_RESULTS_COLUMN))
                     .when(
                         ~expected_condition,
-                        F.concat(F.coalesce("__data_quality_issues", F.array()), F.array(failure_message))
+                        F.concat(F.coalesce(DQ_RESULTS_COLUMN, F.array()), F.array(failure_message))
                     )
-                    .otherwise(F.col("__data_quality_issues"))
+                    .otherwise(F.col(DQ_RESULTS_COLUMN))
                 )
             )
 
@@ -195,7 +198,7 @@ class DataQualityChecker():
             expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
             failure_message = F.concat(
                 F.lit(f"CHECK_TYPE_CAST: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(f", which cannot be safely cast to type {data_type}")
             )
             self.check_narrow_condition(
@@ -409,7 +412,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name) <= F.lit(maximum_value)
             failure_message = F.concat(
                 F.lit(f"CHECK_MAX_VALUE: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(f", which is greater than {maximum_value}")
             )
             return self.check_narrow_condition(
@@ -458,7 +461,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name) >= F.lit(minimum_value)
             failure_message = F.concat(
                 F.lit(f"CHECK_MIN_VALUE: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(f", which is less than {minimum_value}")
             )
             return self.check_narrow_condition(
@@ -509,7 +512,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name).between(minimum_value, maximum_value)
             failure_message = F.concat(
                 F.lit(f"CHECK_VALUE_RANGE: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(f", which is not between {minimum_value} and {maximum_value}")
             )
             return self.check_narrow_condition(
@@ -560,7 +563,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name).isin(valid_values)
             failure_message = F.concat(
                 F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(", which is not in the list of valid values")
             )
             return self.check_narrow_condition(
@@ -611,7 +614,7 @@ class DataQualityChecker():
             expected_condition = ~F.col(column_name).isin(invalid_values)
             failure_message = F.concat(
                 F.lit(f"CHECK_VALUE_NOT_IN: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(", which is in the list of invalid values")
             )
             return self.check_narrow_condition(
@@ -662,7 +665,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name).rlike(regular_expression)
             failure_message = F.concat(
                 F.lit(f"CHECK_REGEX_MATCH: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(f", which does not match the regular expression '{regular_expression}'")
             )
             return self.check_narrow_condition(
@@ -713,7 +716,7 @@ class DataQualityChecker():
             expected_condition = ~F.col(column_name).rlike(regular_expression)
             failure_message = F.concat(
                 F.lit(f"CHECK_REGEX_NOT_MATCH: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(f", which matches the regular expression '{regular_expression}'")
             )
             return self.check_narrow_condition(
@@ -759,7 +762,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name).rlike(r"^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$")
             failure_message = F.concat(
                 F.lit(f"CHECK_NUMERIC: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(", which is not a numeric value")
             )
             return self.check_narrow_condition(
@@ -805,7 +808,7 @@ class DataQualityChecker():
             expected_condition = F.col(column_name).rlike(r"^[A-Za-z0-9]*$")
             failure_message = F.concat(
                 F.lit(f"CHECK_ALPHANUMERIC: Column `{column_name}` has value "),
-                F.col(column_name),
+                F.col(column_name).cast("string"),
                 F.lit(", which is not an alphanumeric value")
             )
             return self.check_narrow_condition(

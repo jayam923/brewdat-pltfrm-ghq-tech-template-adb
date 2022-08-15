@@ -1,12 +1,26 @@
 import re
 from datetime import datetime
-from typing import List
+from enum import Enum, unique
+from typing import List, Tuple
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DataType
 
 from . import common_utils
+from .common_utils import ColumnMapping
+
+
+@unique
+class UnmappedColumnBehavior(str, Enum):
+    """Specifies the way in which unmapped DataFrame columns should
+    be handled in apply_column_mappings() function.
+    """
+    IGNORE_UNMAPPED_COLUMNS = "IGNORE_UNMAPPED_COLUMNS"
+    """Ignore unmapped columns in the column mappings."""
+    FAIL_ON_UNMAPPED_COLUMNS = "FAIL_ON_UNMAPPED_COLUMNS"
+    """Raise exception when input columns are missing from
+    the column mappings."""
 
 
 def clean_column_names(
@@ -305,6 +319,58 @@ def flatten_dataframe(
                 break
 
         return df
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
+def apply_column_mappings(
+    dbutils: object,
+    df: DataFrame,
+    mappings: List[ColumnMapping],
+    unmapped_behavior: UnmappedColumnBehavior = UnmappedColumnBehavior.IGNORE_UNMAPPED_COLUMNS,
+) -> Tuple[DataFrame, List[str]]:
+    """Cast and rename DataFrame columns according to a list of column mappings.
+
+    Optionally raise an exception if the mapping is missing any source column, except
+    for metadata columns.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to cast.
+    mappings: List[ColumnMapping]
+        List of column mapping objects.
+    unmapped_behavior: UnmappedColumnBehavior, default=IGNORE_UNMAPPED_COLUMNS
+        Specifies the way in which unmapped DataFrame columns should be handled.
+
+    Returns
+    -------
+    (DataFrame, List[str])
+        DataFrame
+            The modified PySpark DataFrame with columns properly cast and renamed.
+        List[str]
+            The list of unmapped DataFrame columns.
+    """
+    try:
+        # Use case insensitive comparison like Spark does
+        all_columns = common_utils.list_non_metadata_columns(df)
+        mapped_columns = [m.source_column_name.lower() for m in mappings]
+        unmapped_columns = [col for col in all_columns if col.lower() not in mapped_columns]
+        if unmapped_columns and unmapped_behavior == UnmappedColumnBehavior.FAIL_ON_UNMAPPED_COLUMNS:
+            formatted_columns = ", ".join([f"`{col}`" for col in unmapped_columns])
+            raise ValueError(f"Columns {formatted_columns} are missing from schema mappings")
+
+        expressions = []
+        for mapping in mappings:
+            source_expression = mapping.sql_expression or f"`{mapping.source_column_name}`"
+            expression = f"CAST({source_expression} AS {mapping.target_data_type}) AS `{mapping.target_column_name}`"
+            expressions.append(expression)
+        df = df.selectExpr(*expressions)
+
+        return df, unmapped_columns
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)

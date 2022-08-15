@@ -191,6 +191,9 @@ location = lakehouse_utils.generate_silver_table_location(
     source_system=source_system,
     table_name=target_hive_table,
 )
+print(f"location: {location}")
+
+# COMMAND ----------
 
 results = write_utils.write_delta_table(
     spark=spark,
@@ -202,8 +205,7 @@ results = write_utils.write_delta_table(
     key_columns=key_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
-
-print(vars(results))
+print(results)
 
 # COMMAND ----------
 

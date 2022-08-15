@@ -8,7 +8,9 @@ from delta.tables import DeltaTable
 from py4j.protocol import Py4JJavaError
 from pyspark.sql import DataFrame, DataFrameWriter, SparkSession
 
+from . import common_utils
 from .common_utils import ReturnObject, RunStatus
+from .data_quality_utils import DQ_RESULTS_COLUMN
 
 
 @unique
@@ -283,6 +285,7 @@ def write_delta_table(
             error_details=traceback.format_exc(),
             old_version_number=old_version_number,
         )
+
     except Exception as e:
         if cached_df:
             cached_df.unpersist()
@@ -394,11 +397,11 @@ def _handle_bad_records(
         int
             Number of bad records found in input Dataframe.
     """
-    if "__data_quality_issues" not in df.columns:
+    if DQ_RESULTS_COLUMN not in df.columns:
         return df, 0
 
     output_df = df
-    bad_record_filter = F.col("__data_quality_issues").isNotNull()
+    bad_record_filter = F.col(DQ_RESULTS_COLUMN).isNotNull()
     bad_record_df = df.filter(bad_record_filter)
 
     if bad_record_handling_mode == BadRecordHandlingMode.REJECT:
@@ -413,7 +416,7 @@ def _handle_bad_records(
         output_df = (
             df
             .filter(~bad_record_filter)
-            .drop("__data_quality_issues")
+            .drop(DQ_RESULTS_COLUMN)
         )
     elif bad_record_handling_mode == BadRecordHandlingMode.WARN:
         bad_record_count = bad_record_df.count()
@@ -711,7 +714,7 @@ def _write_table_using_overwrite_table(
         df=df,
         location=location,
         schema_evolution_mode=schema_evolution_mode,
-        partition_columns=partition_columns
+        partition_columns=partition_columns,
     )
     df_writer.mode("overwrite").save(location)
 
@@ -765,7 +768,7 @@ def _write_table_using_overwrite_partition(
         df=df,
         location=location,
         schema_evolution_mode=schema_evolution_mode,
-        partition_columns=partition_columns
+        partition_columns=partition_columns,
     )
     df_writer.mode("overwrite").option("replaceWhere", replace_where_clause).save(location)
 
@@ -805,7 +808,7 @@ def _write_table_using_append_all(
         df=df,
         location=location,
         schema_evolution_mode=schema_evolution_mode,
-        partition_columns=partition_columns
+        partition_columns=partition_columns,
     )
     df_writer.mode("append").save(location)
 
@@ -860,8 +863,8 @@ def _write_table_using_append_new(
         schema_evolution_mode=schema_evolution_mode,
     )
 
-    # Build merge condition
-    merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
+    # Build merge condition using null-safe equal to avoid duplicating null keys
+    merge_condition_parts = [f"source.`{col}` <=> target.`{col}`" for col in key_columns]
     merge_condition = " AND ".join(merge_condition_parts)
 
     # Write to the delta table
@@ -924,8 +927,8 @@ def _write_table_using_upsert(
         schema_evolution_mode=schema_evolution_mode,
     )
 
-    # Build merge condition
-    merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
+    # Build merge condition using null-safe equal to avoid duplicating null keys
+    merge_condition_parts = [f"source.`{col}` <=> target.`{col}`" for col in key_columns]
     merge_condition = " AND ".join(merge_condition_parts)
 
     # Write to the delta table
@@ -997,8 +1000,8 @@ def _write_table_using_type_2_scd(
         schema_evolution_mode=schema_evolution_mode,
     )
 
-    # Build merge conditions
-    merge_condition = "source.__hash_key = target.__hash_key"
+    # Build merge condition using null-safe equal to avoid duplicating null keys
+    merge_condition = "source.__hash_key <=> target.__hash_key"
     update_condition = "source.__is_active = false and target.__is_active = true"
 
     # Write to the delta table
@@ -1046,7 +1049,7 @@ def _generate_type_2_scd_metadata_columns(
     __hash_key uses the Base64 representation of the MD5 hash of all columns,
     except for metadata columns (those whose name starts with two underscores).
     """
-    all_cols = [col for col in df.columns if not col.startswith("__")]
+    all_cols = common_utils.list_non_metadata_columns(df)
     df = df.withColumn(
         "__hash_key",
         F.substring(F.base64(F.unhex(F.md5(F.to_json(F.struct(*all_cols))))), 0, 22)

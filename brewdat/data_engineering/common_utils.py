@@ -4,7 +4,7 @@ import traceback
 from enum import Enum, unique
 from typing import List
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 
 @unique
@@ -40,6 +40,10 @@ class ReturnObject():
         Version number of target object before write operation.
     new_version_number: int, default=None
         Version number of target object after write operation.
+    effective_data_interval_start : str, default=""
+        The effective watermark lower bound of the input DataFrame.
+    effective_data_interval_end : str, default=""
+        The effective watermark upper bound of the input DataFrame.
     """
     def __init__(
         self,
@@ -52,6 +56,8 @@ class ReturnObject():
         error_details: str = "",
         old_version_number: int = None,
         new_version_number: int = None,
+        effective_data_interval_start: str = "",
+        effective_data_interval_end: str = "",
     ):
         self.status = status
         self.target_object = target_object
@@ -62,6 +68,67 @@ class ReturnObject():
         self.error_details = error_details
         self.old_version_number = old_version_number
         self.new_version_number = new_version_number
+        self.effective_data_interval_start = effective_data_interval_start
+        self.effective_data_interval_end = effective_data_interval_end
+
+    def __str__(self):
+        return str(vars(self))
+
+
+class ColumnMapping():
+    """Object the holds the source-to-target-mapping information
+    for a single column in a DataFrame.
+
+    Attributes
+    ----------
+    source_column_name : str
+        Column name in the source DataFrame.
+    target_data_type : str
+        The data type to which input column will be cast to.
+    sql_expression : str, default=None
+        Spark SQL expression to create the target column.
+        If None, simply cast and possibly rename the source column.
+    target_column_name : str, default=None
+        Column name in the target DataFrame.
+        If None, use source_column_name as target_column_name.
+    nullable : bool, default=True
+        Whether the target column should allow null values.
+        Used for data quality checks.
+    """
+    def __init__(
+        self,
+        source_column_name: str,
+        target_data_type: str,
+        sql_expression: str = None,
+        target_column_name: str = None,
+        nullable: bool = True,
+    ):
+        self.source_column_name = source_column_name
+        self.target_data_type = target_data_type
+        self.sql_expression = sql_expression
+        self.target_column_name = target_column_name or source_column_name
+        self.nullable = nullable
+
+    def __str__(self):
+        return str(vars(self))
+
+
+def list_non_metadata_columns(df: DataFrame) -> List[str]:
+    """Obtain a list of DataFrame columns except for metadata columns.
+
+    Metadata columns are all columns whose name begins with "__".
+
+    Parameters
+    ----------
+    df : DataFrame
+        The PySpark DataFrame to inspect.
+
+    Returns
+    -------
+    List[str]
+        The list of DataFrame columns, except for metadata columns.
+    """
+    return [col for col in df.columns if not col.startswith("__")]
 
 
 def configure_spn_access_for_adls(
