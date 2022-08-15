@@ -86,7 +86,6 @@ def write_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
-    merge_update_condition: str = None,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = True,
@@ -120,8 +119,6 @@ def write_delta_table(
     bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
         Specifies the way in which bad records should be handled.
         See documentation for BrewDatLibrary.BadRecordHandlingMode.
-    merge_update_condition : str, default=None
-        A custom update condition to be checked when upserting records in the table.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the Delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
@@ -229,7 +226,6 @@ def write_delta_table(
                 location=location,
                 key_columns=key_columns,
                 schema_evolution_mode=schema_evolution_mode,
-                update_condition=merge_update_condition,
             )
         elif load_type == LoadType.TYPE_2_SCD:
             num_records_loaded = _write_table_using_type_2_scd(
@@ -889,7 +885,6 @@ def _write_table_using_upsert(
     location: str,
     key_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-    update_condition: str = None,
 ) -> int:
     """Write the DataFrame using UPSERT.
 
@@ -907,8 +902,6 @@ def _write_table_using_upsert(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
-    update_condition : str, default=None
-        A custom update condition to be checked when upserting records in the table.
 
     Returns
     -------
@@ -943,7 +936,7 @@ def _write_table_using_upsert(
     (
         delta_table.alias("target")
         .merge(df.alias("source"), merge_condition)
-        .whenMatchedUpdateAll(condition=update_condition)
+        .whenMatchedUpdateAll()
         .whenNotMatchedInsertAll()
         .execute()
     )
