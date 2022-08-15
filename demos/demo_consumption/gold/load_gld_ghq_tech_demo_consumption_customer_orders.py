@@ -112,6 +112,9 @@ location = lakehouse_utils.generate_gold_table_location(
     database_name=target_hive_database,
     table_name=target_hive_table,
 )
+print(f"location: {location}")
+
+# COMMAND ----------
 
 results = write_utils.write_delta_table(
     spark=spark,
@@ -123,7 +126,6 @@ results = write_utils.write_delta_table(
     load_type=write_utils.LoadType.UPSERT,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
-
 print(results)
 
 # COMMAND ----------

@@ -68,7 +68,7 @@ try:
         .save()
     )
 
-except:
+except Exception:
     common_utils.exit_with_last_exception(dbutils)
 
 # COMMAND ----------
@@ -77,7 +77,7 @@ try:
     target_server_name = re.search("sqlserver://(.*?):", synapse_connection_string).group(1)
     target_database_name = re.search(";database=(.*?);", synapse_connection_string).group(1)
     target_object = f"{target_server_name}.{target_database_name}.{target_table_name}"
-except:
+except Exception:
     target_object = f"unknown_synapse.{target_table_name}"
 
 results = common_utils.ReturnObject(
@@ -86,7 +86,6 @@ results = common_utils.ReturnObject(
     num_records_read=row_count,
     num_records_loaded=row_count,
 )
-
 print(results)
 
 # COMMAND ----------

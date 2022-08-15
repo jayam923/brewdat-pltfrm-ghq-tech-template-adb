@@ -97,7 +97,7 @@ audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=t
 
 # COMMAND ----------
 
-target_location = lakehouse_utils.generate_bronze_table_location(
+location = lakehouse_utils.generate_bronze_table_location(
     dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
@@ -105,18 +105,21 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     source_system=source_system,
     table_name=target_hive_table,
 )
+print(f"location: {location}")
+
+# COMMAND ----------
 
 results = write_utils.write_delta_table(
     spark=spark,
     df=audit_df,
-    location=target_location,
+    location=location,
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["__ref_dt"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    enable_caching=False,
 )
-
 print(results)
 
 # COMMAND ----------
