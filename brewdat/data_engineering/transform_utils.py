@@ -8,19 +8,19 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DataType
 
 from . import common_utils
-from .common_utils import RowSourceToTargetMapping
+from .common_utils import ColumnMapping
 
 
 @unique
 class UnmappedColumnBehavior(str, Enum):
     """Specifies the way in which unmapped DataFrame columns should
-    be handled in apply_source_to_target_mappings() function.
+    be handled in apply_column_mappings() function.
     """
     IGNORE_UNMAPPED_COLUMNS = "IGNORE_UNMAPPED_COLUMNS"
-    """Ignore unmapped columns in the source-to-target-mapping."""
+    """Ignore unmapped columns in the column mappings."""
     FAIL_ON_UNMAPPED_COLUMNS = "FAIL_ON_UNMAPPED_COLUMNS"
     """Raise exception when input columns are missing from
-    the source-to-target-mapping."""    
+    the column mappings."""
 
 
 def clean_column_names(
@@ -324,13 +324,13 @@ def flatten_dataframe(
         common_utils.exit_with_last_exception(dbutils)
 
 
-def apply_source_to_target_mappings(
+def apply_column_mappings(
     dbutils: object,
     df: DataFrame,
-    mappings: List[RowSourceToTargetMapping],
+    mappings: List[ColumnMapping],
     unmapped_behavior: UnmappedColumnBehavior = UnmappedColumnBehavior.IGNORE_UNMAPPED_COLUMNS,
 ) -> Tuple[DataFrame, List[str]]:
-    """Cast and rename DataFrame columns according to a list of source-to-target-mappings.
+    """Cast and rename DataFrame columns according to a list of column mappings.
 
     Optionally raise an exception if the mapping is missing any source column, except
     for metadata columns.
@@ -341,8 +341,8 @@ def apply_source_to_target_mappings(
         A Databricks utils object.
     df : DataFrame
         The PySpark DataFrame to cast.
-    mappings: List[RowSourceToTargetMapping]
-        List of source-to-target-mapping objects.
+    mappings: List[ColumnMapping]
+        List of column mapping objects.
     unmapped_behavior: UnmappedColumnBehavior, default=IGNORE_UNMAPPED_COLUMNS
         Specifies the way in which unmapped DataFrame columns should be handled.
 

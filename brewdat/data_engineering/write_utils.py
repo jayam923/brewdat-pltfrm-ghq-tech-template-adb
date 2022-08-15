@@ -10,6 +10,7 @@ from pyspark.sql import DataFrame, DataFrameWriter, SparkSession
 
 from . import common_utils
 from .common_utils import ReturnObject, RunStatus
+from .data_quality_utils import DQ_RESULTS_COLUMN
 
 
 @unique
@@ -400,11 +401,11 @@ def _handle_bad_records(
         int
             Number of bad records found in input Dataframe.
     """
-    if "__data_quality_issues" not in df.columns:
+    if DQ_RESULTS_COLUMN not in df.columns:
         return df, 0
 
     output_df = df
-    bad_record_filter = F.col("__data_quality_issues").isNotNull()
+    bad_record_filter = F.col(DQ_RESULTS_COLUMN).isNotNull()
     bad_record_df = df.filter(bad_record_filter)
 
     if bad_record_handling_mode == BadRecordHandlingMode.REJECT:
@@ -419,7 +420,7 @@ def _handle_bad_records(
         output_df = (
             df
             .filter(~bad_record_filter)
-            .drop("__data_quality_issues")
+            .drop(DQ_RESULTS_COLUMN)
         )
     elif bad_record_handling_mode == BadRecordHandlingMode.WARN:
         bad_record_count = bad_record_df.count()

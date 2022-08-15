@@ -75,7 +75,7 @@ class ReturnObject():
         return str(vars(self))
 
 
-class RowSourceToTargetMapping():
+class ColumnMapping():
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
 
