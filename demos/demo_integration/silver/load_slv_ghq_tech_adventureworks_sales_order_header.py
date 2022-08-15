@@ -203,7 +203,7 @@ results = write_utils.write_delta_table(
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
-print(vars(results))
+print(results)
 
 # COMMAND ----------
 

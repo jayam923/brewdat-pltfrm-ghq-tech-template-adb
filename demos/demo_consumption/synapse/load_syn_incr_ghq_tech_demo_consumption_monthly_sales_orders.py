@@ -103,7 +103,7 @@ results = common_utils.ReturnObject(
     num_records_loaded=row_count,
 )
 
-print(vars(results))
+print(results)
 
 # COMMAND ----------
 

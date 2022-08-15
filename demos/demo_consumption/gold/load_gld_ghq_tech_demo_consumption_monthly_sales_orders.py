@@ -125,7 +125,7 @@ results = write_utils.write_delta_table(
     schema_evolution_mode=write_utils.SchemaEvolutionMode.OVERWRITE_SCHEMA,
 )
 
-print(vars(results))
+print(results)
 
 # COMMAND ----------
 

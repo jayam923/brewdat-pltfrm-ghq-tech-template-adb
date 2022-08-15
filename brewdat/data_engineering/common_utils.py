@@ -71,6 +71,9 @@ class ReturnObject():
         self.effective_data_interval_start = effective_data_interval_start
         self.effective_data_interval_end = effective_data_interval_end
 
+    def __str__(self):
+        return str(vars(self))
+
 
 class RowSourceToTargetMapping():
     """Object the holds the source-to-target-mapping information
@@ -105,6 +108,9 @@ class RowSourceToTargetMapping():
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
         self.nullable = nullable
+
+    def __str__(self):
+        return str(vars(self))
 
 
 def list_non_metadata_columns(df: DataFrame) -> List[str]:
