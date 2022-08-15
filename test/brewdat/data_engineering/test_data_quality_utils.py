@@ -81,4 +81,4 @@ def test_check_column_max_length_new_dataframe():
 
     record3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
     assert record3['__data_quality_issues']
-    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues']
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues'].tolist()
