@@ -30,10 +30,16 @@ class ReturnObject():
         Number of records read from the DataFrame.
     num_records_loaded : int, default=0
         Number of records written to the target table.
+    num_records_errored_out: int, default=0
+        Number of records that have been rejected.
     error_message : str, default=""
         Error message describing whichever error that occurred.
     error_details : str, default=""
         Detailed error message or stack trace for the above error.
+    old_version_number: int, default=None
+        Version number of target object before write operation.
+    new_version_number: int, default=None
+        Version number of target object after write operation.
     effective_data_interval_start : str, default=""
         The effective watermark lower bound of the input DataFrame.
     effective_data_interval_end : str, default=""
@@ -45,8 +51,11 @@ class ReturnObject():
         target_object: str,
         num_records_read: int = 0,
         num_records_loaded: int = 0,
+        num_records_errored_out: int = 0,
         error_message: str = "",
         error_details: str = "",
+        old_version_number: int = None,
+        new_version_number: int = None,
         effective_data_interval_start: str = "",
         effective_data_interval_end: str = "",
     ):
@@ -54,9 +63,11 @@ class ReturnObject():
         self.target_object = target_object
         self.num_records_read = num_records_read
         self.num_records_loaded = num_records_loaded
-        self.num_records_errored_out = num_records_read - num_records_loaded
+        self.num_records_errored_out = num_records_errored_out
         self.error_message = error_message[:8000]
         self.error_details = error_details
+        self.old_version_number = old_version_number
+        self.new_version_number = new_version_number
         self.effective_data_interval_start = effective_data_interval_start
         self.effective_data_interval_end = effective_data_interval_end
 
@@ -112,52 +123,6 @@ def list_non_metadata_columns(df: DataFrame) -> List[str]:
         The list of DataFrame columns, except for metadata columns.
     """
     return [col for col in df.columns if not col.startswith("__")]
-
-
-def exit_with_object(dbutils: object, results: ReturnObject):
-    """Finish execution returning an object to the notebook's caller.
-
-    Used to return the results of a write operation to the orchestrator.
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-    results : ReturnObject
-        Object containing the results of a write operation.
-    """
-    results_json = json.dumps(results, default=vars)
-    if dbutils:
-        dbutils.notebook.exit(results_json)
-    else:
-        raise Exception(results_json)
-
-
-def exit_with_last_exception(dbutils: object):
-    """Handle the last unhandled exception, returning an object to the notebook's caller.
-
-    The most recent exception is obtained from sys.exc_info().
-
-    Parameters
-    ----------
-    dbutils : object
-        A Databricks utils object.
-
-    Examples
-    --------
-    >>> try:
-    >>>    # some code
-    >>> except:
-    >>>    common_utils..exit_with_last_exception()
-    """
-    exc_type, exc_value, _ = sys.exc_info()
-    results = ReturnObject(
-        status=RunStatus.FAILED,
-        target_object="",
-        error_message=f"{exc_type.__name__}: {exc_value}",
-        error_details=traceback.format_exc(),
-    )
-    exit_with_object(dbutils, results)
 
 
 def configure_spn_access_for_adls(
@@ -217,3 +182,49 @@ def configure_spn_access_for_adls(
 
     except Exception:
         exit_with_last_exception(dbutils)
+
+
+def exit_with_object(dbutils: object, results: ReturnObject):
+    """Finish execution returning an object to the notebook's caller.
+
+    Used to return the results of a write operation to the orchestrator.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    results : ReturnObject
+        Object containing the results of a write operation.
+    """
+    results_json = json.dumps(results, default=vars)
+    if dbutils:
+        dbutils.notebook.exit(results_json)
+    else:
+        raise Exception(results_json)
+
+
+def exit_with_last_exception(dbutils: object):
+    """Handle the last unhandled exception, returning an object to the notebook's caller.
+
+    The most recent exception is obtained from sys.exc_info().
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+
+    Examples
+    --------
+    >>> try:
+    >>>    # some code
+    >>> except:
+    >>>    common_utils.exit_with_last_exception(dbutils)
+    """
+    exc_type, exc_value, _ = sys.exc_info()
+    results = ReturnObject(
+        status=RunStatus.FAILED,
+        target_object="",
+        error_message=f"{exc_type.__name__}: {exc_value}",
+        error_details=traceback.format_exc(),
+    )
+    exit_with_object(dbutils, results)
