@@ -94,7 +94,7 @@ class ColumnMapping():
     nullable : bool, default=True
         Whether the target column should allow null values.
         Used for data quality checks.
-    """   
+    """
     def __init__(
         self,
         source_column_name: str,

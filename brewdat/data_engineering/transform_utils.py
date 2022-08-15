@@ -369,7 +369,7 @@ def apply_column_mappings(
             expression = f"CAST({source_expression} AS {mapping.target_data_type}) AS `{mapping.target_column_name}`"
             expressions.append(expression)
         df = df.selectExpr(*expressions)
- 
+
         return df, unmapped_columns
 
     except Exception:
