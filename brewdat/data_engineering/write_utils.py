@@ -866,8 +866,8 @@ def _write_table_using_append_new(
         schema_evolution_mode=schema_evolution_mode,
     )
 
-    # Build merge condition
-    merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
+    # Build merge condition using null-safe equal to avoid duplicating null keys
+    merge_condition_parts = [f"source.`{col}` <=> target.`{col}`" for col in key_columns]
     merge_condition = " AND ".join(merge_condition_parts)
 
     # Write to the delta table
@@ -933,8 +933,8 @@ def _write_table_using_upsert(
         schema_evolution_mode=schema_evolution_mode,
     )
 
-    # Build merge condition
-    merge_condition_parts = [f"source.`{col}` = target.`{col}`" for col in key_columns]
+    # Build merge condition using null-safe equal to avoid duplicating null keys
+    merge_condition_parts = [f"source.`{col}` <=> target.`{col}`" for col in key_columns]
     merge_condition = " AND ".join(merge_condition_parts)
 
     # Write to the delta table
@@ -1006,8 +1006,8 @@ def _write_table_using_type_2_scd(
         schema_evolution_mode=schema_evolution_mode,
     )
 
-    # Build merge conditions
-    merge_condition = "source.__hash_key = target.__hash_key"
+    # Build merge condition using null-safe equal to avoid duplicating null keys
+    merge_condition = "source.__hash_key <=> target.__hash_key"
     update_condition = "source.__is_active = false and target.__is_active = true"
 
     # Write to the delta table
