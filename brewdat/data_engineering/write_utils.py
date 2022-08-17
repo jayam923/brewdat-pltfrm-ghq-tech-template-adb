@@ -217,6 +217,7 @@ def write_delta_table(
                 df=df,
                 location=location,
                 key_columns=key_columns,
+                partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.UPSERT:
@@ -225,6 +226,7 @@ def write_delta_table(
                 df=df,
                 location=location,
                 key_columns=key_columns,
+                partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.TYPE_2_SCD:
@@ -232,8 +234,8 @@ def write_delta_table(
                 spark=spark,
                 df=df,
                 location=location,
-                partition_columns=partition_columns,
                 key_columns=key_columns,
+                partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
             )
         else:
@@ -807,8 +809,8 @@ def _write_table_using_append_all(
         spark=spark,
         df=df,
         location=location,
-        schema_evolution_mode=schema_evolution_mode,
         partition_columns=partition_columns,
+        schema_evolution_mode=schema_evolution_mode,
     )
     df_writer.mode("append").save(location)
 
@@ -820,6 +822,7 @@ def _write_table_using_append_new(
     df: DataFrame,
     location: str,
     key_columns: List[str] = [],
+    partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using APPEND_NEW.
@@ -835,6 +838,8 @@ def _write_table_using_append_new(
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
@@ -853,6 +858,7 @@ def _write_table_using_append_new(
             spark=spark,
             df=df,
             location=location,
+            partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
 
@@ -884,6 +890,7 @@ def _write_table_using_upsert(
     df: DataFrame,
     location: str,
     key_columns: List[str] = [],
+    partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using UPSERT.
@@ -899,6 +906,8 @@ def _write_table_using_upsert(
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
@@ -917,6 +926,7 @@ def _write_table_using_upsert(
             spark=spark,
             df=df,
             location=location,
+            partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
 
