@@ -112,10 +112,11 @@ try:
     dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
     mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
     for mapping in mappings:
-        dq_checker = dq_checker.check_column_type_cast(
-            column_name=mapping.source_column_name,
-            data_type=mapping.target_data_type,
-        )
+        if mapping.target_data_type != "string":
+            dq_checker = dq_checker.check_column_type_cast(
+                column_name=mapping.source_column_name,
+                data_type=mapping.target_data_type,
+            )
         if not mapping.nullable:
             dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
 
