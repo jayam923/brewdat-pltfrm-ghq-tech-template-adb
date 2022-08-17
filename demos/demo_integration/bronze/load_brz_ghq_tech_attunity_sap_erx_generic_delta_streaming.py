@@ -27,10 +27,6 @@ dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
-dbutils.widgets.text("data_interval_start", "2022-08-05 00:00:00.000000", "08 - data_interval_start")
-data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
-
 # COMMAND ----------
 
 import sys
