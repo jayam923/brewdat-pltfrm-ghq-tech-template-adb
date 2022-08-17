@@ -448,10 +448,10 @@ def _write_to_error_table(
         Absolute Delta Lake path for the physical location of this delta table.
         Used to determine proper error table location.
     database_name : str
-        Name of the database/schema for the table in the metastore.
-        Database is created if it does not exist.
+        Name of the database/schema for the table in the metastore. Used to
+        determine proper error table name. Database is created if it does not exist.
     table_name : str
-        Name of the table in the metastore used to determine proper error table name.
+        Name of the table in the metastore.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the error delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
@@ -462,8 +462,8 @@ def _write_to_error_table(
     int
         Number of records written to error location.
     """
-    error_table_name = table_name + "_err"
-    error_location = location.rstrip("/") + "_err/"
+    error_database_name = database_name + "_err"
+    error_location = location.replace(database_name, error_database_name, 1)
 
     df = (
         df
@@ -481,15 +481,15 @@ def _write_to_error_table(
 
     _create_external_hive_table(
         spark=spark,
-        database_name=database_name,
-        table_name=error_table_name,
+        database_name=error_database_name,
+        table_name=table_name,
         location=error_location,
     )
 
     _vacuum_delta_table(
         spark=spark,
-        database_name=database_name,
-        table_name=error_table_name,
+        database_name=error_database_name,
+        table_name=table_name,
         time_travel_retention_days=time_travel_retention_days,
     )
 
