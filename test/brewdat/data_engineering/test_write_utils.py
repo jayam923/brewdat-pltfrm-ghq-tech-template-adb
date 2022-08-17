@@ -761,6 +761,7 @@ def test_write_duplicated_data_for_upsert(tmpdir):
     assert result_2.error_message.startswith(expected_message_for_merging_duplicated_records)
     assert 1 == result_df.count()
 
+
 def test_write_delta_table_append_new(tmpdir):
     # ARRANGE
     df = spark.createDataFrame([
@@ -783,9 +784,9 @@ def test_write_delta_table_append_new(tmpdir):
             "address": "Street 01"
             }
     ])
-    location = f"file://{tmpdir}/test_write_delta_table_append_new"
-    database_name = "test_schema"
     table_name = "test_write_delta_table_append_new"
+    location = f"file://{tmpdir}/{database_name}/{table_name}"
+
     # ACT
     
     result = write_delta_table(
@@ -1067,7 +1068,7 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
     assert 2 == result3.num_records_loaded
 
 
-def test_append_append_new_load_count(tmpdir):
+def test_append_new_load_count(tmpdir):
     df1 = spark.createDataFrame([
         {"id": "111", "phone_number": "00000000000", },
     ])
@@ -1081,8 +1082,13 @@ def test_append_append_new_load_count(tmpdir):
         {"id": "111", "phone_number": "00000000000", },
     ])
 
-    location = f"file://{tmpdir}/test_append_append_new_load_count"
-    table_name = "test_append_append_new_load_count"
+    df4 = spark.createDataFrame([
+        {"id": "333", "phone_number": "00000000001", },
+        {"id": "444", "phone_number": "00000000001", },
+    ])
+
+    location = f"file://{tmpdir}/test_append_new_load_count"
+    table_name = "test_append_new_load_count"
 
     print("############# ROUND 1")
     result1 = write_delta_table(
@@ -1117,9 +1123,22 @@ def test_append_append_new_load_count(tmpdir):
         load_type=LoadType.APPEND_NEW,
     )
 
+    print("############# ROUND 4")
+    result4 = write_delta_table(
+        spark=spark,
+        df=df4,
+        location=location,
+        database_name=database_name,
+        table_name=table_name,
+        key_columns=["id"],
+        load_type=LoadType.APPEND_NEW,
+    )
+
+    print(vars(result2))
     assert 1 == result1.num_records_loaded
     assert 1 == result2.num_records_loaded
     assert 0 == result3.num_records_loaded
+    assert 2 == result4.num_records_loaded
 
 
 def test_type2_scd_load_count(tmpdir):
@@ -1202,8 +1221,8 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     df4 = spark.createDataFrame([
         {"id": "111", "phone_number": "00000000000", "__data_quality_issues": ["There is a DQ issue"]},
     ])
-    location = f"file://{tmpdir}/test_write_bad_records_write_to_error_location_mode"
     table_name = "test_write_bad_records_write_to_error_location_mode"
+    location = f"file://{tmpdir}/{database_name}/{table_name}"
 
     # ACT
     result1 = write_delta_table(
@@ -1272,7 +1291,7 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     assert "__data_quality_issues" not in result_df.columns
     assert 4 == result_df.count()
 
-    error_df = spark.table(f"{database_name}.{table_name}_err")
+    error_df = spark.table(f"{database_name}_err.{table_name}")
     assert 2 == error_df.count()
 
 

@@ -676,9 +676,10 @@ def _get_latest_output_row_count(
     try:
         current_version_details = _get_current_delta_version_details(spark=spark, location=location)
         operation_metrics = current_version_details["operationMetrics"]
-        if current_version_details["operation"] != "MERGE":
-            return int(operation_metrics["numOutputRows"])
-        return int(operation_metrics["numTargetRowsInserted"]) + int(operation_metrics["numTargetRowsUpdated"])
+        num_output_rows = int(operation_metrics["numOutputRows"])
+        if current_version_details["operation"] == "MERGE":
+            return num_output_rows - int(operation_metrics["numTargetRowsCopied"])
+        return num_output_rows
     except Exception:
         return None
 
