@@ -35,7 +35,7 @@ class LoadType(str, Enum):
     """Load type where records of a df are appended as new records or update existing records based on the key.
     This does NOT delete existing records that are not included in the DataFrame."""
     TYPE_2_SCD = "TYPE_2_SCD"
-    """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+    """Load type that implements the standard type-2 Slowly Changing Dimension.
     This essentially uses an upsert that keeps track of all previous versions of each record.
     For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension"""
 
