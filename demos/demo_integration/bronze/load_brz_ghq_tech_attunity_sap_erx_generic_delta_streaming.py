@@ -72,6 +72,7 @@ common_utils.configure_spn_access_for_adls(
 base_df = (
     spark.readStream
     .format("delta")
+    .option("ignoreChanges", True)  # reprocess updates to old files, if any
     .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
     .withColumn("__src_file", F.input_file_name())
 )
@@ -83,6 +84,7 @@ base_df = (
 ct_df = (
     spark.readStream
     .format("delta")
+    .option("ignoreChanges", True)  # reprocess updates to old files, if any
     .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
@@ -162,7 +164,6 @@ try:
     # Trigger streaming micro-batch
     (
         audit_df.writeStream
-        .option("ignoreChanges", True)  # reprocess updates to old files, if any
         .option("checkpointLocation", location.rstrip("/") + "/_checkpoint")
         .trigger(once=True)
         .foreachBatch(append_to_bronze_table)
