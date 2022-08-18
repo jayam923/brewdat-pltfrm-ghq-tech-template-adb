@@ -11,19 +11,23 @@ dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"source_table: {source_table}")
 
-dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
+dbutils.widgets.text("source_region", "europe", "04 - source_region")
+source_region = dbutils.widgets.get("source_region")
+print(f"source_region: {source_region}")
+
+dbutils.widgets.text("target_zone", "ghq", "05 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"target_zone: {target_zone}")
 
-dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "07 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "kna1", "08 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
@@ -45,6 +49,11 @@ help(read_utils)
 
 # COMMAND ----------
 
+attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_region_system_map[source_region]}_prelz/prelz_sap_{sap_region_system_map[source_region]}"
+print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
+
+# COMMAND ----------
+
 # Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
     spark=spark,
@@ -63,7 +72,7 @@ common_utils.configure_spn_access_for_adls(
 base_df = (
     spark.readStream
     .format("delta")
-    .load(f"{brewdat_ghq_root}/{attunity_sap_erx_prelz_root}_{source_table}")
+    .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
     .withColumn("__src_file", F.input_file_name())
 )
 
@@ -74,7 +83,7 @@ base_df = (
 ct_df = (
     spark.readStream
     .format("delta")
-    .load(f"{brewdat_ghq_root}/{attunity_sap_erx_prelz_root}_{source_table}__ct")
+    .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
