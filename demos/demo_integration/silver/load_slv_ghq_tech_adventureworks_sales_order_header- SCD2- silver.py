@@ -125,10 +125,6 @@ audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=d
 
 # COMMAND ----------
 
-print(location)
-
-# COMMAND ----------
-
 location = lakehouse_utils.generate_silver_table_location(
     dbutils=dbutils,
     lakehouse_silver_root=lakehouse_silver_root,
