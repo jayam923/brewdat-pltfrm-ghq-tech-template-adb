@@ -104,7 +104,7 @@ effective_data_interval_end = (
     .select(F.max(F.col("TARGET_APPLY_TS")))
             .collect()[0][0]
 )
-print(effective_data_interval_end)
+print(f"effective_data_interval_end: {effective_data_interval_end}")
 
 # COMMAND ----------
 
