@@ -90,6 +90,24 @@ common_utils.configure_spn_access_for_adls(
 
 from pyspark.sql import functions as F
 
+effective_data_interval_end = (
+    spark.read
+    .table(f"{source_hive_database}.{source_hive_table}")
+    .filter(F.col("TARGET_APPLY_DT").between(
+        F.to_date(F.lit(data_interval_start)),
+        F.to_date(F.lit(data_interval_end)),
+    ))
+    .filter(F.col("TARGET_APPLY_TS").between(
+        F.to_timestamp(F.lit(data_interval_start)),
+        F.to_timestamp(F.lit(data_interval_end)),
+    ))
+    .select(F.max(F.col("TARGET_APPLY_TS")))
+            .collect()[0][0]
+)
+print(effective_data_interval_end)
+
+# COMMAND ----------
+
 bronze_df = (
     spark.read
     .table(f"{source_hive_database}.{source_hive_table}")
@@ -100,6 +118,10 @@ bronze_df = (
     .filter(F.col("TARGET_APPLY_TS").between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(data_interval_end)),
+    ))
+    .filter(F.col("TARGET_APPLY_TS").between(
+        F.to_timestamp(F.lit(data_interval_start)),
+        F.to_timestamp(F.lit(effective_data_interval_end)),
     ))
 )
 
@@ -182,7 +204,7 @@ results = write_utils.write_delta_table(
 )
 
 results.effective_data_interval_start = data_interval_start
-results.effective_data_interval_end = data_interval_end
+results.effective_data_interval_end = effective_data_interval_end
 
 # Warn in case of relevant unmapped columns
 unmapped_columns = list(filter(lambda c: not c.startswith("header__"), unmapped_columns))
