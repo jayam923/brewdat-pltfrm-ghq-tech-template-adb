@@ -2,7 +2,7 @@ import json
 import sys
 import traceback
 from enum import Enum, unique
-from typing import List
+from typing import List,Any
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -99,15 +99,35 @@ class ColumnMapping():
         self,
         source_column_name: str,
         target_data_type: str,
+        nullable: bool=True,
+        check_min_length: int = None,
+        check_max_length: int = None,
+        check_min_value: Any = None,
+        check_max_value: Any = None,
+        check_valid_values: List[Any] = None,
+        check_invalid_values: List[Any] = None,
+        check_matches_regex: str = None,
+        check_not_matches_regex: str = None,
+        check_composite_column_value_is_unique: List[Any]=None,
         sql_expression: str = None,
         target_column_name: str = None,
-        nullable: bool = True,
+        
+        
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
         self.nullable = nullable
+        self.check_max_length=check_max_length
+        self.check_min_length=check_min_length
+        self.check_max_value=check_max_value
+        self.check_min_value=check_min_value
+        self.check_valid_values=check_valid_values
+        self.check_invalid_values=check_invalid_values
+        self.check_matches_regex=check_matches_regex
+        self.check_not_matches_regex=check_not_matches_regex
+        self.check_composite_column_value_is_unique=check_composite_column_value_is_unique
 
     def __str__(self):
         return str(vars(self))

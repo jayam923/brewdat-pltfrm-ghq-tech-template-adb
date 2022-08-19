@@ -56,6 +56,16 @@ partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"partition_columns: {partition_columns}")
 
+dbutils.widgets.text("json_dq_check", "", "14 - json_dq_check")
+json_dq_check = dbutils.widgets.get("json_dq_check")
+print(f"json_dq_check: {json_dq_check}")
+
+dbutils.widgets.text("json_dq_mapping", "[]", "15 - json_dq_mapping")
+json_dq_mapping = dbutils.widgets.get("json_mapping")
+json_dq_mapping = json.loads(json_dq_mapping)
+print(f"json_dq_mapping: {json_dq_mapping}")
+
+
 # COMMAND ----------
 
 import sys
@@ -108,23 +118,58 @@ bronze_df = (
 # COMMAND ----------
 
 try:
+    dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)    
     # Apply data quality checks based on given column mappings
-    dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
     mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
     for mapping in mappings:
-        dq_checker = dq_checker.check_column_type_cast(
-            column_name=mapping.source_column_name,
-            data_type=mapping.target_data_type,
-        )
-        if not mapping.nullable:
+        if mapping.target_data_type!="string":
+            dq_checker = dq_checker.check_column_type_cast(
+                column_name=mapping.source_column_name,
+                data_type=mapping.target_data_type,
+            )
+        if mapping.nullable is not None:
             dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
 
-    bronze_dq_df = dq_checker.build_df()
 
-    #display(bronze_dq_df)
+except Exception:
+    #common_utils.exit_with_last_exception(dbutils=dbutils)
+
+# COMMAND ----------
+
+try:
+    if json_dq_check=='yes':
+    # Apply data quality checks based on given column mappings
+        mappings = [common_utils.ColumnMapping(**mapping) for mapping in json_dq_mapping]
+        for mapping in mappings:
+            if mapping.check_max_length is not None:
+                dq_checker = dq_checker.check_column_max_length(mapping.source_column_name,maximum_length=mapping.check_max_length)
+            if mapping.check_min_length is not None:
+                dq_checker = dq_checker.check_column_min_length(mapping.source_column_name,minimum_length=mapping.check_min_length)
+            if mapping.check_max_value is not None:
+                dq_checker = dq_checker.check_column_max_value(mapping.source_column_name,maximum_value=mapping.check_max_value)
+            if mapping.check_min_value is not None:
+                dq_checker = dq_checker.check_column_min_value(mapping.source_column_name,minimum_value=mapping.check_min_value)
+            if mapping.check_valid_values is not None:
+                dq_checker = dq_checker.check_column_value_is_in(mapping.source_column_name,valid_values=mapping.check_valid_values)
+            if mapping.check_invalid_values is not None:
+                dq_checker = dq_checker.check_column_value_is_not_in(mapping.source_column_name,invalid_values=mapping.check_invalid_values)
+            if mapping.check_matches_regex is not None:
+                dq_checker = dq_checker.check_column_matches_regular_expression(mapping.source_column_name,regular_expression=mapping.check_matches_regex)
+            if mapping.check_not_matches_regex is not None:
+                dq_checker = dq_checker.check_column_matches_regular_expression(mapping.source_column_name,regular_expression=mapping.check_not_matches_regex)
+            if mapping.check_composite_column_value_is_unique is not None:
+                dq_checker = dq_checker.check_composite_column_value_is_unique(mapping.source_column_name,column_names=check_composite_column_value_is_unique)
+
 
 except Exception:
     common_utils.exit_with_last_exception(dbutils=dbutils)
+
+# COMMAND ----------
+
+bronze_dq_df = dq_checker.build_df()
+#display(bronze_dq_df)
+
+
 
 # COMMAND ----------
 
