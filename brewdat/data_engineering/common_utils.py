@@ -125,9 +125,9 @@ def configure_spn_access_for_adls(
 ):
     """Set up access to an ADLS Storage Account using a Service Principal.
 
-    We try to use Hadoop Configuration to make it available to the RDD API.
+    We try to use Spark Context to make it available to the RDD API.
     This is a requirement for using spark-xml and similar libraries.
-    If Hadoop Configuration fails, we use Spark Session configuration instead.
+    If Spark Context fails, we use Spark Session configuration instead.
 
     Parameters
     ----------
@@ -171,7 +171,7 @@ def configure_spn_access_for_adls(
                     f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
                 )
             except Py4JError:
-                print("Could not configure ADLS access using Hadoop Configuration. " \
+                print("Could not configure ADLS access using Spark Context. " \
                       "Falling back to Spark Session configuration. " \
                       "XML and Excel libraries will not be supported.")
 
