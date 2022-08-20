@@ -678,7 +678,7 @@ def _get_latest_output_row_count(
         operation_metrics = current_version_details["operationMetrics"]
         num_output_rows = int(operation_metrics["numOutputRows"])
         if current_version_details["operation"] == "MERGE":
-            return num_output_rows - int(operation_metrics["numTargetRowsCopied"])
+            num_output_rows -= int(operation_metrics["numTargetRowsCopied"])
         return num_output_rows
     except Exception:
         return None
