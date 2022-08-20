@@ -171,8 +171,8 @@ def configure_spn_access_for_adls(
                     f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
                 )
             except Py4JError:
-                print("Could not configure ADLS access using Spark Context. " \
-                      "Falling back to Spark Session configuration. " \
+                print("Could not configure ADLS access using Spark Context. " + \
+                      "Falling back to Spark Session configuration. " + \
                       "XML and Excel libraries will not be supported.")
 
                 spark.conf.set(

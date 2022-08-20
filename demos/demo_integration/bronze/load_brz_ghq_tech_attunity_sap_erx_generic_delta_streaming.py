@@ -3,7 +3,7 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_system", "attunity_sap_ero", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"source_system: {source_system}")
 
@@ -38,19 +38,14 @@ from pyspark.sql import functions as F
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
 # Print a module's help
-help(read_utils)
+help(common_utils)
 
 # COMMAND ----------
 
 # MAGIC %run "../set_project_context"
-
-# COMMAND ----------
-
-attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_region_system_map[source_region]}_prelz/prelz_sap_{sap_region_system_map[source_region]}"
-print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 
 # COMMAND ----------
 
@@ -69,27 +64,41 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-base_df = (
-    spark.readStream
-    .format("delta")
-    .option("ignoreChanges", True)  # reprocess updates to old files, if any
-    .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
-    .withColumn("__src_file", F.input_file_name())
-)
+sap_sid = source_system_to_sap_sid.get(source_system)
+attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
+print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
+
+# COMMAND ----------
+
+try:
+    base_df = (
+        spark.readStream
+        .format("delta")
+        .option("ignoreChanges", True)  # reprocess updates to old files, if any
+        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
+        .withColumn("__src_file", F.input_file_name())
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(base_df)
 
 # COMMAND ----------
 
-ct_df = (
-    spark.readStream
-    .format("delta")
-    .option("ignoreChanges", True)  # reprocess updates to old files, if any
-    .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
-    # Ignore "Before Image" records from update operations
-    .filter("header__change_oper != 'B'")
-    .withColumn("__src_file", F.input_file_name())
-)
+try:
+    ct_df = (
+        spark.readStream
+        .format("delta")
+        .option("ignoreChanges", True)  # reprocess updates to old files, if any
+        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
+        # Ignore "Before Image" records from update operations
+        .filter("header__change_oper != 'B'")
+        .withColumn("__src_file", F.input_file_name())
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(ct_df)
 

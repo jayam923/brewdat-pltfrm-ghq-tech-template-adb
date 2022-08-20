@@ -3,7 +3,7 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_system", "attunity_sap_ero", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"source_system: {source_system}")
 
@@ -11,27 +11,23 @@ dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"source_table: {source_table}")
 
-dbutils.widgets.text("source_region", "europe", "04 - source_region")
-source_region = dbutils.widgets.get("source_region")
-print(f"source_region: {source_region}")
-
-dbutils.widgets.text("target_zone", "ghq", "05 - target_zone")
+dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"target_zone: {target_zone}")
 
-dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "07 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "kna1", "08 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
-dbutils.widgets.text("data_interval_start", "2022-08-05 00:00:00.000000", "09 - data_interval_start")
+dbutils.widgets.text("data_interval_start", "2022-08-05 00:00:00.000000", "08 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
@@ -42,19 +38,14 @@ from pyspark.sql import functions as F
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
 # Print a module's help
-help(read_utils)
+help(common_utils)
 
 # COMMAND ----------
 
 # MAGIC %run "../set_project_context"
-
-# COMMAND ----------
-
-attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_region_system_map[source_region]}_prelz/prelz_sap_{sap_region_system_map[source_region]}"
-print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 
 # COMMAND ----------
 
@@ -73,22 +64,37 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-base_df = (
-    spark.read
-    .format("delta")
-    .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
-)
+sap_sid = source_system_to_sap_sid.get(source_system)
+attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
+print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
+
+# COMMAND ----------
+
+try:
+    base_df = (
+        spark.read
+        .format("delta")
+        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
+        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(base_df)
 
 # COMMAND ----------
 
-ct_df = (
-    spark.read
-    .format("delta")
-    .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
-    .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
-)
+try:
+    ct_df = (
+        spark.read
+        .format("delta")
+        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
+        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(ct_df)
 
