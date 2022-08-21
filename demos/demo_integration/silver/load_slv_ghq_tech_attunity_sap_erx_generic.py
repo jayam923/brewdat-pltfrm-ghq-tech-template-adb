@@ -90,40 +90,53 @@ common_utils.configure_spn_access_for_adls(
 
 from pyspark.sql import functions as F
 
-effective_data_interval_end = (
-    spark.read
-    .table(f"{source_hive_database}.{source_hive_table}")
-    .filter(F.col("TARGET_APPLY_DT").between(
-        F.to_date(F.lit(data_interval_start)),
-        F.to_date(F.lit(data_interval_end)),
-    ))
-    .filter(F.col("TARGET_APPLY_TS").between(
-        F.to_timestamp(F.lit(data_interval_start)),
-        F.to_timestamp(F.lit(data_interval_end)),
-    ))
-    .select(F.max(F.col("TARGET_APPLY_TS")))
-            .collect()[0][0]
-)
-print(f"effective_data_interval_end: {effective_data_interval_end}")
+try:
+    latest_partition_in_data_interval = (
+        spark.read
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .filter(F.col("TARGET_APPLY_DT").between(
+            F.to_date(F.lit(data_interval_start)),
+            F.to_date(F.lit(data_interval_end)),
+        ))
+        .agg(F.max("TARGET_APPLY_DT"))
+        .collect()[0][0]
+    )
+    print(f"latest_partition_in_data_interval: {latest_partition_in_data_interval}")
+
+    effective_data_interval_end = (
+        spark.read
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition_in_data_interval))
+        .filter(F.col("TARGET_APPLY_TS").between(
+            F.to_timestamp(F.lit(data_interval_start)),
+            F.to_timestamp(F.lit(data_interval_end)),
+        ))
+        .agg(F.max("TARGET_APPLY_TS"))
+        .collect()[0][0]
+    )
+    print(f"effective_data_interval_end: {effective_data_interval_end}")
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 # COMMAND ----------
 
-bronze_df = (
-    spark.read
-    .table(f"{source_hive_database}.{source_hive_table}")
-    .filter(F.col("TARGET_APPLY_DT").between(
-        F.to_date(F.lit(data_interval_start)),
-        F.to_date(F.lit(data_interval_end)),
-    ))
-    .filter(F.col("TARGET_APPLY_TS").between(
-        F.to_timestamp(F.lit(data_interval_start)),
-        F.to_timestamp(F.lit(data_interval_end)),
-    ))
-    .filter(F.col("TARGET_APPLY_TS").between(
-        F.to_timestamp(F.lit(data_interval_start)),
-        F.to_timestamp(F.lit(effective_data_interval_end)),
-    ))
-)
+try:
+    bronze_df = (
+        spark.read
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .filter(F.col("TARGET_APPLY_DT").between(
+            F.to_date(F.lit(data_interval_start)),
+            F.to_date(F.lit(data_interval_end)),
+        ))
+        .filter(F.col("TARGET_APPLY_TS").between(
+            F.to_timestamp(F.lit(data_interval_start)),
+            F.to_timestamp(F.lit(effective_data_interval_end)),
+        ))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(bronze_df)
 
