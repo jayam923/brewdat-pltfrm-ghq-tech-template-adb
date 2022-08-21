@@ -463,7 +463,10 @@ def _write_to_error_table(
         Number of records written to error location.
     """
     error_database_name = database_name + "_err"
-    error_location = location.replace(database_name, error_database_name, 1)
+    if database_name in location:
+        error_location = location.replace(database_name, error_database_name, 1)
+    else:
+        error_location = location.rstrip("/") + "_err/"
 
     df = (
         df
