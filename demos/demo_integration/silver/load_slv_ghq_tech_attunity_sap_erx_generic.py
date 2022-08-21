@@ -5,11 +5,11 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_system", "attunity_sap_ero", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"source_system: {source_system}")
 
-dbutils.widgets.text("source_hive_database", "brz_ghq_tech_attunity_sap_ero", "03 - source_hive_database")
+dbutils.widgets.text("source_hive_database", "brz_ghq_tech_sap_europe", "03 - source_hive_database")
 source_hive_database = dbutils.widgets.get("source_hive_database")
 print(f"source_hive_database: {source_hive_database}")
 
@@ -25,7 +25,7 @@ dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "slv_ghq_tech_attunity_sap_ero", "07 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "slv_ghq_tech_sap_europe", "07 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
@@ -37,21 +37,17 @@ dbutils.widgets.text("data_interval_start", "2022-08-02 00:00:00.0000000", "09 -
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
-dbutils.widgets.text("data_interval_end", "2022-08-03 00:00:00.0000000", "10 - data_interval_end")
-data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
-
-dbutils.widgets.text("silver_mapping", "[]", "11 - silver_mapping")
+dbutils.widgets.text("silver_mapping", "[]", "10 - silver_mapping")
 silver_mapping = dbutils.widgets.get("silver_mapping")
 silver_mapping = json.loads(silver_mapping)
 print(f"silver_mapping: {silver_mapping}")
 
-dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "12 - key_columns")
+dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "11 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
 print(f"key_columns: {key_columns}")
 
-dbutils.widgets.text("partition_columns", "[]", "13 - partition_columns")
+dbutils.widgets.text("partition_columns", "[]", "12 - partition_columns")
 partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"partition_columns: {partition_columns}")
@@ -91,29 +87,24 @@ common_utils.configure_spn_access_for_adls(
 from pyspark.sql import functions as F
 
 try:
-    latest_partition_in_data_interval = (
+    latest_partition = (
         spark.read
         .table(f"{source_hive_database}.{source_hive_table}")
-        .filter(F.col("TARGET_APPLY_DT").between(
-            F.to_date(F.lit(data_interval_start)),
-            F.to_date(F.lit(data_interval_end)),
-        ))
         .agg(F.max("TARGET_APPLY_DT"))
         .collect()[0][0]
     )
-    print(f"latest_partition_in_data_interval: {latest_partition_in_data_interval}")
+    print(f"latest_partition: {latest_partition}")
 
-    effective_data_interval_end = (
+    max_watermark_value = (
         spark.read
         .table(f"{source_hive_database}.{source_hive_table}")
-        .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition_in_data_interval))
-        .filter(F.col("TARGET_APPLY_TS").between(
-            F.to_timestamp(F.lit(data_interval_start)),
-            F.to_timestamp(F.lit(data_interval_end)),
-        ))
+        .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition))
         .agg(F.max("TARGET_APPLY_TS"))
         .collect()[0][0]
     )
+    print(f"max_watermark_value: {max_watermark_value}")
+
+    effective_data_interval_end = max_watermark_value
     print(f"effective_data_interval_end: {effective_data_interval_end}")
 
 except Exception:
@@ -217,7 +208,7 @@ results = write_utils.write_delta_table(
 )
 
 results.effective_data_interval_start = data_interval_start
-results.effective_data_interval_end = effective_data_interval_end
+results.effective_data_interval_end = effective_data_interval_end or data_interval_start
 
 # Warn in case of relevant unmapped columns
 unmapped_columns = list(filter(lambda c: not c.startswith("header__"), unmapped_columns))

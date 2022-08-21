@@ -19,7 +19,7 @@ dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 

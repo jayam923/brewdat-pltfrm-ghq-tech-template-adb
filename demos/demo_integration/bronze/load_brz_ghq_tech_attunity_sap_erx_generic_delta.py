@@ -19,7 +19,7 @@ dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
@@ -106,7 +106,7 @@ print(f"max_base_watermark_value: {max_base_watermark_value}")
 max_ct_watermark_value = ct_df.select(F.max(F.col("TARGET_APPLY_TS")).cast("string")).collect()[0][0]
 print(f"max_ct_watermark_value: {max_ct_watermark_value}")
 
-effective_data_interval_end = max_ct_watermark_value or max_base_watermark_value or data_interval_start
+effective_data_interval_end = max_ct_watermark_value or max_base_watermark_value
 print(f"effective_data_interval_end: {effective_data_interval_end}")
 
 # COMMAND ----------
@@ -191,7 +191,7 @@ results = write_utils.write_delta_table(
     enable_caching=False,
 )
 results.effective_data_interval_start = data_interval_start
-results.effective_data_interval_end = effective_data_interval_end
+results.effective_data_interval_end = effective_data_interval_end or data_interval_start
 print(results)
 
 # COMMAND ----------
