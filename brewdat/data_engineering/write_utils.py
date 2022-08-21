@@ -35,7 +35,7 @@ class LoadType(str, Enum):
     """Load type where records of a df are appended as new records or update existing records based on the key.
     This does NOT delete existing records that are not included in the DataFrame."""
     TYPE_2_SCD = "TYPE_2_SCD"
-    """Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+    """Load type that implements the standard type-2 Slowly Changing Dimension.
     This essentially uses an upsert that keeps track of all previous versions of each record.
     For more information: https://en.wikipedia.org/wiki/Slowly_changing_dimension"""
 
@@ -217,6 +217,7 @@ def write_delta_table(
                 df=df,
                 location=location,
                 key_columns=key_columns,
+                partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.UPSERT:
@@ -225,6 +226,7 @@ def write_delta_table(
                 df=df,
                 location=location,
                 key_columns=key_columns,
+                partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
             )
         elif load_type == LoadType.TYPE_2_SCD:
@@ -232,8 +234,8 @@ def write_delta_table(
                 spark=spark,
                 df=df,
                 location=location,
-                partition_columns=partition_columns,
                 key_columns=key_columns,
+                partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
             )
         else:
@@ -446,10 +448,10 @@ def _write_to_error_table(
         Absolute Delta Lake path for the physical location of this delta table.
         Used to determine proper error table location.
     database_name : str
-        Name of the database/schema for the table in the metastore.
-        Database is created if it does not exist.
+        Name of the database/schema for the table in the metastore. Used to
+        determine proper error table name. Database is created if it does not exist.
     table_name : str
-        Name of the table in the metastore used to determine proper error table name.
+        Name of the table in the metastore.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the error delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
@@ -460,8 +462,8 @@ def _write_to_error_table(
     int
         Number of records written to error location.
     """
-    error_table_name = table_name + "_err"
-    error_location = location.rstrip("/") + "_err/"
+    error_database_name = database_name + "_err"
+    error_location = location.replace(database_name, error_database_name, 1)
 
     df = (
         df
@@ -479,15 +481,15 @@ def _write_to_error_table(
 
     _create_external_hive_table(
         spark=spark,
-        database_name=database_name,
-        table_name=error_table_name,
+        database_name=error_database_name,
+        table_name=table_name,
         location=error_location,
     )
 
     _vacuum_delta_table(
         spark=spark,
-        database_name=database_name,
-        table_name=error_table_name,
+        database_name=error_database_name,
+        table_name=table_name,
         time_travel_retention_days=time_travel_retention_days,
     )
 
@@ -674,9 +676,10 @@ def _get_latest_output_row_count(
     try:
         current_version_details = _get_current_delta_version_details(spark=spark, location=location)
         operation_metrics = current_version_details["operationMetrics"]
-        if current_version_details["operation"] != "MERGE":
-            return int(operation_metrics["numOutputRows"])
-        return int(operation_metrics["numTargetRowsInserted"]) + int(operation_metrics["numTargetRowsUpdated"])
+        num_output_rows = int(operation_metrics["numOutputRows"])
+        if current_version_details["operation"] == "MERGE":
+            num_output_rows -= int(operation_metrics["numTargetRowsCopied"])
+        return num_output_rows
     except Exception:
         return None
 
@@ -807,8 +810,8 @@ def _write_table_using_append_all(
         spark=spark,
         df=df,
         location=location,
-        schema_evolution_mode=schema_evolution_mode,
         partition_columns=partition_columns,
+        schema_evolution_mode=schema_evolution_mode,
     )
     df_writer.mode("append").save(location)
 
@@ -820,6 +823,7 @@ def _write_table_using_append_new(
     df: DataFrame,
     location: str,
     key_columns: List[str] = [],
+    partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using APPEND_NEW.
@@ -835,6 +839,8 @@ def _write_table_using_append_new(
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
@@ -853,6 +859,7 @@ def _write_table_using_append_new(
             spark=spark,
             df=df,
             location=location,
+            partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
 
@@ -884,6 +891,7 @@ def _write_table_using_upsert(
     df: DataFrame,
     location: str,
     key_columns: List[str] = [],
+    partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using UPSERT.
@@ -899,6 +907,8 @@ def _write_table_using_upsert(
     key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
@@ -917,6 +927,7 @@ def _write_table_using_upsert(
             spark=spark,
             df=df,
             location=location,
+            partition_columns=partition_columns,
             schema_evolution_mode=schema_evolution_mode,
         )
 

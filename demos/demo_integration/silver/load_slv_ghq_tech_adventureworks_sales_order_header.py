@@ -61,16 +61,20 @@ common_utils.configure_spn_access_for_adls(
 
 from pyspark.sql import functions as F
 
-key_columns = ["SalesOrderID"]
+try:
+    key_columns = ["SalesOrderID"]
 
-bronze_df = (
-    spark.read
-    .table("brz_ghq_tech_adventureworks.sales_order_header")
-    .filter(F.col("__ref_dt").between(
-        F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
-        F.date_format(F.lit(data_interval_end), "yyyyMMdd")
-    ))
-)
+    bronze_df = (
+        spark.read
+        .table("brz_ghq_tech_adventureworks.sales_order_header")
+        .filter(F.col("__ref_dt").between(
+            F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
+            F.date_format(F.lit(data_interval_end), "yyyyMMdd")
+        ))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(bronze_df)
 

@@ -4,6 +4,7 @@ import traceback
 from enum import Enum, unique
 from typing import List
 
+from py4j.protocol import Py4JError
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -113,24 +114,6 @@ class ColumnMapping():
         return str(vars(self))
 
 
-def list_non_metadata_columns(df: DataFrame) -> List[str]:
-    """Obtain a list of DataFrame columns except for metadata columns.
-
-    Metadata columns are all columns whose name begins with "__".
-
-    Parameters
-    ----------
-    df : DataFrame
-        The PySpark DataFrame to inspect.
-
-    Returns
-    -------
-    List[str]
-        The list of DataFrame columns, except for metadata columns.
-    """
-    return [col for col in df.columns if not col.startswith("__")]
-
-
 def configure_spn_access_for_adls(
     spark: SparkSession,
     dbutils: object,
@@ -142,8 +125,9 @@ def configure_spn_access_for_adls(
 ):
     """Set up access to an ADLS Storage Account using a Service Principal.
 
-    We use Hadoop Configuration to make it available to the RDD API.
+    We try to use Spark Context to make it available to the RDD API.
     This is a requirement for using spark-xml and similar libraries.
+    If Spark Context fails, we use Spark Session configuration instead.
 
     Parameters
     ----------
@@ -165,29 +149,72 @@ def configure_spn_access_for_adls(
     try:
         for storage_account_name in storage_account_names:
             storage_account_suffix = f"{storage_account_name}.dfs.core.windows.net"
-            spark._jsc.hadoopConfiguration().set(
-                f"fs.azure.account.auth.type.{storage_account_suffix}",
-                "OAuth"
-            )
-            spark._jsc.hadoopConfiguration().set(
-                f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
-                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
-            )
-            spark._jsc.hadoopConfiguration().set(
-                f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
-                spn_client_id
-            )
-            spark._jsc.hadoopConfiguration().set(
-                f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                dbutils.secrets.get(key_vault_name, spn_secret_name)
-            )
-            spark._jsc.hadoopConfiguration().set(
-                f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
-                f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
-            )
+            try:
+                spark._jsc.hadoopConfiguration().set(
+                    f"fs.azure.account.auth.type.{storage_account_suffix}",
+                    "OAuth"
+                )
+                spark._jsc.hadoopConfiguration().set(
+                    f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
+                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+                )
+                spark._jsc.hadoopConfiguration().set(
+                    f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
+                    spn_client_id
+                )
+                spark._jsc.hadoopConfiguration().set(
+                    f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
+                    dbutils.secrets.get(key_vault_name, spn_secret_name)
+                )
+                spark._jsc.hadoopConfiguration().set(
+                    f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
+                    f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
+                )
+            except Py4JError:
+                print("Could not configure ADLS access using Spark Context. " + \
+                      "Falling back to Spark Session configuration. " + \
+                      "XML and Excel libraries will not be supported.")
 
+                spark.conf.set(
+                    f"fs.azure.account.auth.type.{storage_account_suffix}",
+                    "OAuth"
+                )
+                spark.conf.set(
+                    f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
+                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+                )
+                spark.conf.set(
+                    f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
+                    spn_client_id
+                )
+                spark.conf.set(
+                    f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
+                    dbutils.secrets.get(key_vault_name, spn_secret_name)
+                )
+                spark.conf.set(
+                    f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
+                    f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
+                )
     except Exception:
         exit_with_last_exception(dbutils)
+
+
+def list_non_metadata_columns(df: DataFrame) -> List[str]:
+    """Obtain a list of DataFrame columns except for metadata columns.
+
+    Metadata columns are all columns whose name begins with "__".
+
+    Parameters
+    ----------
+    df : DataFrame
+        The PySpark DataFrame to inspect.
+
+    Returns
+    -------
+    List[str]
+        The list of DataFrame columns, except for metadata columns.
+    """
+    return [col for col in df.columns if not col.startswith("__")]
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):

@@ -19,7 +19,9 @@ if environment == "dev":
     key_vault_name = "brewdatpltfrmghqtechakvd"
     spn_client_id = "1d3aebfe-929c-4cc1-a988-31c040d2b798"
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-d"
-    attunity_sap_erx_prelz_root = "/attunity_sap/attunity_sap_ero_prelz/prelz_sap_ero"
+    source_system_to_sap_sid = {
+        "sap_europe": "ero",
+    }
     synapse_blob_storage_account_name = "brewdatpltfrmsynwkssad"
     synapse_connection_string = "jdbc:sqlserver://brewdat-pltfrm-synwks-d.sql.azuresynapse.net:1433;" + \
         "database=poc_sqlpool;encrypt=true;trustServerCertificate=false;loginTimeout=30;" + \
@@ -31,7 +33,9 @@ elif environment == "qa":
     key_vault_name = "brewdatpltfrmghqtechakvq"
     spn_client_id = "12345678-1234-1234-1234-123456789999"
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-q"
-    attunity_sap_erx_prelz_root = "/attunity_sap/attunity_sap_era_prelz/prelz_sap_era"
+    source_system_to_sap_sid = {
+        "sap_europe": "era",
+    }
     synapse_blob_storage_account_name = "brewdatpltfrmsynwkssaq"
     synapse_connection_string = "jdbc:sqlserver://brewdat-pltfrm-synwks-q.sql.azuresynapse.net:1433;" + \
         "database=poc_sqlpool;encrypt=true;trustServerCertificate=false;loginTimeout=30;" + \
@@ -43,7 +47,9 @@ elif environment == "prod":
     key_vault_name = "brewdatpltfrmghqtechakvp"
     spn_client_id = "12345678-1234-1234-1234-123456789999"
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-p"
-    attunity_sap_erx_prelz_root = "/attunity_sap/attunity_sap_erp_prelz/prelz_sap_erp"
+    source_system_to_sap_sid = {
+        "sap_europe": "erp",
+    }
     synapse_blob_storage_account_name = "brewdatpltfrmsynwkssap"
     synapse_connection_string = "jdbc:sqlserver://brewdat-pltfrm-synwks-p.sql.azuresynapse.net:1433;" + \
         "database=poc_sqlpool;encrypt=true;trustServerCertificate=false;loginTimeout=30;" + \
@@ -55,7 +61,7 @@ print(f"adls_brewdat_ghq_storage_account_name: {adls_brewdat_ghq_storage_account
 print(f"key_vault_name: {key_vault_name}")
 print(f"spn_client_id: {spn_client_id}")
 print(f"spn_secret_name: {spn_secret_name}")
-print(f"attunity_sap_erx_prelz_root: {attunity_sap_erx_prelz_root}")
+print(f"source_system_to_sap_sid: {source_system_to_sap_sid}")
 print(f"synapse_blob_storage_account_name: {synapse_blob_storage_account_name}")
 print(f"synapse_connection_string: {synapse_connection_string}")
 

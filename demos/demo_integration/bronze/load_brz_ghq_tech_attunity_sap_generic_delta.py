@@ -3,7 +3,7 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_system", "attunity_sap_ero", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"source_system: {source_system}")
 
@@ -19,7 +19,7 @@ dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_attunity_sap_ero", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
@@ -38,10 +38,10 @@ from pyspark.sql import functions as F
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
 
 # Print a module's help
-help(read_utils)
+help(common_utils)
 
 # COMMAND ----------
 
@@ -64,22 +64,37 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-base_df = (
-    spark.read
-    .format("delta")
-    .load(f"{brewdat_ghq_root}/{attunity_sap_erx_prelz_root}_{source_table}")
-)
+sap_sid = source_system_to_sap_sid.get(source_system)
+attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
+print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
+
+# COMMAND ----------
+
+try:
+    base_df = (
+        spark.read
+        .format("delta")
+        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
+        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(base_df)
 
 # COMMAND ----------
 
-ct_df = (
-    spark.read
-    .format("delta")
-    .load(f"{brewdat_ghq_root}/{attunity_sap_erx_prelz_root}_{source_table}__ct")
-    .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
-)
+try:
+    ct_df = (
+        spark.read
+        .format("delta")
+        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
+        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 #display(ct_df)
 
@@ -91,7 +106,7 @@ print(f"max_base_watermark_value: {max_base_watermark_value}")
 max_ct_watermark_value = ct_df.select(F.max(F.col("TARGET_APPLY_TS")).cast("string")).collect()[0][0]
 print(f"max_ct_watermark_value: {max_ct_watermark_value}")
 
-effective_data_interval_end = max_ct_watermark_value or max_base_watermark_value or data_interval_start
+effective_data_interval_end = max_ct_watermark_value or max_base_watermark_value
 print(f"effective_data_interval_end: {effective_data_interval_end}")
 
 # COMMAND ----------
@@ -176,7 +191,7 @@ results = write_utils.write_delta_table(
     enable_caching=False,
 )
 results.effective_data_interval_start = data_interval_start
-results.effective_data_interval_end = effective_data_interval_end
+results.effective_data_interval_end = effective_data_interval_end or data_interval_start
 print(results)
 
 # COMMAND ----------
