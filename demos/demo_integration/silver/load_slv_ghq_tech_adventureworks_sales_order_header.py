@@ -145,7 +145,6 @@ transformed_df = spark.sql("""
         CAST(Freight AS DECIMAL(19,4)) AS Freight,
         CAST(TotalDue AS DECIMAL(19,4)) AS TotalDue,
         TO_TIMESTAMP(ModifiedDate) AS ModifiedDate,
-        __ref_dt,
         __data_quality_issues
     FROM
         v_bronze_dq_df
