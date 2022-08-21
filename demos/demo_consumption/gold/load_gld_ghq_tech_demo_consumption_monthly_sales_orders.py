@@ -62,33 +62,33 @@ common_utils.configure_spn_access_for_adls(
 
 df = spark.sql("""
         SELECT
-            DATE_FORMAT(order_header.order_date, 'yyyy-MM') AS order_year_month,
-            order_header.online_order_flag,
-            customer.gender AS customer_gender,
-            ship_to_address.country_region AS ship_to_country_region,
-            ship_to_address.state_province AS ship_to_state_province,
-            ship_to_address.city AS ship_to_city,
-            COUNT(order_header.sales_order_id) AS total_orders,
-            SUM(order_header.sub_total) AS sum_sub_total
+            DATE_FORMAT(order_header.OrderDate, 'yyyy-MM') AS OrderYearMonth,
+            order_header.OnlineOrderFlag,
+            customer.Gender AS CustomerGender,
+            ship_to_address.CountryRegion AS ShipToCountryRegion,
+            ship_to_address.StateProvince AS ShipToStateProvince,
+            ship_to_address.City AS ShipToCity,
+            COUNT(order_header.SalesOrderID) AS TotalOrders,
+            SUM(order_header.SubTotal) AS SumSubTotal
         FROM
             slv_ghq_tech_adventureworks.sales_order_header AS order_header
             INNER JOIN slv_ghq_tech_adventureworks.customer
-                ON customer.customer_id = order_header.customer_id
+                ON customer.CustomerID = order_header.CustomerID
             INNER JOIN slv_ghq_tech_adventureworks.address AS ship_to_address
-                ON ship_to_address.address_id = order_header.ship_to_address_id
+                ON ship_to_address.AddressID = order_header.ShipToAddressID
         WHERE
-            order_header.status_code NOT IN (
+            order_header.Status NOT IN (
                 1, -- In Process
                 4, -- Rejected
                 6 -- Canceled
             )
         GROUP BY
-            order_year_month,
-            online_order_flag,
-            customer_gender,
-            ship_to_country_region,
-            ship_to_state_province,
-            ship_to_city
+            OrderYearMonth,
+            OnlineOrderFlag,
+            CustomerGender,
+            ShipToCountryRegion,
+            ShipToStateProvince,
+            ShipToCity
         WITH ROLLUP
     """.format(
         data_interval_start=data_interval_start,

@@ -60,21 +60,21 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-key_columns = ["sales_order_id"]
+key_columns = ["SalesOrderID"]
 
 df = spark.sql("""
         SELECT 
-            sales_order_id, 
-            status_code, 
-            online_order_flag, 
-            sales_order_number, 
-            order_header.customer_id, 
-            purchase_order_number,
+            SalesOrderID,
+            StatusDescription,
+            OnlineOrderFlag,
+            SalesOrderNumber,
+            order_header.CustomerID,
+            PurchaseOrderNumber,
             order_header.__update_gmt_ts
         FROM 
             slv_ghq_tech_adventureworks.sales_order_header AS order_header 
             LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer      
-                ON order_header.customer_id = customer.customer_id
+                ON order_header.CustomerID = customer.CustomerID
         WHERE
             order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
     """.format(
