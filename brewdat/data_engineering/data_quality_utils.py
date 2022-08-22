@@ -1,4 +1,5 @@
 from typing import Any, List, Union
+import uuid
 
 import pyspark.sql.functions as F
 from pyspark.sql import Column, DataFrame, Window
@@ -7,6 +8,7 @@ from . import common_utils
 
 
 DQ_RESULTS_COLUMN = "__data_quality_issues"
+DQ_TEMP_COLUMN_PREFIX = "__tmp_data_quality_issues_"
 
 
 class DataQualityChecker():
@@ -24,11 +26,11 @@ class DataQualityChecker():
         self.dbutils = dbutils
         self.df = df
 
-        if DQ_RESULTS_COLUMN not in self.df.columns:
-            self.df = self.df.withColumn(
-                DQ_RESULTS_COLUMN,
-                F.lit(None).cast("array<string>")
-            )
+        # if DQ_RESULTS_COLUMN not in self.df.columns:
+        #     self.df = self.df.withColumn(
+        #         DQ_RESULTS_COLUMN,
+        #         F.lit(None).cast("array<string>")
+        #     )
 
     def build_df(self) -> DataFrame:
         """Obtain the resulting DataFrame with data quality checks applied.
@@ -38,7 +40,14 @@ class DataQualityChecker():
         DataFrame
             The modified PySpark DataFrame with updated validation results.
         """
-        return self.df
+        tmp_dq_cols = [c for c in self.df.columns if c.startswith(DQ_TEMP_COLUMN_PREFIX)]
+        result_df = (
+            self.df
+                .withColumn(DQ_RESULTS_COLUMN, F.array(tmp_dq_cols))
+                .drop(*tmp_dq_cols)
+                .withColumn(DQ_RESULTS_COLUMN, F.array_except(DQ_RESULTS_COLUMN, F.array(F.lit(None))))
+        )
+        return result_df
 
     def check_narrow_condition(
         self,
@@ -87,13 +96,12 @@ class DataQualityChecker():
             self.df = (
                 self.df
                 .withColumn(
-                    DQ_RESULTS_COLUMN,
-                    F.when(~filter_condition, F.col(DQ_RESULTS_COLUMN))
-                    .when(
-                        ~expected_condition,
-                        F.concat(F.coalesce(DQ_RESULTS_COLUMN, F.array()), F.array(failure_message))
+                    f"{DQ_TEMP_COLUMN_PREFIX}{uuid.uuid4()}",
+                    F.when(
+                        filter_condition & ~expected_condition,
+                        F.lit(failure_message)
                     )
-                    .otherwise(F.col(DQ_RESULTS_COLUMN))
+                    .otherwise(F.lit(None))
                 )
             )
 
