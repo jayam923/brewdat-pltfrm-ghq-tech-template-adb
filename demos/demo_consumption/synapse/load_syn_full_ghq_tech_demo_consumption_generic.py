@@ -3,17 +3,20 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_v
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_hive_database", "gld_ghq_tech_demo_consumption", "2 - source_hive_database")
-source_hive_database = dbutils.widgets.get("source_hive_database")
-print(f"source_hive_database: {source_hive_database}")
+dbutils.widgets.text("source_object", "gld_ghq_tech_demo_consumption.monthly_sales_order", "2 - source_object")
+source_object = dbutils.widgets.get("source_object")
+print(f"source_object: {source_object}")
 
-dbutils.widgets.text("source_hive_table", "customer_orders", "3 - source_hive_table")
-source_hive_table = dbutils.widgets.get("source_hive_table")
-print(f"source_hive_table: {source_hive_table}")
+dbutils.widgets.text("staging_object", "dbo.monthly_sales_order_stg", "3 - staging_object")
+staging_object = dbutils.widgets.get("staging_object")
+print(f"staging_object: {staging_object}")
+
+dbutils.widgets.text("target_object", "dbo.monthly_sales_order", "4 - target_object")
+target_object = dbutils.widgets.get("target_object")
+print(f"target_object: {target_object}")
 
 # COMMAND ----------
 
-import re
 import sys
 
 # Import BrewDat Library modules
@@ -48,23 +51,39 @@ spark.conf.set("spark.databricks.sqldw.jdbc.service.principal.client.secret", db
 # COMMAND ----------
 
 try:
-    df = spark.read.table(f"{source_hive_database}.{source_hive_table}")
+    df = spark.read.table(source_object)
 
     row_count = df.count()
-    target_table_name = f"dbo.stg_{source_hive_table}"
+
+    # Check that both staging and target tables exist and truncate staging table
+    pre_action = f"""
+        IF OBJECT_ID('{staging_object}', 'U') IS NULL
+            THROW 50000, 'Could not locate staging table: {staging_object}', 1;
+        IF OBJECT_ID('{target_object}', 'U') IS NULL
+            THROW 50000, 'Could not locate target table: {target_object}', 1;
+        TRUNCATE TABLE {staging_object};
+    """
+
+    # Replace target data with staging data and update target statistics
+    post_action = f"""
+        TRUNCATE TABLE {target_object};
+        ALTER TABLE {staging_object} SWITCH TO {target_object};
+        UPDATE STATISTICS {target_object};
+    """
 
     # Both Service Principal and Synapse Managed Identity require
     # read/write access to the temporary Blob Storage location
     (
         df.write
         .format("com.databricks.spark.sqldw")
-        .mode("overwrite")
+        .mode("append")
         .option("url", synapse_connection_string)
         .option("enableServicePrincipalAuth", True)
         .option("useAzureMSI", True)
-        .option("dbTable", target_table_name)
-        .option("tableOptions", "HEAP")
-        .option("tempDir", f"{synapse_blob_temp_root}/{source_hive_table}")
+        .option("dbTable", staging_object)
+        .option("tempDir", f"{synapse_blob_temp_root}/{staging_object}")
+        .option("preActions", pre_action)
+        .option("postActions", post_action)
         .save()
     )
 
@@ -73,16 +92,18 @@ except Exception:
 
 # COMMAND ----------
 
+import re
+
 try:
     target_server_name = re.search("sqlserver://(.*?):", synapse_connection_string).group(1)
     target_database_name = re.search(";database=(.*?);", synapse_connection_string).group(1)
-    target_object = f"{target_server_name}.{target_database_name}.{target_table_name}"
+    full_target_object = f"{target_server_name}/{target_database_name}.{target_object}"
 except Exception:
-    target_object = f"unknown_synapse.{target_table_name}"
+    full_target_object = f"unknown_synapse.{target_object}"
 
 results = common_utils.ReturnObject(
     status=common_utils.RunStatus.SUCCEEDED,
-    target_object=target_object,
+    target_object=full_target_object,
     num_records_read=row_count,
     num_records_loaded=row_count,
 )
