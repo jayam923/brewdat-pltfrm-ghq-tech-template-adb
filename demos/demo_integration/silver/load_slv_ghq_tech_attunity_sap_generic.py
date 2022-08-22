@@ -118,7 +118,7 @@ try:
         .table(f"{source_hive_database}.{source_hive_table}")
         .filter(F.col("TARGET_APPLY_DT").between(
             F.to_date(F.lit(data_interval_start)),
-            F.to_date(F.lit(data_interval_end)),
+            F.to_date(F.lit(effective_data_interval_end)),
         ))
         .filter(F.col("TARGET_APPLY_TS").between(
             F.to_timestamp(F.lit(data_interval_start)),
