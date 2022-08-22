@@ -3,25 +3,28 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_v
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_hive_database", "gld_ghq_tech_demo_consumption", "2 - source_hive_database")
-source_hive_database = dbutils.widgets.get("source_hive_database")
-print(f"source_hive_database: {source_hive_database}")
+dbutils.widgets.text("source_object", "gld_ghq_tech_demo_consumption.monthly_sales_order", "2 - source_object")
+source_object = dbutils.widgets.get("source_object")
+print(f"source_object: {source_object}")
 
-dbutils.widgets.text("source_hive_table", "monthly_sales_orders", "3 - source_hive_table")
-source_hive_table = dbutils.widgets.get("source_hive_table")
-print(f"source_hive_table: {source_hive_table}")
+dbutils.widgets.text("staging_object", "dbo.monthly_sales_order_stg", "3 - staging_object")
+staging_object = dbutils.widgets.get("staging_object")
+print(f"staging_object: {staging_object}")
 
-dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "4 - data_interval_start")
+dbutils.widgets.text("target_object", "dbo.monthly_sales_order", "4 - target_object")
+target_object = dbutils.widgets.get("target_object")
+print(f"target_object: {target_object}")
+
+dbutils.widgets.text("ingestion_procedure", "dbo.sp_ingest_monthly_sales_order_stg", "5 - ingestion_procedure")
+ingestion_procedure = dbutils.widgets.get("ingestion_procedure")
+print(f"ingestion_procedure: {ingestion_procedure}")
+
+dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "6 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
-dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "5 - data_interval_end")
-data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
-
 # COMMAND ----------
 
-import re
 import sys
 
 # Import BrewDat Library modules
@@ -58,19 +61,39 @@ spark.conf.set("spark.databricks.sqldw.jdbc.service.principal.client.secret", db
 from pyspark.sql import functions as F
 
 try:
+    effective_data_interval_end = (
+        spark.read
+        .table(source_object)
+        .agg(F.max("__update_gmt_ts").cast("string"))
+        .collect()[0][0]
+    )
+    print(f"effective_data_interval_end: {effective_data_interval_end}")
+
     df = (
         spark.read
-        .table(f"{source_hive_database}.{source_hive_table}")
-        .filter(F.col("__update_gmt_ts").between(data_interval_start, data_interval_end))
+        .table(source_object)
+        .filter(F.col("__update_gmt_ts").between(data_interval_start, effective_data_interval_end))
     )
 
     row_count = df.count()
-    target_table_name = f"dbo.stg_{source_hive_table}"
+
+    # Check that both staging and target tables exist and truncate staging table
+    pre_actions = f"""
+        IF OBJECT_ID('{staging_object}', 'U') IS NULL
+            THROW 50000, 'Could not locate staging table: {staging_object}', 1;
+        IF OBJECT_ID('{target_object}', 'U') IS NULL
+            THROW 50000, 'Could not locate target table: {target_object}', 1;
+        TRUNCATE TABLE {staging_object};
+    """
+
+    # Invoke procedure to upsert target table with staging data
+    # Should use update/insert commands instead of merge
+    post_actions = f"EXEC {ingestion_procedure};"
 
     # Both Service Principal and Synapse Managed Identity require
     # read/write access to the temporary Blob Storage location
-    # When using append mode, the target table should be truncated
-    # by Synapse after staging data is processed
+    # Also, remember to create a Lifecycle Management policy to
+    # delete temporary files older than 5 days
     (
         df.write
         .format("com.databricks.spark.sqldw")
@@ -78,9 +101,10 @@ try:
         .option("url", synapse_connection_string)
         .option("enableServicePrincipalAuth", True)
         .option("useAzureMSI", True)
-        .option("dbTable", target_table_name)
-        .option("tableOptions", "HEAP")
-        .option("tempDir", f"{synapse_blob_temp_root}/{source_hive_table}")
+        .option("dbTable", staging_object)
+        .option("tempDir", f"{synapse_blob_temp_root}/{staging_object}")
+        .option("preActions", pre_actions)
+        .option("postActions", post_actions)
         .save()
     )
 
@@ -89,18 +113,22 @@ except Exception:
 
 # COMMAND ----------
 
+import re
+
 try:
     target_server_name = re.search("sqlserver://(.*?):", synapse_connection_string).group(1)
     target_database_name = re.search(";database=(.*?);", synapse_connection_string).group(1)
-    target_object = f"{target_server_name}.{target_database_name}.{target_table_name}"
+    full_target_object = f"{target_server_name}/{target_database_name}.{target_object}"
 except Exception:
-    target_object = f"unknown_synapse.{target_table_name}"
+    full_target_object = f"unknown_synapse.{target_object}"
 
 results = common_utils.ReturnObject(
     status=common_utils.RunStatus.SUCCEEDED,
-    target_object=target_object,
+    target_object=full_target_object,
     num_records_read=row_count,
     num_records_loaded=row_count,
+    effective_data_interval_start=data_interval_start,
+    effective_data_interval_end=effective_data_interval_end or data_interval_start,
 )
 print(results)
 

@@ -56,7 +56,7 @@ try:
     row_count = df.count()
 
     # Check that both staging and target tables exist and truncate staging table
-    pre_action = f"""
+    pre_actions = f"""
         IF OBJECT_ID('{staging_object}', 'U') IS NULL
             THROW 50000, 'Could not locate staging table: {staging_object}', 1;
         IF OBJECT_ID('{target_object}', 'U') IS NULL
@@ -65,7 +65,7 @@ try:
     """
 
     # Replace target data with staging data and update target statistics
-    post_action = f"""
+    post_actions = f"""
         TRUNCATE TABLE {target_object};
         ALTER TABLE {staging_object} SWITCH TO {target_object};
         UPDATE STATISTICS {target_object};
@@ -73,6 +73,8 @@ try:
 
     # Both Service Principal and Synapse Managed Identity require
     # read/write access to the temporary Blob Storage location
+    # Also, remember to create a Lifecycle Management policy to
+    # delete temporary files older than 5 days
     (
         df.write
         .format("com.databricks.spark.sqldw")
@@ -82,8 +84,8 @@ try:
         .option("useAzureMSI", True)
         .option("dbTable", staging_object)
         .option("tempDir", f"{synapse_blob_temp_root}/{staging_object}")
-        .option("preActions", pre_action)
-        .option("postActions", post_action)
+        .option("preActions", pre_actions)
+        .option("postActions", post_actions)
         .save()
     )
 
