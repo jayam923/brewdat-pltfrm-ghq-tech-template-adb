@@ -65,6 +65,7 @@ try:
     """
 
     # Replace target data with staging data and update target statistics
+    # Both tables must have the same schema, distribution, and indexes
     post_actions = f"""
         TRUNCATE TABLE {target_object};
         ALTER TABLE {staging_object} SWITCH TO {target_object};
