@@ -308,6 +308,83 @@ def write_delta_table(
         )
 
 
+def write_stream_delta_table(
+    spark: SparkSession,
+    df: DataFrame,
+    location: str,
+    database_name: str,
+    table_name: str,
+    load_type: LoadType,
+    key_columns: List[str] = [],
+    partition_columns: List[str] = [],
+    schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
+    time_travel_retention_days: int = 30,
+    auto_broadcast_join_threshold: int = 52428800,
+    enable_caching: bool = True,
+) -> ReturnObject:
+
+    return_object = ReturnObject(
+        status=RunStatus.SUCCEEDED,
+        target_object=f"{database_name}.{table_name}"
+    )
+
+    try:
+        # Get original version number
+        return_object.old_version_number = _get_current_delta_version_number(spark=spark, location=location)
+
+        def write_micro_batch(batch_df, batch_id):
+            micro_batch_return_object = write_delta_table(
+                spark=spark,
+                df=batch_df,
+                location=location,
+                database_name=database_name,
+                table_name=table_name,
+                load_type=load_type,
+                key_columns=key_columns,
+                partition_columns=partition_columns,
+                schema_evolution_mode=schema_evolution_mode,
+                bad_record_handling_mode=bad_record_handling_mode,
+                auto_broadcast_join_threshold=auto_broadcast_join_threshold,
+                enable_caching=enable_caching,
+                enable_vacuum=False,
+            )
+
+            if micro_batch_return_object.status == RunStatus.SUCCEEDED:
+                return_object.num_records_loaded += micro_batch_return_object.num_records_loaded
+                return_object.num_records_errored_out += micro_batch_return_object.num_records_errored_out
+                return_object.num_records_read += micro_batch_return_object.num_records_read
+                return_object.new_version_number = micro_batch_return_object.new_version_number
+
+        (
+            df
+            .writeStream
+            .foreachBatch(write_micro_batch)
+            .trigger(availableNow=True)
+            .option('checkpointLocation', f"{location}/_checkpoint")
+            .start()
+            .awaitTermination()
+        )
+
+        _vacuum_delta_table(
+            spark=spark,
+            database_name=database_name,
+            table_name=table_name,
+            time_travel_retention_days=time_travel_retention_days,
+        )
+
+        # Get new version number
+        return_object.new_version_number = _get_current_delta_version_number(spark=spark, location=location)
+
+        return return_object
+
+    except Exception as e:
+        return_object.status = RunStatus.FAILED
+        return_object.error_message = str(e),
+        return_object.error_details = traceback.format_exc(),
+        return return_object
+
+
 def _get_current_delta_version_details(
     spark: SparkSession,
     location: str,
