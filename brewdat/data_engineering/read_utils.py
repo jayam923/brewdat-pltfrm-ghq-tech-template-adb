@@ -143,15 +143,17 @@ def read_raw_dataframe_stream(
         dbutils: object,
         file_format: RawFileFormat,
         location: str,
+        schema_location: str,
         cast_all_to_string: bool = True,
         max_bytes_per_trigger: str = "10g",
         max_files_per_trigger: int = 1000,
         use_incremental_listing: str = "true",
         backfill_interval: str = None,  # 1 week, 1 day
+        allow_overwrites: bool = False,
         additional_options: dict = {},
 ) -> DataFrame:
     try:
-        schema_location = f"{location}/_autoloader_schema"
+        schema_location = schema_location if schema_location else f"{location}/_autoloader_schema"
         df_reader = (
             spark
                 .readStream
@@ -163,6 +165,7 @@ def read_raw_dataframe_stream(
                 .option("cloudFiles.maxBytesPerTrigger", max_bytes_per_trigger)
                 .option("cloudFiles.maxFilesPerTrigger", max_files_per_trigger)
                 .option("cloudFiles.useIncrementalListing", use_incremental_listing)
+                .option("cloudFiles.allowOverwrites", allow_overwrites)
                 .options(**additional_options)
         )
 

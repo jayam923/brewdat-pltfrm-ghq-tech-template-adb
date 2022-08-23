@@ -321,7 +321,7 @@ def write_stream_delta_table(
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
-    enable_caching: bool = True,
+    enable_caching: bool = False,
 ) -> ReturnObject:
 
     return_object = ReturnObject(
@@ -361,7 +361,7 @@ def write_stream_delta_table(
             .writeStream
             .foreachBatch(write_micro_batch)
             .trigger(availableNow=True)
-            .option('checkpointLocation', f"{location}/_checkpoint")
+            .option('checkpointLocation', location.rstrip("/") + "/_checkpoint")
             .start()
             .awaitTermination()
         )
