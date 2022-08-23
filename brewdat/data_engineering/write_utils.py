@@ -89,6 +89,7 @@ def write_delta_table(
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = True,
+    enable_vacuum: bool = True,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -129,6 +130,8 @@ def write_delta_table(
     enable_caching : bool, default=True
         Cache the DataFrame so that transformations are not recomputed multiple times
         during couting, bad record handling, or writing with TYPE_2_SCD.
+    enable_vacuum: bool, default=True
+        Runs Vacuum operation right after writing data to delta location.
 
     Returns
     -------
@@ -250,12 +253,13 @@ def write_delta_table(
         )
 
         # Vacuum the delta table
-        _vacuum_delta_table(
-            spark=spark,
-            database_name=database_name,
-            table_name=table_name,
-            time_travel_retention_days=time_travel_retention_days,
-        )
+        if enable_vacuum:
+            _vacuum_delta_table(
+                spark=spark,
+                database_name=database_name,
+                table_name=table_name,
+                time_travel_retention_days=time_travel_retention_days,
+            )
 
         # Get new version number
         new_version_number = _get_current_delta_version_number(spark=spark, location=location)

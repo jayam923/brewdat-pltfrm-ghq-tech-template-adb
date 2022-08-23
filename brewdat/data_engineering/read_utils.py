@@ -136,3 +136,44 @@ def read_raw_dataframe(
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+
+
+def read_raw_dataframe_stream(
+        spark: SparkSession,
+        dbutils: object,
+        file_format: RawFileFormat,
+        location: str,
+        cast_all_to_string: bool = True,
+        max_bytes_per_trigger: str = "10g",
+        max_files_per_trigger: int = 1000,
+        use_incremental_listing: str = "true",
+        backfill_interval: str = None,  # 1 week, 1 day
+        additional_options: dict = {},
+) -> DataFrame:
+    try:
+        schema_location = f"{location}/_autoloader_schema"
+        df_reader = (
+            spark
+                .readStream
+                .format("cloudFiles")
+                .option("cloudFiles.format", file_format.lower())
+                .option("cloudFiles.useNotifications", False)
+                .option("cloudFiles.schemaEvolutionMode", "addNewColumns")
+                .option("cloudFiles.schemaLocation", schema_location)
+                .option("cloudFiles.maxBytesPerTrigger", max_bytes_per_trigger)
+                .option("cloudFiles.maxFilesPerTrigger", max_files_per_trigger)
+                .option("cloudFiles.useIncrementalListing", use_incremental_listing)
+                .options(**additional_options)
+        )
+
+        if backfill_interval:
+            df_reader = df_reader("cloudFiles.backfillInterval", backfill_interval)
+
+        df = df_reader.load(location)
+
+        if cast_all_to_string:
+            df = transform_utils.cast_all_columns_to_string(dbutils, df)
+
+        return df
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
