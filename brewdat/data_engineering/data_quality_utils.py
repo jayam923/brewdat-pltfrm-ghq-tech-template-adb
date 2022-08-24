@@ -1,515 +1,929 @@
-import pandas as pd
-import pyspark.sql.functions as f
+from typing import Any, List, Union
+
 import pyspark.sql.functions as F
-from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.functions import col, count, lit, length, when, array_union, array
-from pyspark.sql.types import IntegerType,DecimalType,ByteType,StringType,LongType,BooleanType,DoubleType,FloatType
-from pyspark.sql import SparkSession
-from pyspark.sql import Window, Column
-from typing import List
+from pyspark.sql import Column, DataFrame, Window
+
 from . import common_utils
 
 
-def create_required_columns_for_dq_check(df:DataFrame )->DataFrame:
-    """To create required columns to maintain DQ checks.
-    Parameters
+DQ_RESULTS_COLUMN = "__data_quality_issues"
+
+
+class DataQualityChecker():
+    """Helper class that provides data quality checks for
+    a given DataFrame.
+
+    Attributes
     ----------
-    src_df : DataFrame
-        PySpark DataFrame to modify.
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with required columns.
-    """
-    dq_dataframe = df.withColumn('__bad_record', lit('False')).withColumn('__data_quality_issues',array())
-    return dq_dataframe
-
-            
-def data_type_check(
-    df: DataFrame,
-    field_name : str,
-    data_type : str,
-    dbutils: object,
-) -> DataFrame:
-    
-    """Checks the field datatype for field present at ith position of the
-    validation dataframe.
-    Parameters
-    ----------
-    field_name : str
-        Column name to test values.
-    data_type : str
-        Column data type.
-    src_df : DataFrame
-        PySpark DataFrame to modify.
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    try:
-        df_final=None
-        if data_type == "byte" :
-            df_final = df.withColumn("data_type_test",col(field_name)\
-                                         .cast(ByteType()))
-
-        elif data_type== "Integer" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                                       .cast(IntegerType()))
-
-        elif data_type== "String" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                                       .cast(StringType()))
-
-        elif data_type== "bigint" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                .cast(LongType()))
-
-        elif data_type== "bool" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                .cast(BooleanType()))
-
-        elif data_type== "decimal" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                .cast(DecimalType(12,5)))
-
-        elif data_type== "float" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                .cast(FloatType()))
-
-        elif data_type== "double" : 
-            df_final=df.withColumn("data_type_test",col(field_name)\
-                .cast(DoubleType()))
-        if df_final is None:
-            return df
-        else:
-            return __perform_dq_check(
-                df=df_final,
-                condition=(F.col("data_type_test").isNull()) & (F.col(field_name).isNotNull()),
-                dq_failure_message=f'{field_name}: Data type mismatch.',
-                dbutils=dbutils)
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
-
-
-def null_check(
-        df: DataFrame,
-        field_name: str,
-        dbutils: object,
-) -> DataFrame:
-    
-    """Helps to validate null values in the column
-    Parameters
-    ----------
+    dbutils : object
+        A Databricks utils object.
     df : DataFrame
-        PySpark DataFrame to modify.
-    field_name : str
-        Column name to test values.
-    dbutils : object
-        A Databricks utils object.
-
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
+        PySpark DataFrame to validate.
     """
-    return __perform_dq_check(
-        df=df,
-        condition=F.col(field_name).isNull(),
-        dq_failure_message=f'{field_name}: record contain null value.',
-        dbutils=dbutils)
+    def __init__(self, dbutils: object, df: DataFrame):
+        self.dbutils = dbutils
+        self.df = df
 
-    
+        if DQ_RESULTS_COLUMN not in self.df.columns:
+            self.df = self.df.withColumn(
+                DQ_RESULTS_COLUMN,
+                F.lit(None).cast("array<string>")
+            )
 
+    def build_df(self) -> DataFrame:
+        """Obtain the resulting DataFrame with data quality checks applied.
 
-def max_length(
-        df: DataFrame,
-        field_name: str,
-        maximum_length: int,
-        dbutils: object,
-) -> DataFrame:
-    
-    """Checks the field column length against the min and max values
-    Parameters
-    ----------
-    field_name : str
-        Column name to test values.
-    maximum_length : int
-        maximum length column values.
-    df : DataFrame
-        PySpark DataFrame to modify.
-    dbutils : object
-        A Databricks utils object.        
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-        
-    """
-    return __perform_dq_check(
-        df=df,
-        condition=(F.length(field_name) > maximum_length),
-        dq_failure_message=f'{field_name}: max length of {maximum_length} exceeded.',
-        dbutils=dbutils)
+        Returns
+        -------
+        DataFrame
+            The modified PySpark DataFrame with updated validation results.
+        """
+        return self.df
 
+    def check_narrow_condition(
+        self,
+        expected_condition: Union[str, Column],
+        failure_message: Union[str, Column],
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Run a data quality check against every row in the DataFrame.
 
-def min_length(
-    field_name : str,
-    minimum_length : int,
-    df:DataFrame,
-    dbutils: object,
-) -> DataFrame:
-    """Checks the field column length against the min and max values
-    Parameters
-    ----------
-    field_name : str
-        Column name to test values.
-    minimum_length : int
-        minimum length column values.
-    src_df : DataFrame
-        PySpark DataFrame to modify.
-    dbutils : object
-        A Databricks utils object.    
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    return __perform_dq_check(
-        df=df,
-        condition=(F.length(field_name) < minimum_length),
-        dq_failure_message=f'{field_name}: min length of {minimum_length} exceeded.',
-        dbutils=dbutils)
-    
+        If the expected condition is False, append a failure message to
+        the __data_quality_issues metadata column.
 
-def range_value(
-    field_name : str, 
-    minimum_value : int, 
-    maximum_value : int, 
-    df:DataFrame,
-    dbutils: object,
-) -> DataFrame:
-    """Checks the field column values against between min and max values
-    Parameters
-    ----------
-    field_name : str
-        Column name to test values.
-    minimum value : int
-        minimum value column values.
-    maximum value : int
-        maximum value column values.
-    src_df : DataFrame
-        PySpark DataFrame to modify.
-    dbutils : object
-        A Databricks utils object.    
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    return __perform_dq_check(
-        df=df,
-        condition=F.col(field_name).between(minimum_value, maximum_value) == False,
-        dq_failure_message=f'{field_name}: range value does not lie in between minimum value -> {minimum_value} and maximum value -> {maximum_value} value.',
-        dbutils=dbutils)
-    
-    
-def invalid_values(
-    field_name : str,
-    invalid_values,
-    df:DataFrame,
-    dbutils: object,
-) -> DataFrame:
-    """Checks the field column values against valid values
-    Parameters
-    ----------
-    field_name : str
-        Column name to test values.
-    invalid_values : list
-        List of values which are invalid
-    src_df : DataFrame
-        The src_df DataFrame needed to verify
-    dbutils : object
-        A Databricks utils object.
-        
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    
-    return __perform_dq_check(
-        df=df,
-        condition=F.col(field_name).isin(list(map(lambda x: x , invalid_values))),
-        dq_failure_message=f'{field_name}: this record comes under invalid values  -> {invalid_values}.',
-        dbutils=dbutils)
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
 
-    
-def valid_values(
-    field_name : str,
-    valid_values,
-    df:DataFrame,
-    dbutils: object,
-) -> DataFrame:
-    """Checks the field column values against valid values
-    Parameters
-    ----------
-    field_name : str
-        Column name to test values.
-    valid_values : list
-        List of values which are valid
-    src_df : DataFrame
-        The src_df DataFrame needed to verify
-    dbutils : object
-        A Databricks utils object.    
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    return __perform_dq_check(
-        df=df,
-        condition=F.col(field_name).isin(list(map(lambda x: x , valid_values)))== False,
-        dq_failure_message=f'{field_name}: this record is not in list of valid values  -> {valid_values}.',
-        dbutils=dbutils)
+        Parameters
+        ----------
+        expected_condition : Union[str, Column]
+            PySpark Column expression to evaluate. If this expression
+            evaluates to False, the record is considered a bad record.
+        failure_message : Union[str, Column]
+            String or PySpark Column expression that generates a message which
+            is appended to validation results when expected condition is False.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
 
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if isinstance(failure_message, str):
+                failure_message = F.lit(failure_message)
 
-def valid_regular_expression(
-    field_name : str,
-    regex : str,
-    df:DataFrame,
-    dbutils: object,
-) -> DataFrame:
-    """Checks the field column values against valid values
-    Parameters
-    ----------
-    src_df : DataFrame
-        The src_df DataFrame needed to verify
-    field_name : DataFrame
-        The src_df DataFrame needed to verify
-    valid_regular_expression : str
-        Regex to filter the data
-    dbutils : object
-        A Databricks utils object.    
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    
-    return __perform_dq_check(
-        df=df,
-        condition=F.col(field_name).rlike(regex) == False,
-        dq_failure_message=f'{field_name}: does not align as per the given regex {regex}.',
-        dbutils=dbutils)
-    
+            if isinstance(expected_condition, str):
+                expected_condition = F.expr(expected_condition)
 
-def duplicate_check(
-    col_list : str,
-    df:DataFrame,
-    dbutils: object,
-) -> DataFrame:
-    
-    """Checks the field column values against valid values
-    Parameters
-    ----------
-    col_list : list
-        List of columns on based on which we need to check the duplicate values
-    src_df : DataFrame
-        The src_df DataFrame needed to verify
-    dbutils : object
-        A Databricks utils object.    
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    w = Window.partitionBy(col_list)
-    df = df.select('*', f.count('*').over(w).alias('Duplicate_indicator'))
-    print(df)
-    return __perform_dq_check(
-        df=df,
-        condition=F.col("Duplicate_indicator") > 1,
-        dq_failure_message=f'This records contain duplicate values.',
-        dbutils=dbutils)
-    
+            if filter_condition is None:
+                filter_condition = F.expr("1 = 1")
+            elif isinstance(filter_condition, str):
+                filter_condition = F.expr(filter_condition)
 
+            self.df = (
+                self.df
+                .withColumn(
+                    DQ_RESULTS_COLUMN,
+                    F.when(~filter_condition, F.col(DQ_RESULTS_COLUMN))
+                    .when(
+                        ~expected_condition,
+                        F.concat(F.coalesce(DQ_RESULTS_COLUMN, F.array()), F.array(failure_message))
+                    )
+                    .otherwise(F.col(DQ_RESULTS_COLUMN))
+                )
+            )
 
-def column_check(
-    col_list,
-    df:DataFrame,
-    dbutils: object,
-)-> List:
-    
-    """Checks the field column values against valid values
-    Parameters
-    ----------
-    
-    col_list : list
-        List of columns name to verify
-    src_df : DataFrame
-        The src_df DataFrame needed to verify
-    dbutils : object
-        A Databricks utils object.        
-    Returns
-    -------
-    missing_fields
-        [List]: List with column name 
-    """
-    try:
-        missing_fields = [] 
-        fields_list =  __get_lower_case(__get_col_list(df))
-        col_list = __get_lower_case(col_list)
-        for i in range(0,len(col_list)):
-            if col_list[i] not in fields_list:
-                missing_fields.append(col_list[i])
-        if(len(missing_fields)== 0):
-            print("All required columns are present")
-        else :
-            print("list of missing column names are - > ")
-            print(missing_fields)
-        return missing_fields
-    except Exception:
-            common_utils.exit_with_last_exception(dbutils)
-            
+            return self
 
-def run_validation(
-    spark: SparkSession,
-    dbutils: object,
-    src_df : DataFrame,
-    json_df : DataFrame,
-)-> DataFrame:
-    
-    """Checks the field column values against valid values
-    Parameters
-    ----------
-    spark : SparkSession
-        A Spark session.
-    dbutils : object
-        A Databricks utils object.
-    src_df : DataFrame
-        The src_df file needed to verify
-    json_df : DataFrame
-        The logic_df DataFrame to get the input values from json file  
-    Returns
-    -------
-    DataFrame: 
-        Returns Pyspark Dataframe with bad record indicator and validation message.
-    """
-    logic_df=json_df.toPandas()
-    logic_df["field_name"]=logic_df["field_name"].str.lower()
-    for col in src_df.columns:
-        src_df = src_df.withColumnRenamed(col,col.lower())
-    col_list=logic_df['field_name'].tolist()
-    missing_fields = column_check(col_list, src_df, dbutils )
-    if len(missing_fields)!=0:
-        print('column missing',missing_fields)
-        raise ValueError('Souce Columns are not matching with Metadata')
-    else:
-        #Get PK value as list from config_rules run all the validations
-        print('Duplicate check started')
-        Pk_col_list=[]
-        Pk_col_list=logic_df[logic_df['primary_key']=='Yes']["field_name"].tolist()
-        #Check Unquie/duplcate records
-        if len(Pk_col_list)==0:
-            pass
-        else:
-            src_df=duplicate_check(Pk_col_list,src_df, dbutils)
-        for i in range(0,logic_df.shape[0]):
-            if logic_df.loc[i,"field_name"] in src_df.columns:
-                print(logic_df.loc[i,"field_name"])
-                ## Mandatory Checks whether null values present or not
-                if pd.notnull(logic_df.loc[i,'is_null']):
-                    print('null_check started')
-                    src_df = null_check(src_df, logic_df.loc[i,"field_name"], dbutils)
-                    ## DataType checks
-                if pd.notnull(logic_df.loc[i,'data_type']):
-                    print('data_type_check check started')
-                    src_df= data_type_check(src_df, logic_df.loc[i,"field_name"],logic_df.loc[i,"data_type"], dbutils)
-                else:
-                    print('No Datatype')
-                 ## range checks
-                if pd.notnull(logic_df.loc[i,'maximum_value']):
-                    if pd.notnull(logic_df.loc[i,'minimum_value']):
-                        print('data_range_check check started')
-                        src_df= range_value(logic_df.loc[i,"field_name"], logic_df.loc[i,"minimum_value"] ,logic_df.loc[i,"maximum_value"], src_df, dbutils)
-                else:
-                    print('No Maximum_value and Minimum_value')
-                ##Passing only not null values for remaining checks
-                    ## checking for Max values
-                if pd.notnull(logic_df.loc[i,'maximum_length']):
-                    print('max_length check started')
-                    src_df= max_length(logic_df.loc[i,"field_name"],  logic_df.loc[i,"maximum_length"],src_df, dbutils)
-                else:
-                    pass
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
 
-                ## checking for Min values
-                if pd.notnull(logic_df.loc[i,'minimum_length']):
-                    print('min_length check started')
-                    src_df = min_length(logic_df.loc[i,"field_name"], logic_df.loc[i,"minimum_length"],src_df, dbutils)
-                else:
-                    pass
-                ## Checking the Valid values field
-                if str(logic_df.loc[i,'valid_values']) != "None" :
-                    print(logic_df.loc[i,'valid_values'])
-                    print('valid_values check started')
-                    src_df =valid_values(logic_df.loc[i,"field_name"], logic_df.loc[i,"valid_values"],src_df, dbutils)
-                else:
-                    pass
-                ## Checking the Invalid values field
-                if str(logic_df.loc[i,'invalid_values']) != "None" :
-                    print('Invalid_values check started')
-                    src_df =invalid_values(logic_df.loc[i,"field_name"],logic_df.loc[i,"invalid_values"],src_df, dbutils)
-                else:
-                    pass
+    def check_column_is_not_null(
+        self,
+        column_name: str,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is not null.
 
-                ## Valid regular expression check filed
-                if pd.notnull(logic_df.loc[i,'valid_regular_expression']):
-                    print('Valid_Regular_Expression check started')
-                    src_df =valid_regular_expression(logic_df.loc[i,"field_name"], logic_df.loc[i,"valid_regular_expression"],src_df, dbutils)
-                else:
-                    pass
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            expected_condition = F.col(column_name).isNotNull()
+            failure_message = f"CHECK_NOT_NULL: Column `{column_name}` is null"
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_type_cast(
+        self,
+        column_name: str,
+        data_type: str,
+        date_format: str = None,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate whether a column's value can be safely cast
+        to the given data type without generating a null value.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, cast to date/timestamp types using a custom date format.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Run this quality check on the source DataFrame BEFORE casting.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        data_type : str
+            Spark data type used in cast function.
+        date_format : str, default=None
+            Optional format string used with to_date() and to_timestamp()
+            functions when data_type is date or timestamp, respectively.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if not data_type:
+                raise ValueError("Invalid data type")
+
+            if data_type == "date":
+                self.df = self.df.withColumn("__value_after_cast", F.to_date(column_name, date_format))
+            elif data_type == "timestamp":
+                self.df = self.df.withColumn("__value_after_cast", F.to_timestamp(column_name, date_format))
             else:
-                pass
+                self.df = self.df.withColumn("__value_after_cast", F.col(column_name).cast(data_type))
 
-        print('completed')
-        return src_df
+            expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
+            failure_message = F.concat(
+                F.lit(f"CHECK_TYPE_CAST: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(f", which cannot be safely cast to type {data_type}")
+            )
+            self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
 
+            self.df = self.df.drop("__value_after_cast")
+            return self
 
-def __perform_dq_check(
-        df: DataFrame,
-        condition: Column,
-        dq_failure_message: str,
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_max_length(
+        self,
+        column_name: str,
+        maximum_length: int,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's length does not exceed a maximum length.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        maximum_length : int
+            Maximum length for column values.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if maximum_length <= 0:
+                raise ValueError("Maximum length must be greater than 0.")
+
+            expected_condition = F.length(column_name) <= maximum_length
+            failure_message = F.concat(
+                F.lit(f"CHECK_MAX_LENGTH: Column `{column_name}` has length "),
+                F.length(column_name),
+                F.lit(f", which is greater than {maximum_length}")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_min_length(
+        self,
+        column_name: str,
+        minimum_length: int,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's length is greater than
+        or equal to a minimum length.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        minimum_length : int
+            Minimum length for column values.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if minimum_length <= 0:
+                raise ValueError("Minimum length must be greater than 0.")
+
+            expected_condition = F.length(column_name) >= minimum_length
+            failure_message = F.concat(
+                F.lit(f"CHECK_MIN_LENGTH: Column `{column_name}` has length "),
+                F.length(column_name),
+                F.lit(f", which is less than {minimum_length}")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_length_between(
+        self,
+        column_name: str,
+        minimum_length: int,
+        maximum_length: int,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's length is within a given range.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        minimum_length : int
+            Minimum length for column values.
+        maximum_length : int
+            Maximum length for column values.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if minimum_length <= 0:
+                raise ValueError("Minimum length must be greater than 0.")
+
+            if maximum_length <= 0:
+                raise ValueError("Maximum length must be greater than 0.")
+
+            if minimum_length > maximum_length:
+                raise ValueError("Minimum length must be less than or equal to maximum length.")
+
+            expected_condition = F.length(column_name).between(minimum_length, maximum_length)
+            failure_message = F.concat(
+                F.lit(f"CHECK_LENGTH_RANGE: Column `{column_name}` has length "),
+                F.length(column_name),
+                F.lit(f", which is not between {minimum_length} and {maximum_length}")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_max_value(
+        self,
+        column_name: str,
+        maximum_value: Any,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is does not exceed a maximum value.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        maximum_value : Any
+            Maximum value for the column.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            expected_condition = F.col(column_name) <= F.lit(maximum_value)
+            failure_message = F.concat(
+                F.lit(f"CHECK_MAX_VALUE: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(f", which is greater than {maximum_value}")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_min_value(
+        self,
+        column_name: str,
+        minimum_value: Any,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is greater than
+        or equal to a minimum value.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        minimum_value : Any
+            Minimum value for the column.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            expected_condition = F.col(column_name) >= F.lit(minimum_value)
+            failure_message = F.concat(
+                F.lit(f"CHECK_MIN_VALUE: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(f", which is less than {minimum_value}")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_value_between(
+        self,
+        column_name: str,
+        minimum_value: Any,
+        maximum_value: Any,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is within a given range.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        minimum_value : Any
+            Minimum value for the column.
+        maximum_value : Any
+            Maximum value for the column.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            expected_condition = F.col(column_name).between(minimum_value, maximum_value)
+            failure_message = F.concat(
+                F.lit(f"CHECK_VALUE_RANGE: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(f", which is not between {minimum_value} and {maximum_value}")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_value_is_in(
+        self,
+        column_name: str,
+        valid_values: List[Any],
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is in a list of valid values.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        valid_values : List[Any]
+            List of valid values.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if not valid_values:
+                raise ValueError("No valid value was given")
+
+            expected_condition = F.col(column_name).isin(valid_values)
+            failure_message = F.concat(
+                F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(", which is not in the list of valid values")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_value_is_not_in(
+        self,
+        column_name: str,
+        invalid_values: List[Any],
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is not in a list of invalid values.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        invalid_values : List[Any]
+            List of invalid values.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if not invalid_values:
+                raise ValueError("No invalid value was given")
+
+            expected_condition = ~F.col(column_name).isin(invalid_values)
+            failure_message = F.concat(
+                F.lit(f"CHECK_VALUE_NOT_IN: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(", which is in the list of invalid values")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_matches_regular_expression(
+        self,
+        column_name: str,
+        regular_expression: str,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value matches the given regular expression.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        regular_expression : str
+            Regular expression that column values should match.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if not regular_expression:
+                raise ValueError("Invalid regular expression")
+
+            expected_condition = F.col(column_name).rlike(regular_expression)
+            failure_message = F.concat(
+                F.lit(f"CHECK_REGEX_MATCH: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(f", which does not match the regular expression '{regular_expression}'")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_does_not_match_regular_expression(
+        self,
+        column_name: str,
+        regular_expression: str,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value does not match the given regular expression.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        regular_expression : str
+            Regular expression that column values should NOT match.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            if not regular_expression:
+                raise ValueError("Invalid regular expression")
+
+            expected_condition = ~F.col(column_name).rlike(regular_expression)
+            failure_message = F.concat(
+                F.lit(f"CHECK_REGEX_NOT_MATCH: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(f", which matches the regular expression '{regular_expression}'")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_is_numeric(
+        self,
+        column_name: str,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is numeric, that is, it matches
+        the regular expression '^[0-9]*\\.?[0-9]*([Ee][+-]?[0-9]+)?$'.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            expected_condition = F.col(column_name).rlike(r"^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$")
+            failure_message = F.concat(
+                F.lit(f"CHECK_NUMERIC: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(", which is not a numeric value")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_column_is_alphanumeric(
+        self,
+        column_name: str,
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a column's value is alphanumeric, that is, it matches
+        the regular expression '^[A-Za-z0-9]*$'.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        Parameters
+        ----------
+        column_name : str
+            Name of the column to be validated.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_name:
+                raise ValueError("Invalid column name")
+
+            expected_condition = F.col(column_name).rlike(r"^[A-Za-z0-9]*$")
+            failure_message = F.concat(
+                F.lit(f"CHECK_ALPHANUMERIC: Column `{column_name}` has value "),
+                F.col(column_name).cast("string"),
+                F.lit(", which is not an alphanumeric value")
+            )
+            return self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_composite_column_value_is_unique(
+        self,
+        column_names: List[str],
+        filter_condition: Union[str, Column] = None,
+    ) -> "DataQualityChecker":
+        """Validate that a set of columns has unique values across the entire DataFrame.
+
+        If the check fails, append a failure message to __data_quality_issues.
+
+        Optionally, apply this check only to a subset of rows that match
+        a custom filter condition.
+
+        This can be used to assert the uniqueness of primary keys, composite or not.
+
+        Parameters
+        ----------
+        column_names : List[str]
+            List of columns whose composite values should be unique in the DataFrame.
+        filter_condition : Union[str, Column], default=None
+            PySpark Column expression for filtering the rows that this check
+            applies to. If this expression evaluates to False, the record
+            is not checked.
+
+        Returns
+        -------
+        DataQualityChecker
+            The modified DataQualityChecker instance.
+        """
+        try:
+            if not column_names:
+                raise ValueError("No column was given")
+
+            for column_name in column_names:
+                if not column_name:
+                    raise ValueError("Invalid column name")
+
+            self.df = self.df.withColumn("__duplicate_count", F.count("*").over(
+                Window.partitionBy(*column_names)
+            ))
+
+            expected_condition = F.col("__duplicate_count") == 1
+            formatted_columns = ", ".join([f"`{col}`" for col in column_names])
+            failure_message = F.concat(
+                F.lit(f"CHECK_UNIQUE: Column(s) {formatted_columns} has value ("),
+                F.concat_ws(", ", *column_names),
+                F.lit("), which is a duplicate value")
+            )
+            self.check_narrow_condition(
+                expected_condition=expected_condition,
+                failure_message=failure_message,
+                filter_condition=filter_condition,
+            )
+
+            self.df = self.df.drop("__duplicate_count")
+            return self
+
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    @classmethod
+    def check_columns_exist(
+        cls,
         dbutils: object,
-)-> DataFrame:
+        df: DataFrame,
+        column_names: List[str],
+        raise_exception: bool = True,
+    ) -> List[str]:
+        """Validate that a column exists in the given DataFrame.
 
-    try:
-        result_df = (
-            df.withColumn("dq_run_timestamp", F.current_timestamp())
-            .withColumn('__data_quality_issues',
-                        when(condition,F.array_union('__data_quality_issues',F.array(lit(dq_failure_message))))
-                        .otherwise(F.col('__data_quality_issues'))
-                        )
-            .withColumn("__bad_record", F.size("__data_quality_issues") > 0)
+        Optionally raise an exception in case of missing columns.
 
-        )
-        if "data_type_test" in result_df.columns :
-            result_df= result_df.drop(col("data_type_test"))
-            
-        if "Duplicate_indicator" in result_df.columns :
-            result_df  =result_df.drop(col("Duplicate_indicator"))
-                
-        return result_df
-    
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+        Parameters
+        ----------
+        dbutils : object
+            A Databricks utils object.
+        df : DataFrame
+            PySpark DataFrame to validate.
+        column_names : List[str]
+            List of columns that should be present in the DataFrame.
+        raise_exception : boolean, default=True
+            Whether to raise an exception if any column is missing.
 
+        Returns
+        -------
+        List[str]
+            The list of missing columns.
+        """
+        try:
+            if not column_names:
+                raise ValueError("No column name was given")
 
-def __get_col_list(src_df:DataFrame)-> List :
-    fields_list= [x for x in src_df.columns]
-    return fields_list
+            for column_name in column_names:
+                if not column_name:
+                    raise ValueError("Invalid column name")
 
+            # Use case insensitive comparison like Spark does
+            existing_columns = [col.lower() for col in df.columns]
+            missing_columns = [col for col in column_names if col.lower() not in existing_columns]
 
-def __get_lower_case(values:list)-> List :
-    fields_list= [x.lower() for x in values]
-    return fields_list
+            if len(missing_columns) > 0 and raise_exception:
+                formatted_columns = ", ".join([f"`{col}`" for col in missing_columns])
+                raise KeyError(f"DataFrame is missing required column(s): {formatted_columns}")
+
+            return missing_columns
+
+        except Exception:
+            common_utils.exit_with_last_exception(dbutils)

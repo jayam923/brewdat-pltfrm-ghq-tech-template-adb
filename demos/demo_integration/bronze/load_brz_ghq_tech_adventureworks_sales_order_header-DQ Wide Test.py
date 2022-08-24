@@ -141,8 +141,7 @@ for mapping in mappings:
         data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(target_location = target_location,  col_name = mapping.source_column_name, dq_mostly = mapping.null_percentage_variation_with_prev,results=results)
 
 if key_columns is not None:
-    k=data_quality_wider_modify.dq_validate_compond_column_unique_values(col_list = key_columns , mostly =compond_column_unique_percentage)
-    print(k)
+    data_quality_wider_modify.dq_validate_compond_column_unique_values(col_list = key_columns , mostly =compond_column_unique_percentage)
 if (count_varaition_with_prev_min_value is not None) and (count_varaiton_with_prev_max_value is not None):
     data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( target_location = target_location, min_value = count_varaition_with_prev_min_value, max_value = count_varaiton_with_prev_max_value,results=results)
 if (row_count_min_value is not None) and (row_count_max_value is not None):
