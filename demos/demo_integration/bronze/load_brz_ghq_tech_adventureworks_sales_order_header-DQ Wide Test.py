@@ -122,12 +122,11 @@ results = write_utils.write_delta_table(
 
 print(vars(results))
 
-print(results)
-_testing = results
+
 
 # COMMAND ----------
 
-data_quality_wider_modify=data_quality_wider_check.configure_great_expectation(df=raw_df,dbutils=dbutils,spark=spark)
+data_quality_wider_modify=data_quality_wider_check.configure_great_expectation(df=audit_df,dbutils=dbutils,spark=spark)
 
 # COMMAND ----------
 
