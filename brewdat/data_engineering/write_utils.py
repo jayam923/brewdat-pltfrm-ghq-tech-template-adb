@@ -351,12 +351,17 @@ def write_stream_delta_table(
                 enable_caching=enable_caching,
                 enable_vacuum=False,
             )
-
-            if micro_batch_return_object.status == RunStatus.SUCCEEDED:
-                return_object.num_records_loaded += micro_batch_return_object.num_records_loaded
-                return_object.num_records_errored_out += micro_batch_return_object.num_records_errored_out
-                return_object.num_records_read += micro_batch_return_object.num_records_read
-                return_object.new_version_number = micro_batch_return_object.new_version_number
+            
+            return_object.status = micro_batch_return_object.status
+            return_object.num_records_loaded += micro_batch_return_object.num_records_loaded
+            return_object.num_records_errored_out += micro_batch_return_object.num_records_errored_out
+            return_object.num_records_read += micro_batch_return_object.num_records_read
+            return_object.new_version_number = micro_batch_return_object.new_version_number
+            return_object.error_message = micro_batch_return_object.error_message
+            return_object.error_details = micro_batch_return_object.error_details
+            
+            if return_object.status != RunStatus.SUCCEEDED:
+                raise ValueError(return_object.error_message)
                 
         checkpoint_location = location.rstrip("/") + "/_checkpoint"
         if reset_checkpoint:
@@ -386,8 +391,8 @@ def write_stream_delta_table(
 
     except Exception as e:
         return_object.status = RunStatus.FAILED
-        return_object.error_message = str(e),
-        return_object.error_details = traceback.format_exc(),
+        return_object.error_message = return_object.error_message if return_object.error_message else str(e),
+        return_object.error_details = return_object.error_details if return_object.error_details else traceback.format_exc(),
         return return_object
 
 

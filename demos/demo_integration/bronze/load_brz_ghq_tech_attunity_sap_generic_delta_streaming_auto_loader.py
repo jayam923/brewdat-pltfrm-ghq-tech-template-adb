@@ -85,7 +85,7 @@ base_df = (
         schema_location = "abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/_schema",
         cast_all_to_string = True,
         use_incremental_listing = "false",
-        allow_overwrites=True
+        allow_overwrites=True,
     )
     .withColumn("__src_file", F.input_file_name())
 )
@@ -150,7 +150,6 @@ result = write_utils.write_stream_delta_table(
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
-    reset_checkpoint=False
 )
 
 print(result)
