@@ -1,4 +1,5 @@
 # Databricks notebook source
+import json
 dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
@@ -31,16 +32,50 @@ dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_inte
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"data_interval_end: {data_interval_end}")
 
+dbutils.widgets.text("json_dq_wide_mapping", "[]", "9 - json_dq_wide_mapping")
+json_dq_wide_mapping = dbutils.widgets.get("json_dq_wide_mapping")
+json_dq_wide_mapping = json.loads(json_dq_wide_mapping)
+print(f"json_dq_wide_mapping: {json_dq_wide_mapping}")
+
+
+dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "10 - key_columns")
+key_columns = dbutils.widgets.get("key_columns")
+key_columns = json.loads(key_columns)
+print(f"key_columns: {key_columns}")
+
+dbutils.widgets.text("compond_column_unique_percentage", "adventureworks", "11 - compond_column_unique_percentage")
+compond_column_unique_percentage = float(dbutils.widgets.get("compond_column_unique_percentage"))
+print(f"compond_column_unique_percentage: {compond_column_unique_percentage}")
+
+
+dbutils.widgets.text("count_varaition_with_prev_min_value", "adventureworks", "13 - count_varaition_with_prev_min_value")
+count_varaition_with_prev_min_value = float(dbutils.widgets.get("count_varaition_with_prev_min_value"))
+print(f"count_varaition_with_prev_min_value: {count_varaition_with_prev_min_value}")
+
+dbutils.widgets.text("count_varaiton_with_prev_max_value", "adventureworks", "14 - count_varaiton_with_prev_max_value")
+count_varaiton_with_prev_max_value = int(dbutils.widgets.get("count_varaiton_with_prev_max_value"))
+print(f"count_varaiton_with_prev_max_value: {count_varaiton_with_prev_max_value}")
+
+dbutils.widgets.text("row_count_min_value", "adventureworks", "15 - row_count_min_value")
+row_count_min_value = int(dbutils.widgets.get("row_count_min_value"))
+print(f"row_count_min_value: {row_count_min_value}")
+
+dbutils.widgets.text("row_count_max_value", "row_count_max_value", "16 - row_count_max_value")
+row_count_max_value = int(dbutils.widgets.get("row_count_max_value"))
+print(f"row_count_max_value: {row_count_max_value}")
+
+
+
 # COMMAND ----------
 
 import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wide_checks
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wider_check
 
 # Print a module's help
-help(data_quality_utils)
+help(data_quality_wider_modify)
 
 # COMMAND ----------
 
@@ -48,62 +83,11 @@ help(data_quality_utils)
 
 # COMMAND ----------
 
-raw_df1 = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.CSV,
-    #location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    location="dbfs:/FileStore/dataquality/DQ_Test_Files/Col_value_type_test.csv",
-    csv_has_headers=False,
-    csv_delimiter=",",
-    csv_escape_character="\"",
-)
-
-display(raw_df1)
-
-# COMMAND ----------
-
-# DBTITLE 1,Direct function in GE 
-from pyspark.sql.functions import col, count, lit
-#Add one column with integer values 
-raw_df1=raw_df1.withColumn("testing", lit(20))
-
-# Create object for Great Expectation
-validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df1)
-
-#run functions which can be run directly using greate expectations
-test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "_c1", mostly =0.7, resultlist = result_list )
-test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_list = ["_c1","_c3"], mostly =0.7, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator, min_value =5, max_value = 30, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_column_values_to_not_be_null(dbutils ,validator ,col_name = "_c3", mostly =0.8, resultlist = result_list)
-test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 100 , max_value = 500, resultlist = result_list)  # to run this function we need integer column
-
-# #result of all validation in dataframe/
-final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
-display(final_result_df)
-
-
-# COMMAND ----------
-
-raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
-    file_format=read_utils.RawFileFormat.CSV,
-    location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    #location="dbfs:/FileStore/dataquality/DQ_Test_Files/Col_value_type_test.csv",
-    csv_has_headers=True,
-    csv_delimiter=",",
-    csv_escape_character="\"",
-)
-
-display(raw_df)
-
-# COMMAND ----------
-
 from pyspark.sql import functions as F
 
 transformed_df = (
-    raw_df
+    spark.read
+    .table(f"{target_hive_database}.{target_hive_table}")
     .filter(F.col("__ref_dt").between(
         F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
@@ -112,7 +96,7 @@ transformed_df = (
 )
 
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
-display(transformed_df)
+#display(audit_df)
 
 # COMMAND ----------
 
@@ -127,7 +111,7 @@ target_location = lakehouse_utils.generate_bronze_table_location(
 
 results = write_utils.write_delta_table(
     spark=spark,
-    df=audit_df,
+    df= audit_df,
     location=target_location,
     schema_name=target_hive_database,
     table_name=target_hive_table,
@@ -143,28 +127,27 @@ _testing = results
 
 # COMMAND ----------
 
-raw_df=raw_df.withColumn("testing", lit(20))
-# # Create object for Great Expectation
-validator, result_list = data_quality_wide_checks.configure_great_expectation(raw_df)
-
-# #run functions which can be run directly using greate expectations
-# test= data_quality_wide_checks.dq_validate_column_unique_values(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list )
-# print(test)
-# test= data_quality_wide_checks.dq_validate_compond_column_unique_values(dbutils ,validator ,col_list = ["SalesOrderID"], mostly =0.8, resultlist = result_list)
-# test= data_quality_wide_checks.dq_validate_row_count(dbutils ,validator, min_value =10, max_value = 30, resultlist = result_list)
-# test= data_quality_wide_checks.dq_validate_column_values_to_not_be_null(dbutils ,validator ,col_name = "SalesOrderID", mostly =0.8, resultlist = result_list)
-# test= data_quality_wide_checks.dq_validate_range_for_numeric_column_sum_values(dbutils, validator, col_name = "testing", min_value= 500 , max_value = 1000, resultlist = result_list)  # to run this function we need integer column
-
-# #count variation  - function which depends on delta table  
-test = data_quality_wide_checks.dq_validate_count_variation_from_previous_version_values(spark=spark, dbutils = dbutils , target_location = target_location, results = _testing, min_value = 100, max_value = 300, resultlist = result_list)
-
-# # # Null variation - function which depends on delta table 
-result = data_quality_wide_checks.dq_validate_null_percentage_variation_from_previous_version_values(spark=spark, dbutils = dbutils , target_location = target_location, results = _testing,  col_name = "SalesOrderID", dq_mostly = 0.1, resultlist = result_list)
-
-# # #result of all validation in dataframe
-final_result_df = data_quality_wide_checks.get_wider_dq_results(spark=spark, dbutils=dbutils, values= result_list)
-display(final_result_df)
+data_quality_wider_modify=data_quality_wider_check.configure_great_expectation(df=raw_df,dbutils=dbutils,spark=spark)
 
 # COMMAND ----------
 
+mappings = [common_utils.widerColumnMapping(**mapping) for mapping in  json_dq_wide_mapping]
+for mapping in mappings:
+    if mapping.unique_percentage_col is not None:
+        data_quality_wider_modify.dq_validate_column_unique_values(col_name = mapping.source_column_name, mostly = mapping.unique_percentage_col)
+    if mapping.null_percentage_for_col is not None:
+        data_quality_wider_modify.dq_validate_column_values_to_not_be_null( col_name = mapping.source_column_name, mostly =mapping.null_percentage_for_col)
+    if mapping.null_percentage_variation_with_prev is not None:
+        data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(target_location = target_location,  col_name = mapping.source_column_name, dq_mostly = mapping.null_percentage_variation_with_prev,results=results)
 
+if key_columns is not None:
+    k=data_quality_wider_modify.dq_validate_compond_column_unique_values(col_list = key_columns , mostly =compond_column_unique_percentage)
+    print(k)
+if (count_varaition_with_prev_min_value is not None) and (count_varaiton_with_prev_max_value is not None):
+    data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( target_location = target_location, min_value = count_varaition_with_prev_min_value, max_value = count_varaiton_with_prev_max_value,results=results)
+if (row_count_min_value is not None) and (row_count_max_value is not None):
+    data_quality_wider_modify.dq_validate_row_count( min_value =row_count_min_value, max_value = row_count_min_value)
+
+        
+final_result_df = data_quality_wider_modify.get_wider_dq_results(spark=spark, dbutils=dbutils)
+display(final_result_df)
