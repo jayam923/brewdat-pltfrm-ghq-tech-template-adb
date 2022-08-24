@@ -309,6 +309,7 @@ def write_delta_table(
 
 
 def write_stream_delta_table(
+    dbutils: object,
     spark: SparkSession,
     df: DataFrame,
     location: str,
@@ -322,6 +323,7 @@ def write_stream_delta_table(
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = False,
+    reset_checkpoint: bool = False,
 ) -> ReturnObject:
 
     return_object = ReturnObject(
@@ -355,13 +357,17 @@ def write_stream_delta_table(
                 return_object.num_records_errored_out += micro_batch_return_object.num_records_errored_out
                 return_object.num_records_read += micro_batch_return_object.num_records_read
                 return_object.new_version_number = micro_batch_return_object.new_version_number
+                
+        checkpoint_location = location.rstrip("/") + "/_checkpoint"
+        if reset_checkpoint:
+            dbutils.fs.rm(checkpoint_location, recurse=True)
 
         (
             df
             .writeStream
             .foreachBatch(write_micro_batch)
             .trigger(availableNow=True)
-            .option('checkpointLocation', location.rstrip("/") + "/_checkpoint")
+            .option('checkpointLocation', checkpoint_location)
             .start()
             .awaitTermination()
         )

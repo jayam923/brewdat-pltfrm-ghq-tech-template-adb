@@ -143,7 +143,7 @@ def read_raw_dataframe_stream(
         dbutils: object,
         file_format: RawFileFormat,
         location: str,
-        schema_location: str,
+        schema_location: str = None,
         cast_all_to_string: bool = True,
         max_bytes_per_trigger: str = "10g",
         max_files_per_trigger: int = 1000,

@@ -33,7 +33,7 @@ import sys
 from pyspark.sql import functions as F
 
 # Import BrewDat Library modules
-#sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
+sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
 # Print a module's help
@@ -139,6 +139,7 @@ print(f"location: {location}")
 # COMMAND ----------
 
 result = write_utils.write_stream_delta_table(
+    dbutils=dbutils,
     spark=spark,
     df=audit_df,
     location="abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/",
@@ -148,7 +149,8 @@ result = write_utils.write_stream_delta_table(
     partition_columns=["TARGET_APPLY_DT"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
-    enable_caching=False
+    enable_caching=False,
+    reset_checkpoint=False
 )
 
 print(result)
