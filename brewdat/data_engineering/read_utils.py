@@ -1,6 +1,7 @@
 from enum import Enum, unique
 
 import pyspark.pandas as ps
+import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, SparkSession
 
 from . import common_utils, transform_utils
@@ -153,6 +154,11 @@ def read_raw_dataframe_stream(
         additional_options: dict = {},
 ) -> DataFrame:
     try:
+
+        spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
+
+        RESCUE_COLUMN = "__rescued_data"
+
         schema_location = schema_location if schema_location else f"{location}/_autoloader_schema"
         df_reader = (
             spark
@@ -166,6 +172,8 @@ def read_raw_dataframe_stream(
                 .option("cloudFiles.maxFilesPerTrigger", max_files_per_trigger)
                 .option("cloudFiles.useIncrementalListing", use_incremental_listing)
                 .option("cloudFiles.allowOverwrites", allow_overwrites)
+                .option("readerCaseSensitive", False)
+                .option("rescuedDataColumn", RESCUE_COLUMN)
                 .options(**additional_options)
         )
 
@@ -177,6 +185,18 @@ def read_raw_dataframe_stream(
         if cast_all_to_string:
             df = transform_utils.cast_all_columns_to_string(dbutils, df)
 
+        # Bring back rescued data from columns that had schema mismatches
+        # during schema inference. This is not required for CSV or JSON.
+        # TODO: create a function for this
+        schema_str = df.schema.simpleString()
+        df = df.withColumn(RESCUE_COLUMN, F.from_json(RESCUE_COLUMN, schema_str))
+        for col in df.columns:
+            if col == RESCUE_COLUMN:
+                continue
+            df = df.withColumn(col, F.coalesce(col, f"`{RESCUE_COLUMN}`.`{col}`"))
+        df = df.drop(RESCUE_COLUMN)
+
         return df
+
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
