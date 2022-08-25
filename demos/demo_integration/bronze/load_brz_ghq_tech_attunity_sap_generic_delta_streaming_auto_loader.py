@@ -33,7 +33,7 @@ import sys
 from pyspark.sql import functions as F
 
 # Import BrewDat Library modules
-sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
+# sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
 
 # Print a module's help

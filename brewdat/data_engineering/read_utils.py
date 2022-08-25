@@ -153,7 +153,7 @@ def read_raw_dataframe_stream(
         allow_overwrites: bool = False,
         additional_options: dict = {},
 ) -> DataFrame:
-    try:
+    # try:
 
         spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
 
@@ -172,8 +172,8 @@ def read_raw_dataframe_stream(
                 .option("cloudFiles.maxFilesPerTrigger", max_files_per_trigger)
                 .option("cloudFiles.useIncrementalListing", use_incremental_listing)
                 .option("cloudFiles.allowOverwrites", allow_overwrites)
+                .option("cloudFiles.rescuedDataColumn", RESCUE_COLUMN)
                 .option("readerCaseSensitive", False)
-                .option("rescuedDataColumn", RESCUE_COLUMN)
                 .options(**additional_options)
         )
 
@@ -188,15 +188,17 @@ def read_raw_dataframe_stream(
         # Bring back rescued data from columns that had schema mismatches
         # during schema inference. This is not required for CSV or JSON.
         # TODO: create a function for this
-        schema_str = df.schema.simpleString()
+        
+        """schema_str = df.schema.simpleString()
         df = df.withColumn(RESCUE_COLUMN, F.from_json(RESCUE_COLUMN, schema_str))
         for col in df.columns:
             if col == RESCUE_COLUMN:
                 continue
             df = df.withColumn(col, F.coalesce(col, f"`{RESCUE_COLUMN}`.`{col}`"))
         df = df.drop(RESCUE_COLUMN)
+        """
 
         return df
 
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+    # except Exception:
+    #     common_utils.exit_with_last_exception(dbutils)
