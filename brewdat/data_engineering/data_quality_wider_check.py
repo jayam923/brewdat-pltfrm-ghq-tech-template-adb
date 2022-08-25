@@ -53,12 +53,12 @@ class configure_great_expectation():
         """
         try:
             result_schema = (
-                 StructType(fields=[StructField('dq_function_name',StringType()),
+                 StructType(fields=[StructField('function_name',StringType()),
                                                    StructField('result_value',StringType()), 
-                                                   StructField('dq_mostly',FloatType()),
-                                                   StructField('dq_range',StringType()),
-                                                   StructField('dq_result',StringType()),
-                                                   StructField('dq_comments',StringType())])
+                                                   StructField('expected_percentage',FloatType()),
+                                                   StructField('range',StringType()),
+                                                   StructField('status',StringType()),
+                                                   StructField('comments',StringType())])
                  )                   
             result_df= spark.createDataFrame([*set(self.result_list)], result_schema)
             return result_df
@@ -142,13 +142,13 @@ class configure_great_expectation():
             result_value = str(result['result']['observed_value'])
             dq_mostly = dq_mostly
             dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-            dq_comments = f" '{dq_column_name} ' records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
+            dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
 
         else :  
             result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
             dq_mostly = result['expectation_config']['kwargs']['mostly']
             dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
-            dq_comments = f" '{dq_column_name} ' total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
+            dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
 
         self.result_list.append(
                 (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
@@ -184,10 +184,12 @@ class configure_great_expectation():
             ExpectationValidationResult object
         """
         try:
-            col_names = " "
+            if mostly<0.1 or mostly>1:
+                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
+                
+            col_names = ","
             result =  self.validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
             col_names = col_names.join(col_list)
-            print(col_names)
             self.__get_result_list(result= result, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns")
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
@@ -252,6 +254,9 @@ class configure_great_expectation():
             ExpectationValidationResult object
         """
         try:
+            if mostly<0.1 or mostly>1:
+                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
+                
             result =  self.validator.expect_column_values_to_not_be_null(col_name, mostly, result_format = "SUMMARY")
             self.__get_result_list(result= result, dq_column_name =  col_name, dq_function_name = "dq_not_null_records_percentage_for_column")
             return self
@@ -322,6 +327,9 @@ class configure_great_expectation():
             ExpectationValidationResult object
         """
         try:
+            if mostly<0.1 or mostly>1:
+                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
+                
             result =  self.validator.expect_column_values_to_be_unique(col_name, mostly, result_format = "SUMMARY")
             self.__get_result_list( result=result,dq_column_name =  col_name, dq_function_name = "dq_count_for_unique_values_in_columns")
             #return self
@@ -375,7 +383,7 @@ class configure_great_expectation():
         target_location: str,
         results : object,
         col_name : str,
-        dq_mostly : int,
+        mostly : int,
         #resultlist : list = []
         )-> ExpectationValidationResult:
 
@@ -394,6 +402,9 @@ class configure_great_expectation():
             takes the list to hold the result in result df
         """
         try:
+            if mostly<0.1 or mostly>1:
+                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
+                
             dq_min_value = None
             dq_min_value = None
             current_df, history_df = self.__get_delta_tables_history_dataframe(target_location = target_location, results = results)
@@ -404,13 +415,12 @@ class configure_great_expectation():
             dq_result = str(current_result['success'])
             result_value = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
             dq_function_name  = "dq_validate_null_percentage_variation_values"
-            dq_comments = f" '{col_name}' null percentage in history :-> {history_result['result']['unexpected_percent']:.2f} , null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
+            dq_comments = f" '{col_name}' : null percentage in history :-> {history_result['result']['unexpected_percent']:.2f} , null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
             dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
             cal_mostly = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
-            dq_mostly = dq_mostly
-            if(cal_mostly <= dq_mostly):
+            if(cal_mostly <= mostly):
                 dq_result = "True"
-            self.result_list.append((dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))      
+            self.result_list.append((dq_function_name, result_value, mostly, dq_range, dq_result, dq_comments))      
             return self
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
