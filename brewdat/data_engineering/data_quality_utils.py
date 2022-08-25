@@ -44,8 +44,8 @@ class DataQualityChecker():
         result_df = (
             self.df
                 .withColumn(DQ_RESULTS_COLUMN, F.array(tmp_dq_cols))
+                .withColumn(DQ_RESULTS_COLUMN, F.filter(DQ_RESULTS_COLUMN, lambda x: x.isNotNull()))
                 .drop(*tmp_dq_cols)
-                .withColumn(DQ_RESULTS_COLUMN, F.array_except(DQ_RESULTS_COLUMN, F.array(F.lit(None))))
         )
         return result_df
 
