@@ -1,13 +1,26 @@
 import re
 from datetime import datetime
-from typing import List
+from enum import Enum, unique
+from typing import List, Tuple
 
 import pyspark.sql.functions as F
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DataType
-from pyspark.sql.window import Window
 
 from . import common_utils
+from .common_utils import ColumnMapping
+
+
+@unique
+class UnmappedColumnBehavior(str, Enum):
+    """Specifies the way in which unmapped DataFrame columns should
+    be handled in apply_column_mappings() function.
+    """
+    IGNORE_UNMAPPED_COLUMNS = "IGNORE_UNMAPPED_COLUMNS"
+    """Ignore unmapped columns in the column mappings."""
+    FAIL_ON_UNMAPPED_COLUMNS = "FAIL_ON_UNMAPPED_COLUMNS"
+    """Raise exception when input columns are missing from
+    the column mappings."""
 
 
 def clean_column_names(
@@ -17,8 +30,8 @@ def clean_column_names(
 ) -> DataFrame:
     """Normalize the name of all the columns in a given DataFrame.
 
-    Uses BrewDat's standard approach as seen in other Notebooks.
-    Improved to also trim (strip) whitespaces.
+    Replaces non-alphanumeric characters with underscore and
+    strips leading/trailing underscores, except in metadata columns.
 
     Parameters
     ----------
@@ -35,16 +48,18 @@ def clean_column_names(
         The modified PySpark DataFrame with renamed columns.
     """
     try:
-        column_names = df.schema.names
-        for column_name in column_names:
-            if column_name in except_for:
+        for column in df.schema:
+            if column.name in except_for:
                 continue  # Skip
 
-            # \W is "anything that is not alphanumeric or underscore"
-            # Equivalent to [^A-Za-z0-9_]
-            new_column_name = re.sub(r"\W+", "_", column_name.strip())
-            if column_name != new_column_name:
-                df = df.withColumnRenamed(column_name, new_column_name)
+            new_column_name = _clean_column_name(column.name)
+            if column.name != new_column_name:
+                df = df.withColumnRenamed(column.name, new_column_name)
+
+            if column.dataType.typeName() in ["array", "map", "struct"]:
+                new_data_type = _spark_type_clean_field_names_recurse(column.dataType)
+                df = df.withColumn(new_column_name, F.col(new_column_name).cast(new_data_type))
+
         return df
 
     except Exception:
@@ -307,6 +322,119 @@ def flatten_dataframe(
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
+
+
+def apply_column_mappings(
+    dbutils: object,
+    df: DataFrame,
+    mappings: List[ColumnMapping],
+    unmapped_behavior: UnmappedColumnBehavior = UnmappedColumnBehavior.IGNORE_UNMAPPED_COLUMNS,
+) -> Tuple[DataFrame, List[str]]:
+    """Cast and rename DataFrame columns according to a list of column mappings.
+
+    Optionally raise an exception if the mapping is missing any source column, except
+    for metadata columns.
+
+    Parameters
+    ----------
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        The PySpark DataFrame to cast.
+    mappings: List[ColumnMapping]
+        List of column mapping objects.
+    unmapped_behavior: UnmappedColumnBehavior, default=IGNORE_UNMAPPED_COLUMNS
+        Specifies the way in which unmapped DataFrame columns should be handled.
+
+    Returns
+    -------
+    (DataFrame, List[str])
+        DataFrame
+            The modified PySpark DataFrame with columns properly cast and renamed.
+        List[str]
+            The list of unmapped DataFrame columns.
+    """
+    try:
+        # Use case insensitive comparison like Spark does
+        all_columns = common_utils.list_non_metadata_columns(df)
+        mapped_columns = [m.source_column_name.lower() for m in mappings]
+        unmapped_columns = [col for col in all_columns if col.lower() not in mapped_columns]
+        if unmapped_columns and unmapped_behavior == UnmappedColumnBehavior.FAIL_ON_UNMAPPED_COLUMNS:
+            formatted_columns = ", ".join([f"`{col}`" for col in unmapped_columns])
+            raise ValueError(f"Columns {formatted_columns} are missing from schema mappings")
+
+        expressions = []
+        for mapping in mappings:
+            source_expression = mapping.sql_expression or f"`{mapping.source_column_name}`"
+            expression = f"CAST({source_expression} AS {mapping.target_data_type}) AS `{mapping.target_column_name}`"
+            expressions.append(expression)
+        df = df.selectExpr(*expressions)
+
+        return df, unmapped_columns
+
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
+def _clean_column_name(column_name: str) -> str:
+    """Returns column name formatted into proper pattern.
+
+    Replaces non-alphanumeric characters with underscore and
+    strips leading/trailing underscores, except in metadata columns.
+
+    Parameters
+    ----------
+    column_name : str
+        Column name to be formatted.
+
+    Returns
+    -------
+    str
+        Formatted column name.
+    """
+    # Replace anything that is not alphanumeric or underscore with underscore
+    new_column_name = re.sub(r"[^A-Za-z0-9_]+", "_", column_name)
+
+    # Remove leading/trailing underscores
+    # Except for leading double underscores in metadata columns
+    if new_column_name.startswith("_") and not new_column_name.startswith("__"):
+        new_column_name = new_column_name.strip("_")
+    else:
+        new_column_name = new_column_name.rstrip("_")
+
+    return new_column_name
+
+
+def _spark_type_clean_field_names_recurse(spark_type: DataType) -> str:
+    """Returns a DDL representation of a Spark data type for casting purposes.
+
+    All field names from complex types are replaced with clean field names.
+
+    Parameters
+    ----------
+    spark_type : DataType
+        DataType object that should have its field names cleaned.
+
+    Returns
+    -------
+    str
+        DDL representation of the new Datatype.
+    """
+    if spark_type.typeName() == "array":
+        new_element_type = _spark_type_clean_field_names_recurse(spark_type.elementType)
+        return f"array<{new_element_type}>"
+    if spark_type.typeName() == "map":
+        new_key_type = _spark_type_clean_field_names_recurse(spark_type.keyType)
+        new_value_type = _spark_type_clean_field_names_recurse(spark_type.valueType)
+        return f"map<{new_key_type},{new_value_type}>"
+    if spark_type.typeName() == "struct":
+        new_field_types = []
+        for name in spark_type.fieldNames():
+            new_field_type = _spark_type_clean_field_names_recurse(spark_type[name].dataType)
+            new_name = _clean_column_name(name)
+            new_field_types.append(f"`{new_name}`: {new_field_type}")
+        return "struct<" + ", ".join(new_field_types) + ">"
+    return spark_type.typeName()
 
 
 def _spark_type_to_string_recurse(spark_type: DataType) -> str:

@@ -1,11 +1,11 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.2.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("project", "demo_consumption", "2 - project")
-project = dbutils.widgets.get("project")
-print(f"project: {project}")
+dbutils.widgets.text("data_product", "demo_consumption", "2 - data_product")
+data_product = dbutils.widgets.get("data_product")
+print(f"data_product: {data_product}")
 
 dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
@@ -50,31 +50,31 @@ help(transform_utils)
 # COMMAND ----------
 
 common_utils.configure_spn_access_for_adls(
-        spark=spark,
-        dbutils=dbutils,
-        storage_account_names=[adls_silver_gold_storage_account_name],
-        key_vault_name=key_vault_name,
-        spn_client_id=spn_client_id,
-        spn_secret_name=spn_secret_name,
-    )
+    spark=spark,
+    dbutils=dbutils,
+    storage_account_names=[adls_silver_gold_storage_account_name],
+    key_vault_name=key_vault_name,
+    spn_client_id=spn_client_id,
+    spn_secret_name=spn_secret_name,
+)
 
 # COMMAND ----------
 
-key_columns = ["sales_order_id"]
+key_columns = ["SalesOrderID"]
 
 df = spark.sql("""
         SELECT 
-            sales_order_id, 
-            status_code, 
-            online_order_flag, 
-            sales_order_number, 
-            order_header.customer_id, 
-            purchase_order_number,
+            SalesOrderID,
+            StatusDescription,
+            OnlineOrderFlag,
+            SalesOrderNumber,
+            order_header.CustomerID,
+            PurchaseOrderNumber,
             order_header.__update_gmt_ts
         FROM 
             slv_ghq_tech_adventureworks.sales_order_header AS order_header 
             LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer      
-                ON order_header.customer_id = customer.customer_id
+                ON order_header.CustomerID = customer.CustomerID
         WHERE
             order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
     """.format(
@@ -108,23 +108,25 @@ location = lakehouse_utils.generate_gold_table_location(
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
-    project=project,
+    data_product=data_product,
     database_name=target_hive_database,
     table_name=target_hive_table,
 )
+print(f"location: {location}")
+
+# COMMAND ----------
 
 results = write_utils.write_delta_table(
     spark=spark,
     df=audit_df,
     key_columns=key_columns,
     location=location,
-    schema_name=target_hive_database,
+    database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.UPSERT,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
-
-print(vars(results))
+print(results)
 
 # COMMAND ----------
 
