@@ -126,7 +126,7 @@ print(vars(results))
 
 # COMMAND ----------
 
-data_quality_wider_modify=data_quality_wider_check.configure_great_expectation(df=audit_df,dbutils=dbutils,spark=spark)
+data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
 
 # COMMAND ----------
 

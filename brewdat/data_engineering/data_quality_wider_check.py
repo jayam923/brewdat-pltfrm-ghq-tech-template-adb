@@ -11,7 +11,7 @@ from great_expectations.validator.validator import Validator
 from .import common_utils
 
 
-class DataQualityCheck():
+    class DataQualityCheck():
     """Helper class that provides data quality checks for given DataFrame.
     
     Parameters
@@ -141,7 +141,7 @@ class DataQualityCheck():
             dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
 
         else : 
-            if dq_function_name == "dq_count_for_unique_values_in_columns":
+            if dq_function_name == "dq_count_for_unique_values_in_compond_columns":
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count'])
             else:
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
