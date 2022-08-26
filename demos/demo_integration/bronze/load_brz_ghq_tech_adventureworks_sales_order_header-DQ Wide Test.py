@@ -43,24 +43,24 @@ key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
 print(f"key_columns: {key_columns}")
 
-dbutils.widgets.text("compond_column_unique_percentage", "adventureworks", "11 - compond_column_unique_percentage")
+dbutils.widgets.text("compond_column_unique_percentage", "0.5", "11 - compond_column_unique_percentage")
 compond_column_unique_percentage = float(dbutils.widgets.get("compond_column_unique_percentage"))
 print(f"compond_column_unique_percentage: {compond_column_unique_percentage}")
 
 
-dbutils.widgets.text("count_varaition_with_prev_min_value", "adventureworks", "13 - count_varaition_with_prev_min_value")
+dbutils.widgets.text("count_varaition_with_prev_min_value", "100", "13 - count_varaition_with_prev_min_value")
 count_varaition_with_prev_min_value = float(dbutils.widgets.get("count_varaition_with_prev_min_value"))
 print(f"count_varaition_with_prev_min_value: {count_varaition_with_prev_min_value}")
 
-dbutils.widgets.text("count_varaiton_with_prev_max_value", "adventureworks", "14 - count_varaiton_with_prev_max_value")
+dbutils.widgets.text("count_varaiton_with_prev_max_value", "200", "14 - count_varaiton_with_prev_max_value")
 count_varaiton_with_prev_max_value = int(dbutils.widgets.get("count_varaiton_with_prev_max_value"))
 print(f"count_varaiton_with_prev_max_value: {count_varaiton_with_prev_max_value}")
 
-dbutils.widgets.text("row_count_min_value", "adventureworks", "15 - row_count_min_value")
+dbutils.widgets.text("row_count_min_value", "100", "15 - row_count_min_value")
 row_count_min_value = int(dbutils.widgets.get("row_count_min_value"))
 print(f"row_count_min_value: {row_count_min_value}")
 
-dbutils.widgets.text("row_count_max_value", "row_count_max_value", "16 - row_count_max_value")
+dbutils.widgets.text("row_count_max_value", "200", "16 - row_count_max_value")
 row_count_max_value = int(dbutils.widgets.get("row_count_max_value"))
 print(f"row_count_max_value: {row_count_max_value}")
 
