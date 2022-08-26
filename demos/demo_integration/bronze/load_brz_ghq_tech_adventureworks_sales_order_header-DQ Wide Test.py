@@ -137,12 +137,12 @@ for mapping in mappings:
     if mapping.null_percentage_for_col is not None:
         data_quality_wider_modify.dq_validate_column_values_to_not_be_null( col_name = mapping.source_column_name, mostly =mapping.null_percentage_for_col)
     if mapping.null_percentage_variation_with_prev is not None:
-        data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(target_location = target_location,  col_name = mapping.source_column_name, mostly = mapping.null_percentage_variation_with_prev,results=results)
+        data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(target_location = target_location,  col_name = mapping.source_column_name, mostly = mapping.null_percentage_variation_with_prev,older_version=results.old_version_number,latest_version=results.new_version_number)
 
 if key_columns is not None:
     data_quality_wider_modify.dq_validate_compond_column_unique_values(col_list = key_columns , mostly =compond_column_unique_percentage)
-if (count_varaition_with_prev_min_value is not None) and (count_varaiton_with_prev_max_value is not None):
-    data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( target_location = target_location, min_value = count_varaition_with_prev_min_value, max_value = count_varaiton_with_prev_max_value,results=results)
+if (count_variation_with_prev_min_value is not None) and (count_variation_with_prev_max_value is not None):
+    data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( target_location = target_location, min_value = count_variation_with_prev_min_value, max_value = count_variation_with_prev_max_value,older_version=results.old_version_number,latest_version=results.new_version_number)
 if (row_count_min_value is not None) and (row_count_max_value is not None):
     data_quality_wider_modify.dq_validate_row_count( min_value =row_count_min_value, max_value = row_count_min_value)
 
@@ -150,22 +150,3 @@ if (row_count_min_value is not None) and (row_count_max_value is not None):
 final_result_df = data_quality_wider_modify.get_wider_dq_results(spark=spark, dbutils=dbutils)
 display(final_result_df)
 
-# COMMAND ----------
-
-df=spark.sql('''select 1 as stat union ALL
-select 2 as stat union 
-select 3 as stat union 
-select 4 as stat union
-select 5 as stat union 
-select 6 as stat union ALL
-select 6 as stat union ALL
-select 6 as stat union
-select 6 as stat union
-select 6 as stat 
-'''
-)
-display(df)
-data_quality_wider_modify=data_quality_wider_check.configure_great_expectation(df=df,dbutils=dbutils,spark=spark)
-data_quality_wider_modify.dq_validate_column_unique_values(col_name = 'stat', mostly = 0.5)
-final_result_df = data_quality_wider_modify.get_wider_dq_results(spark=spark, dbutils=dbutils)
-display(final_result_df)
