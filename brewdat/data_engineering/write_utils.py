@@ -129,7 +129,7 @@ def write_delta_table(
         nodes when performing a join. Default value in bytes represents 50 MB.
     enable_caching : bool, default=True
         Cache the DataFrame so that transformations are not recomputed multiple times
-        during couting, bad record handling, or writing with TYPE_2_SCD.
+        during counting, bad record handling, or writing with TYPE_2_SCD.
     enable_vacuum: bool, default=True
         Runs Vacuum operation right after writing data to delta location.
 
@@ -309,8 +309,8 @@ def write_delta_table(
 
 
 def write_stream_delta_table(
-    dbutils: object,
     spark: SparkSession,
+    dbutils: object,
     df: DataFrame,
     location: str,
     database_name: str,
@@ -325,6 +325,55 @@ def write_stream_delta_table(
     enable_caching: bool = False,
     reset_checkpoint: bool = False,
 ) -> ReturnObject:
+    """Write the stream DataFrame as a delta table.
+
+    Parameters
+    ----------
+    spark : SparkSession
+        A Spark session.
+    dbutils : object
+        A Databricks utils object.
+    df : DataFrame
+        PySpark DataFrame to modify.
+    location : str
+        Absolute Delta Lake path for the physical location of this delta table.
+    database_name : str
+        Name of the database/schema for the table in the metastore.
+        Database is created if it does not exist.
+    table_name : str
+        Name of the table in the metastore.
+    load_type : BrewDatLibrary.LoadType
+        Specifies the way in which the table should be loaded.
+        See documentation for BrewDatLibrary.LoadType.
+    key_columns : List[str], default=[]
+        The names of the columns used to uniquely identify each record in the table.
+        Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
+    partition_columns : List[str], default=[]
+        The names of the columns used to partition the table.
+    schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
+        Specifies the way in which schema mismatches should be handled.
+        See documentation for BrewDatLibrary.SchemaEvolutionMode.
+    bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
+        Specifies the way in which bad records should be handled.
+        See documentation for BrewDatLibrary.BadRecordHandlingMode.
+    time_travel_retention_days : int, default=30
+        Number of days for retaining time travel data in the Delta table.
+        Used to limit how many old snapshots are preserved during the VACUUM operation.
+        For more information: https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch
+    auto_broadcast_join_threshold : int, default=52428800
+        Configures the maximum size in bytes for a table that will be broadcast to all worker
+        nodes when performing a join. Default value in bytes represents 50 MB.
+    enable_caching : bool, default=True
+        Cache the DataFrame so that transformations are not recomputed multiple times
+        during counting, bad record handling, or writing with TYPE_2_SCD.
+    reset_checkpoint: bool, default=False
+        Whether to reset streaming checkpoint before start processing.
+
+    Returns
+    -------
+    ReturnObject
+        Object containing the results of a write operation.
+    """
 
     return_object = ReturnObject(
         status=RunStatus.SUCCEEDED,
