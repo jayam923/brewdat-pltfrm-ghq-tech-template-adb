@@ -157,6 +157,63 @@ def read_raw_dataframe_stream(
         allow_overwrites: bool = False,
         additional_options: dict = {},
 ) -> DataFrame:
+    """Read a streaming DataFrame from the Raw Layer.
+
+        Parameters
+        ----------
+        spark : SparkSession
+            A Spark session.
+        dbutils : object
+            A Databricks utils object.
+        file_format : RawFileFormat
+            The raw file format use in this dataset (CSV, PARQUET, etc.).
+        location : str
+            Absolute Data Lake path for the physical location of this dataset.
+            Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
+        schema_location: str, default=None
+            Absolute Data Lake path to store the inferred schema and subsequent changes.
+            If not informed, the following location is going to be used by default: {location}/_autoloader_schema.
+            Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/_schema".
+        rescue_columns: bool, default=True
+            Whether to bring back rescued data from columns that had schema mismatches during schema inference.
+        cast_all_to_string : bool, default=True
+            Whether to cast all non-string values to string.
+            Useful to maximize schema compatibility in the Bronze layer.
+        csv_has_headers : bool, default=True
+            Whether the CSV file has a header row.
+        csv_delimiter : str, default=","
+            Delimiter string for CSV file format.
+        csv_escape_character : str, default="\\""
+            Escape character for CSV file format.
+        max_bytes_per_trigger: str, default="10g"
+            The maximum number of new bytes to be processed in every trigger. You can specify a byte string such
+            as 10g to limit each microbatch to 10 GB of data. This is a soft maximum. If you have files that
+            are 3 GB each, Databricks processes 12 GB in a microbatch. When used together with
+            max_files_per_trigger, Databricks consumes up to the lower limit of max_files_per_trigger or
+            max_bytes_per_trigger, whichever is reached first. This option has no effect when used with Trigger.Once().
+        max_files_per_trigger: int, default=1000
+            The maximum number of new files to be processed in every trigger. When used together with
+            max_bytes_per_trigger, Databricks consumes up to the lower limit of max_files_per_trigger or
+            max_bytes_per_trigger, whichever is reached first. This option has no effect when used with Trigger.Once().
+        use_incremental_listing: str, default="true"
+            Whether to use the incremental listing rather than the full listing in directory listing mode.
+            With "auto" mode, reading process will make the best effort to automatically detect if a given directory is
+            applicable for the incremental listing. You can explicitly use the incremental listing or use the
+            full directory listing by setting it as true or false respectively.
+            Available values: "auto", "true", "false"
+        backfill_interval: str, default=None
+            In order to guarantee the eventual completeness, a interval can be set to trigger asynchronous
+            backfills at a given interval, e.g. "1 day" to backfill once a day, or "1 week" to backfill once a week.
+        allow_overwrites: bool, default=False
+            Whether to allow input directory file changes to overwrite existing data.
+        additional_options : dict, default={}
+            Dictionary with additional options for spark.read.
+
+        Returns
+        -------
+        DataFrame
+            The PySpark streaming DataFrame read from the Raw Layer.
+        """
     try:
 
         spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
@@ -198,7 +255,7 @@ def read_raw_dataframe_stream(
         if cast_all_to_string:
             df = transform_utils.cast_all_columns_to_string(dbutils, df)
 
-        # Bring back rescued data from columns that had schema mismatchesduring schema inference.
+        # Bring back rescued data from columns that had schema mismatches during schema inference.
         if rescue_columns and file_format != RawFileFormat.CSV and file_format != RawFileFormat.JSON:
             df = _rescue_columns(df=df, rescue_column=RESCUE_COLUMN)
         df = df.drop(RESCUE_COLUMN)
@@ -207,11 +264,25 @@ def read_raw_dataframe_stream(
 
     except Exception:
         common_utils.exit_with_last_exception(dbutils)
-        
+
+
 def _rescue_columns(
     df: DataFrame, 
     rescue_column: str
-):
+) -> DataFrame:
+    """
+    Parameters
+    ----------
+    df : DataFrame
+        PySpark DataFrame to modify.
+    rescue_column: str
+        Nome of the column containing rescued data.
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame with rescued values.
+    """
     schema_str = df.schema.simpleString()
     df = df.withColumn(rescue_column, F.from_json(rescue_column, schema_str))
     for col in df.columns:
