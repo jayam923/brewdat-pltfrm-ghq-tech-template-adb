@@ -1,6 +1,20 @@
 # write_utils module
 
 
+### _class_ brewdat.data_engineering.write_utils.BadRecordHandlingMode(value)
+Specifies the way in which bad records should be handled.
+
+Bad records are rows where __data_quality_issues column exists and is not null.
+
+
+#### REJECT(_ = 'REJECT_ )
+Filter out bad records and append them to a separate error table.
+
+
+#### WARN(_ = 'WARN_ )
+Write both bad and good records to target table and warn if bad records are present.
+
+
 ### _class_ brewdat.data_engineering.write_utils.LoadType(value)
 Specifies the way in which the table should be loaded.
 
@@ -28,7 +42,7 @@ This deletes records that are not present in the DataFrame.
 
 
 #### TYPE_2_SCD(_ = 'TYPE_2_SCD_ )
-Load type that implements the standard type-2 Slowly Changing Dimension implementation.
+Load type that implements the standard type-2 Slowly Changing Dimension.
 This essentially uses an upsert that keeps track of all previous versions of each record.
 For more information: [https://en.wikipedia.org/wiki/Slowly_changing_dimension](https://en.wikipedia.org/wiki/Slowly_changing_dimension)
 
@@ -69,7 +83,7 @@ For more information: [https://docs.databricks.com/spark/latest/structured-strea
 *Attention*: This schema evolution mode is not implemented on this library yet!
 
 
-### brewdat.data_engineering.write_utils.write_delta_table(spark: pyspark.sql.session.SparkSession, df: pyspark.sql.dataframe.DataFrame, location: str, schema_name: str, table_name: str, load_type: brewdat.data_engineering.write_utils.LoadType, key_columns: List[str] = [], partition_columns: List[str] = [], schema_evolution_mode: brewdat.data_engineering.write_utils.SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS, time_travel_retention_days: int = 30, auto_broadcast_join_threshold: int = 52428800)
+### brewdat.data_engineering.write_utils.write_delta_table(spark: pyspark.sql.session.SparkSession, df: pyspark.sql.dataframe.DataFrame, location: str, database_name: str, table_name: str, load_type: brewdat.data_engineering.write_utils.LoadType, key_columns: List[str] = [], partition_columns: List[str] = [], schema_evolution_mode: brewdat.data_engineering.write_utils.SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS, bad_record_handling_mode: brewdat.data_engineering.write_utils.BadRecordHandlingMode = BadRecordHandlingMode.WARN, time_travel_retention_days: int = 30, auto_broadcast_join_threshold: int = 52428800, enable_caching: bool = True)
 Write the DataFrame as a delta table.
 
 
@@ -85,8 +99,8 @@ Write the DataFrame as a delta table.
     * **location** (*str*) – Absolute Delta Lake path for the physical location of this delta table.
 
 
-    * **schema_name** (*str*) – Name of the schema/database for the table in the metastore.
-    Schema is created if it does not exist.
+    * **database_name** (*str*) – Name of the database/schema for the table in the metastore.
+    Database is created if it does not exist.
 
 
     * **table_name** (*str*) – Name of the table in the metastore.
@@ -107,6 +121,10 @@ Write the DataFrame as a delta table.
     See documentation for BrewDatLibrary.SchemaEvolutionMode.
 
 
+    * **bad_record_handling_mode** (*BrewDatLibrary.BadRecordHandlingMode**, **default=WARN*) – Specifies the way in which bad records should be handled.
+    See documentation for BrewDatLibrary.BadRecordHandlingMode.
+
+
     * **time_travel_retention_days** (*int**, **default=30*) – Number of days for retaining time travel data in the Delta table.
     Used to limit how many old snapshots are preserved during the VACUUM operation.
     For more information: [https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch](https://docs.microsoft.com/en-us/azure/databricks/delta/delta-batch)
@@ -114,6 +132,10 @@ Write the DataFrame as a delta table.
 
     * **auto_broadcast_join_threshold** (*int**, **default=52428800*) – Configures the maximum size in bytes for a table that will be broadcast to all worker
     nodes when performing a join. Default value in bytes represents 50 MB.
+
+
+    * **enable_caching** (*bool**, **default=True*) – Cache the DataFrame so that transformations are not recomputed multiple times
+    during couting, bad record handling, or writing with TYPE_2_SCD.
 
 
 

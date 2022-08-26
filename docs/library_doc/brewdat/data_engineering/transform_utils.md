@@ -1,6 +1,62 @@
 # transform_utils module
 
 
+### _class_ brewdat.data_engineering.transform_utils.UnmappedColumnBehavior(value)
+Specifies the way in which unmapped DataFrame columns should
+be handled in apply_column_mappings() function.
+
+
+#### FAIL_ON_UNMAPPED_COLUMNS(_ = 'FAIL_ON_UNMAPPED_COLUMNS_ )
+Raise exception when input columns are missing from
+the column mappings.
+
+
+#### IGNORE_UNMAPPED_COLUMNS(_ = 'IGNORE_UNMAPPED_COLUMNS_ )
+Ignore unmapped columns in the column mappings.
+
+
+### brewdat.data_engineering.transform_utils.apply_column_mappings(dbutils: object, df: pyspark.sql.dataframe.DataFrame, mappings: List[[brewdat.data_engineering.common_utils.ColumnMapping](common_utils.md#brewdat.data_engineering.common_utils.ColumnMapping)], unmapped_behavior: brewdat.data_engineering.transform_utils.UnmappedColumnBehavior = UnmappedColumnBehavior.IGNORE_UNMAPPED_COLUMNS)
+Cast and rename DataFrame columns according to a list of column mappings.
+
+Optionally raise an exception if the mapping is missing any source column, except
+for metadata columns.
+
+
+* **Parameters**
+
+    
+    * **dbutils** (*object*) – A Databricks utils object.
+
+
+    * **df** (*DataFrame*) – The PySpark DataFrame to cast.
+
+
+    * **mappings** (*List**[*[*ColumnMapping*](common_utils.md#brewdat.data_engineering.common_utils.ColumnMapping)*]*) – List of column mapping objects.
+
+
+    * **unmapped_behavior** (*UnmappedColumnBehavior**, **default=IGNORE_UNMAPPED_COLUMNS*) – Specifies the way in which unmapped DataFrame columns should be handled.
+
+
+
+* **Returns**
+
+    DataFrame
+
+        The modified PySpark DataFrame with columns properly cast and renamed.
+
+    List[str]
+
+        The list of unmapped DataFrame columns.
+
+
+
+
+* **Return type**
+
+    (DataFrame, List[str])
+
+
+
 ### brewdat.data_engineering.transform_utils.cast_all_columns_to_string(dbutils: object, df: pyspark.sql.dataframe.DataFrame)
 Recursively cast all DataFrame columns to string type, while
 preserving the nested structure of array, map, and struct columns.
@@ -31,8 +87,8 @@ preserving the nested structure of array, map, and struct columns.
 ### brewdat.data_engineering.transform_utils.clean_column_names(dbutils: object, df: pyspark.sql.dataframe.DataFrame, except_for: List[str] = [])
 Normalize the name of all the columns in a given DataFrame.
 
-Uses BrewDat’s standard approach as seen in other Notebooks.
-Improved to also trim (strip) whitespaces.
+Replaces non-alphanumeric characters with underscore and
+strips leading/trailing underscores, except in metadata columns.
 
 
 * **Parameters**
