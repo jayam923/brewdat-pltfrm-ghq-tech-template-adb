@@ -146,6 +146,9 @@ def read_raw_dataframe_stream(
         location: str,
         schema_location: str = None,
         cast_all_to_string: bool = True,
+        csv_has_headers: bool = True,
+        csv_delimiter: str = ",",
+        csv_escape_character: str = "\"",
         max_bytes_per_trigger: str = "10g",
         max_files_per_trigger: int = 1000,
         use_incremental_listing: str = "true",
@@ -172,13 +175,22 @@ def read_raw_dataframe_stream(
                 .option("cloudFiles.maxFilesPerTrigger", max_files_per_trigger)
                 .option("cloudFiles.useIncrementalListing", use_incremental_listing)
                 .option("cloudFiles.allowOverwrites", allow_overwrites)
-                .option("cloudFiles.rescuedDataColumn", RESCUE_COLUMN)
+                .option("rescuedDataColumn", RESCUE_COLUMN)
                 .option("readerCaseSensitive", False)
                 .options(**additional_options)
         )
 
         if backfill_interval:
             df_reader = df_reader("cloudFiles.backfillInterval", backfill_interval)
+            
+        if file_format == RawFileFormat.CSV:
+            df_reader = (
+                df_reader
+                .option("mergeSchema", True)
+                .option("header", csv_has_headers)
+                .option("delimiter", csv_delimiter)
+                .option("escape", csv_escape_character)
+            )
 
         df = df_reader.load(location)
 

@@ -66,11 +66,6 @@ print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 
 # COMMAND ----------
 
-# MAGIC %fs
-# MAGIC ls abfss://brewdat-ghq@brewdatadlsgbdev.dfs.core.windows.net/attunity_sap/attunity_sap_ero_prelz/prelz_sap_ero_KNA1
-
-# COMMAND ----------
-
 # REMOVE THIS
 spark.conf.set("spark.databricks.delta.formatCheck.enabled", "false")
 
@@ -82,7 +77,7 @@ base_df = (
         dbutils=dbutils,
         file_format = read_utils.RawFileFormat.PARQUET,
         location = f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
-        schema_location = "abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/_schema",
+        schema_location = "abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/_schema", #TODO change it
         cast_all_to_string = True,
         use_incremental_listing = "false",
         allow_overwrites=True,
@@ -98,7 +93,7 @@ ct_df = (
         dbutils=dbutils,
         file_format = read_utils.RawFileFormat.PARQUET,
         location = f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
-        schema_location = "abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/_schema_ct",
+        schema_location = "abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/_schema_ct", #TODO change it
         cast_all_to_string = True,
         use_incremental_listing = "true"
     )
@@ -142,9 +137,9 @@ result = write_utils.write_stream_delta_table(
     dbutils=dbutils,
     spark=spark,
     df=audit_df,
-    location="abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/",
+    location="abfss://raw@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/wesley_sandbox/prelz_sap_ero/", #TODO change it
     database_name=target_hive_database,
-    table_name="prelz_sap_ero_wesley",
+    table_name="prelz_sap_ero_wesley", #TODO change it
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["TARGET_APPLY_DT"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
