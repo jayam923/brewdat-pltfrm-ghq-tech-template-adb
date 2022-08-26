@@ -146,6 +146,7 @@ def read_raw_dataframe_stream(
         location: str,
         schema_location: str = None,
         cast_all_to_string: bool = True,
+        rescue_columns: bool = True,
         csv_has_headers: bool = True,
         csv_delimiter: str = ",",
         csv_escape_character: str = "\"",
@@ -156,7 +157,7 @@ def read_raw_dataframe_stream(
         allow_overwrites: bool = False,
         additional_options: dict = {},
 ) -> DataFrame:
-    # try:
+    try:
 
         spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
 
@@ -197,20 +198,25 @@ def read_raw_dataframe_stream(
         if cast_all_to_string:
             df = transform_utils.cast_all_columns_to_string(dbutils, df)
 
-        # Bring back rescued data from columns that had schema mismatches
-        # during schema inference. This is not required for CSV or JSON.
-        # TODO: create a function for this
-        
-        """schema_str = df.schema.simpleString()
-        df = df.withColumn(RESCUE_COLUMN, F.from_json(RESCUE_COLUMN, schema_str))
-        for col in df.columns:
-            if col == RESCUE_COLUMN:
-                continue
-            df = df.withColumn(col, F.coalesce(col, f"`{RESCUE_COLUMN}`.`{col}`"))
+        # Bring back rescued data from columns that had schema mismatchesduring schema inference.
+        if rescue_columns and file_format != RawFileFormat.CSV and file_format != RawFileFormat.JSON:
+            df = _rescue_columns(df=df, rescue_column=RESCUE_COLUMN)
         df = df.drop(RESCUE_COLUMN)
-        """
 
         return df
 
-    # except Exception:
-    #     common_utils.exit_with_last_exception(dbutils)
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+        
+def _rescue_columns(
+    df: DataFrame, 
+    rescue_column: str
+):
+    schema_str = df.schema.simpleString()
+    df = df.withColumn(rescue_column, F.from_json(rescue_column, schema_str))
+    for col in df.columns:
+        if col == rescue_column:
+            continue
+        df = df.withColumn(col, F.coalesce(col, f"`{rescue_column}`.`{col}`"))
+    return df
+    
