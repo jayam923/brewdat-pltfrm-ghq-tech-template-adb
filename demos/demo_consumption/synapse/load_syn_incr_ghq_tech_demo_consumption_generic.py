@@ -113,18 +113,9 @@ except Exception:
 
 # COMMAND ----------
 
-import re
-
-try:
-    target_server_name = re.search("sqlserver://(.*?):", synapse_connection_string).group(1)
-    target_database_name = re.search(";database=(.*?);", synapse_connection_string).group(1)
-    full_target_object = f"{target_server_name}/{target_database_name}.{target_object}"
-except Exception:
-    full_target_object = f"unknown_synapse.{target_object}"
-
 results = common_utils.ReturnObject(
     status=common_utils.RunStatus.SUCCEEDED,
-    target_object=full_target_object,
+    target_object=f"synapse/{target_object}",
     num_records_read=row_count,
     num_records_loaded=row_count,
     effective_data_interval_start=data_interval_start,
