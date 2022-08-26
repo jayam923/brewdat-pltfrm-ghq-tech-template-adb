@@ -141,14 +141,21 @@ from .import common_utils
             dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
 
         else : 
-            if dq_function_name == "dq_count_for_unique_values_in_compond_columns":
+            if dq_function_name == "dq_count_for_unique_values_in_compond_columns" or dq_function_name =='dq_count_for_unique_values_in_columns':
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count'])
+                dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']} , null_record_count :-> {result['result']['missing_count']}"
+                
+            if round((result_value/result['result']['element_count']),2)<=dq_mostly:
+                dq_result='True'
+            else:
+                dq_result='False'
+
             else:
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
+                dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
             dq_mostly = result['expectation_config']['kwargs']['mostly']
             dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
-            dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
-
+            
         self.result_list.append(
                 (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
 
@@ -183,7 +190,7 @@ from .import common_utils
             col_names = ","
             result =  self.validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
             col_names = col_names.join(col_list)
-            self.__get_result_list(result= result, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns")
+            self.__get_result_list(result= result, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns",dq_mostly=mostly)
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
