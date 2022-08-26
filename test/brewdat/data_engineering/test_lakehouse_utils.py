@@ -60,7 +60,7 @@ def test_generate_gold_table_location():
                                             lakehouse_gold_root="abfss://gold@storage_account.dfs.core.windows.net",
                                             target_zone="ghq",
                                             target_business_domain="tech",
-                                            project="Plataform",
+                                            data_product="Plataform",
                                             database_name="Gold_database",
                                             table_name="extraction_table"
                                             )

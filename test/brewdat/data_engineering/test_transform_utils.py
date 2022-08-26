@@ -2,7 +2,7 @@ import pytest
 
 from test.spark_test import spark
 from datetime import datetime
-from pyspark.sql.types import BooleanType, IntegerType, StructType, StructField, StringType, ArrayType
+from pyspark.sql.types import BooleanType, IntegerType, MapType, StructType, StructField, StringType, ArrayType
 from brewdat.data_engineering.transform_utils import *
 
 
@@ -12,7 +12,10 @@ def test_clean_column_names():
         {
             "phone  number": "00000000000",
             "name (Complete)": "my name",
-            "address 1": "my address"
+            "address 1": "my address",
+            "address##2": "my address",
+            "(address 3)": "my address",
+            "__ingestion_date": "2022-07-19"
          }
     ])
 
@@ -21,8 +24,11 @@ def test_clean_column_names():
 
     # ASSERT
     assert "phone_number" in result_df.columns
-    assert "name_Complete_" in result_df.columns
+    assert "name_Complete" in result_df.columns
     assert "address_1" in result_df.columns
+    assert "address_2" in result_df.columns
+    assert "address_3" in result_df.columns
+    assert "__ingestion_date" in result_df.columns
 
 
 def test_clean_column_names_except_for():
@@ -40,8 +46,198 @@ def test_clean_column_names_except_for():
 
     # ASSERT
     assert "phone_number" in result_df.columns
-    assert "name_Complete_" in result_df.columns
+    assert "name_Complete" in result_df.columns
     assert "address 1" in result_df.columns
+
+
+def test_clean_column_names_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:address', StructType([
+                StructField('ws:city', StringType(), True),
+                StructField('ws:country', StringType(), True),
+                StructField('ws:code', IntegerType(), True)
+            ]), True)
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:address": {
+                "ws:city": "new york",
+                "ws:country": "us",
+                "ws:code": 100
+            },
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_address', StructType([
+                StructField('ws_city', StringType(), True),
+                StructField('ws_country', StringType(), True),
+                StructField('ws_code', IntegerType(), True)
+            ]), True)
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_clean_column_names_struct_nested_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:address', StructType([
+                StructField('ws:city', StringType(), True),
+                StructField('ws:country', StructType([
+                    StructField('ws:name', StringType(), True),
+                    StructField('ws:code', StringType(), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:address": {
+                "ws:city": "new york",
+                "ws:country": {
+                    "ws:name": "United States",
+                    "ws:code": "us"
+                }
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_address', StructType([
+                StructField('ws_city', StringType(), True),
+                StructField('ws_country', StructType([
+                    StructField('ws_name', StringType(), True),
+                    StructField('ws_code', StringType(), True)
+                ]), True)
+            ]), True),
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_clean_column_names_array_of_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:addresses', ArrayType(StructType([
+                StructField('ws:city', StringType(), True),
+                StructField('ws:country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:addresses": [
+                {
+                    "ws:city": "new york",
+                    "ws:country": "us"
+                },
+                {
+                    "ws:city": "london",
+                    "ws:country": "uk"
+                }
+            ]
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_addresses', ArrayType(StructType([
+                StructField('ws_city', StringType(), True),
+                StructField('ws_country', StringType(), True)
+            ]), True), True),
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
+
+
+def test_clean_column_names_map_nested_struct():
+    # ARRANGE
+    original_schema = StructType(
+        [
+            StructField('ws:name', StringType(), True),
+            StructField('ws:surname', StringType(), True),
+            StructField('ws:address', MapType(
+                StringType(),
+                StructType([
+                    StructField('ws:name', StringType(), True),
+                    StructField('ws:code', StringType(), True)
+                ]), True)
+            )
+        ]
+    )
+    df = spark.createDataFrame([
+        {
+            "ws:name": "john",
+            "ws:surname": "doe",
+            "ws:address": {
+                "country": {
+                    "ws:name": "United States",
+                    "ws:code": "us"
+                }
+            }
+        }], schema=original_schema)
+
+    expected_schema = StructType(
+        [
+            StructField('ws_name', StringType(), True),
+            StructField('ws_surname', StringType(), True),
+            StructField('ws_address', MapType(
+                StringType(),
+                StructType([
+                    StructField('ws_name', StringType(), True),
+                    StructField('ws_code', StringType(), True)
+                ]), True)
+            )
+        ]
+    )
+
+    # ACT
+    result_df = clean_column_names(dbutils=None, df=df)
+
+    # ASSERT
+    assert 1 == result_df.count()
+    assert expected_schema == result_df.schema
 
 
 def test_flatten_dataframe_no_struct_columns():
@@ -777,3 +973,214 @@ def test_business_key_column_keys_are_null():
             separator="__",
             check_null_values=True,
         )
+
+
+def test_deduplicate_records():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2019-11-22",
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2021-11-21",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-11-22'").count()
+
+
+
+def test_deduplicate_records_same_date():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-11-22'").count()
+
+
+def test_deduplicate_records_null_date():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 1 == result_df.count()
+    assert 1 == result_df.filter("date = '2022-11-22'").count()
+    
+
+def test_deduplicate_records_null_key():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+         
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao ",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+def test_deduplicate_records_different_keys():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+        
+        {
+            "name": "joao",
+            "last name": "abreu2",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    #result_df.show()
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+def test_deduplicate_records_without_watermark_column():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+        
+        {
+            "name": "joao",
+            "last name": "abreu2",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"])
+    #result_df.show()
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+def test_deduplicate_records_without_key_columns():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22"
+            
+        },
+        
+        {
+            "name": "joao",
+            "last name": "abreu2",
+            "date": "2022-11-22",
+            
+        },
+        {
+            "name": "joao",
+            "last name": "abreu",
+            "date": "2022-11-22",
+        },
+    ])
+    # ACT
+    result_df = deduplicate_records(dbutils=None, df=df, watermark_column = "date")
+    # ASSERT
+    assert 2 == result_df.count()
+
+
+
+    
+    
+   

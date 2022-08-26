@@ -11,6 +11,8 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.8"
 delta-spark = "1.1.0"
+pandas = "1.2.4"
+pyarrow = "4.0.0"
 
 [tool.poetry.dev-dependencies]
 pyspark = "3.2.1"

@@ -4,6 +4,9 @@
 * [common_utils module](brewdat/data_engineering/common_utils.md)
 
 
+* [data_quality_utils module](brewdat/data_engineering/data_quality_utils.md)
+
+
 * [lakehouse_utils module](brewdat/data_engineering/lakehouse_utils.md)
 
 
