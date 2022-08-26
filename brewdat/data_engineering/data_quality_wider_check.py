@@ -176,6 +176,9 @@ class DataQualityCheck():
         try:
             if mostly<0.1 or mostly>1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
+              
+            if not col_list:
+                raise ValueError("Given list is empty, Please enter valid values")
                 
             col_names = ","
             result =  self.validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
