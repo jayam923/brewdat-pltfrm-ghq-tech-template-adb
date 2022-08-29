@@ -37,7 +37,6 @@ json_dq_wide_mapping = dbutils.widgets.get("json_dq_wide_mapping")
 json_dq_wide_mapping = json.loads(json_dq_wide_mapping)
 print(f"json_dq_wide_mapping: {json_dq_wide_mapping}")
 
-
 dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "10 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
@@ -47,20 +46,19 @@ dbutils.widgets.text("compond_column_unique_percentage", "0.5", "11 - compond_co
 compond_column_unique_percentage = float(dbutils.widgets.get("compond_column_unique_percentage"))
 print(f"compond_column_unique_percentage: {compond_column_unique_percentage}")
 
-
-dbutils.widgets.text("count_variation_with_prev_min_value", "100", "13 - count_variation_with_prev_min_value")
-count_variation_with_prev_min_value = float(dbutils.widgets.get("count_variation_with_prev_min_value"))
+dbutils.widgets.text("count_variation_with_prev_min_value", "100", "12 - count_variation_with_prev_min_value")
+count_variation_with_prev_min_value = int(dbutils.widgets.get("count_variation_with_prev_min_value"))
 print(f"count_variation_with_prev_min_value: {count_variation_with_prev_min_value}")
 
-dbutils.widgets.text("count_variation_with_prev_max_value", "200", "14 - count_variation_with_prev_max_value")
+dbutils.widgets.text("count_variation_with_prev_max_value", "200", "13 - count_variation_with_prev_max_value")
 count_variation_with_prev_max_value = int(dbutils.widgets.get("count_variation_with_prev_max_value"))
 print(f"count_variation_with_prev_max_value: {count_variation_with_prev_max_value}")
 
-dbutils.widgets.text("row_count_min_value", "100", "15 - row_count_min_value")
+dbutils.widgets.text("row_count_min_value", "100", "14 - row_count_min_value")
 row_count_min_value = int(dbutils.widgets.get("row_count_min_value"))
 print(f"row_count_min_value: {row_count_min_value}")
 
-dbutils.widgets.text("row_count_max_value", "200", "16 - row_count_max_value")
+dbutils.widgets.text("row_count_max_value", "200", "15 - row_count_max_value")
 row_count_max_value = int(dbutils.widgets.get("row_count_max_value"))
 print(f"row_count_max_value: {row_count_max_value}")
 
@@ -93,7 +91,7 @@ transformed_df = (
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
     ))
     .withColumn("__src_file", F.input_file_name())
-)
+).limit(2)
 
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
 display(audit_df)
@@ -113,7 +111,7 @@ results = write_utils.write_delta_table(
     spark=spark,
     df= audit_df,
     location=target_location,
-    schema_name=target_hive_database,
+    database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["__ref_dt"],
@@ -138,7 +136,7 @@ for mapping in mappings:
         data_quality_wider_modify.dq_validate_column_values_to_not_be_null( col_name = mapping.source_column_name, mostly =mapping.null_percentage_for_col)
     if mapping.null_percentage_variation_with_prev is not None:
         data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(target_location = target_location,  col_name = mapping.source_column_name, mostly = mapping.null_percentage_variation_with_prev,older_version=results.old_version_number,latest_version=results.new_version_number)
-
+    
 if key_columns is not None:
     data_quality_wider_modify.dq_validate_compond_column_unique_values(col_list = key_columns , mostly =compond_column_unique_percentage)
 if (count_variation_with_prev_min_value is not None) and (count_variation_with_prev_max_value is not None):
