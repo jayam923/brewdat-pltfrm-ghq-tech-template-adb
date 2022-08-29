@@ -27,13 +27,13 @@ from .import common_utils
     def __init__(self, df: DataFrame,dbutils: object,spark: SparkSession):
         self.validator = ge.dataset.SparkDFDataset(df)
         self.result_list = []
-        self.dbutils=dbutils
-        self.spark=spark
+        self.dbutils = dbutils
+        self.spark = spark
         
     def get_wider_dq_results( self,
         spark: SparkSession, 
         dbutils: object, 
-        with_history = None) -> DataFrame:
+        ) -> DataFrame:
         """Create fuction to return dq check results in dataframe
 
         Parameters
@@ -60,6 +60,7 @@ from .import common_utils
                  )                   
             result_df= spark.createDataFrame([*set(self.result_list)], result_schema)
             return result_df
+        
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)   
     
@@ -92,14 +93,11 @@ from .import common_utils
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
-
-
-
+            
     def __get_result_list(self,
         result : ExpectationValidationResult,
-        resultlist =None,
-        dq_result =None,
+        resultlist = None,
+        dq_result = None,
         result_value = None,
         dq_unexpected_records = None,
         dq_unexpected_percent = None,
@@ -141,32 +139,28 @@ from .import common_utils
             dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
 
         else : 
-            if dq_function_name == "dq_count_for_unique_values_in_compond_columns" or dq_function_name =='dq_count_for_unique_values_in_columns':
+            if dq_function_name == "dq_count_for_unique_values_in_compond_columns" or dq_function_name == 'dq_count_for_unique_values_in_columns':
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count'])
                 dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']} , null_record_count :-> {result['result']['missing_count']}"
-                
-            if round((result_value/result['result']['element_count']),2)<=dq_mostly:
-                dq_result='True'
-            else:
-                dq_result='False'
+
+                if round((result_value/result['result']['element_count']),2) <= dq_mostly:
+                    dq_result = 'True'
+                    
+                else:
+                    dq_result = 'False'
 
             else:
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
                 dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
             dq_mostly = result['expectation_config']['kwargs']['mostly']
             dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
-            
+          
         self.result_list.append(
                 (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
-
-        return self
-
- 
-
-
+        
     def dq_validate_compond_column_unique_values(self,
         col_list : list,
-        mostly :float,                    
+        mostly : float,                    
         )-> ExpectationValidationResult:
         """Create function to Assert if column has unique values.
         Parameters
@@ -181,19 +175,28 @@ from .import common_utils
             ExpectationValidationResult object
         """
         try:
-            if mostly<0.1 or mostly>1:
+            if mostly < 0.1 or mostly > 1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
               
             if not col_list:
                 raise ValueError("Given list is empty, Please enter valid values")
                 
             col_names = ","
-            result =  self.validator.expect_compound_columns_to_be_unique(col_list, mostly, result_format = "SUMMARY")
+            result =  self.validator.expect_compound_columns_to_be_unique(
+                col_list,
+                mostly, 
+                result_format = "SUMMARY"
+            )
             col_names = col_names.join(col_list)
-            self.__get_result_list(result= result, dq_column_name = col_names,  dq_function_name = "dq_count_for_unique_values_in_compond_columns",dq_mostly=mostly)
+            self.__get_result_list(
+                result= result, 
+                dq_column_name = col_names, 
+                dq_function_name = "dq_count_for_unique_values_in_compond_columns",
+                dq_mostly=mostly
+            )
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def dq_validate_row_count(self,
         min_value : int,
@@ -213,11 +216,13 @@ from .import common_utils
         """
         try:
             result = self.validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
-            self.__get_result_list(result= result, dq_function_name = "dq_count_of_records_in_table")
-            return self
+            self.__get_result_list(
+                result= result,
+                dq_function_name = "dq_count_of_records_in_table"
+            )
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def dq_validate_column_values_to_not_be_null(self,
         col_name : str,
@@ -239,12 +244,19 @@ from .import common_utils
             if mostly<0.1 or mostly>1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
                 
-            result =  self.validator.expect_column_values_to_not_be_null(col_name, mostly, result_format = "SUMMARY")
-            self.__get_result_list(result= result, dq_column_name =  col_name, dq_function_name = "dq_not_null_records_percentage_for_column")
-            return self
+            result =  self.validator.expect_column_values_to_not_be_null(
+                col_name, 
+                mostly,
+                result_format = "SUMMARY"
+            )
+            self.__get_result_list(
+                result= result,
+                dq_column_name =  col_name,
+                dq_function_name = "dq_not_null_records_percentage_for_column"
+            )
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def dq_validate_range_for_numeric_column_sum_values(self,
         col_name : str,
@@ -266,9 +278,18 @@ from .import common_utils
             ExpectationValidationResult object
         """
         try:
-            result =  self.validator.expect_column_sum_to_be_between(col_name, min_value, max_value, result_format = "SUMMARY")
-            self.__get_result_list(result= result, dq_column_name =  col_name, dq_function_name = "dq_column_sum_value")
-            return self
+            result =  self.validator.expect_column_sum_to_be_between(
+                col_name, 
+                min_value,
+                max_value,
+                result_format = "SUMMARY"
+            )
+            self.__get_result_list(
+                result= result,
+                dq_column_name =  col_name, 
+                dq_function_name = "dq_column_sum_value"
+            )
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
@@ -294,12 +315,18 @@ from .import common_utils
             if mostly<0.1 or mostly>1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
                 
-            result =  self.validator.expect_column_values_to_be_unique(col_name, mostly, result_format = "SUMMARY")
-            self.__get_result_list( result=result,dq_column_name =  col_name, dq_function_name = "dq_count_for_unique_values_in_columns")
-            return self
+            result = self.validator.expect_column_values_to_be_unique(
+                col_name, 
+                mostly, 
+                result_format = "SUMMARY"
+            )
+            self.__get_result_list( 
+                result=result,dq_column_name =  col_name, 
+                dq_function_name = "dq_count_for_unique_values_in_columns"
+            )
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def dq_validate_count_variation_from_previous_version_values(self,
         target_location: str,
@@ -333,8 +360,16 @@ from .import common_utils
             dq_mostly = None 
             if result['expectation_config']['kwargs']['min_value'] <= result_value <= result['expectation_config']['kwargs']['max_value']:
                 dq_result = "True"
-            self.result_list.append((dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))     
-            return self
+            self.result_list.append(
+                (
+                dq_function_name,
+                result_value, 
+                dq_mostly, 
+                dq_range, 
+                dq_result,
+                dq_comments)
+            )  
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
@@ -378,7 +413,14 @@ from .import common_utils
             cal_mostly = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
             if(cal_mostly <= mostly):
                 dq_result = "True"
-            self.result_list.append((dq_function_name, result_value, mostly, dq_range, dq_result, dq_comments))      
-            return self
+            self.result_list.append(
+                (
+                dq_function_name, 
+                result_value, mostly, 
+                dq_range, dq_result,
+                dq_comments
+            )
+            )      
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
