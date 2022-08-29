@@ -5,11 +5,11 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_system", "attunity_sap_ero", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"source_system: {source_system}")
 
-dbutils.widgets.text("source_hive_database", "brz_ghq_tech_attunity_sap_ero", "03 - source_hive_database")
+dbutils.widgets.text("source_hive_database", "brz_ghq_tech_sap_europe", "03 - source_hive_database")
 source_hive_database = dbutils.widgets.get("source_hive_database")
 print(f"source_hive_database: {source_hive_database}")
 
@@ -25,7 +25,7 @@ dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"target_business_domain: {target_business_domain}")
 
-dbutils.widgets.text("target_hive_database", "slv_ghq_tech_attunity_sap_ero", "07 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "slv_ghq_tech_sap_europe", "07 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
@@ -37,34 +37,25 @@ dbutils.widgets.text("data_interval_start", "2022-08-02 00:00:00.0000000", "09 -
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"data_interval_start: {data_interval_start}")
 
-dbutils.widgets.text("data_interval_end", "2022-08-03 00:00:00.0000000", "10 - data_interval_end")
-data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
-
-dbutils.widgets.text("silver_mapping", "[]", "11 - silver_mapping")
+dbutils.widgets.text("silver_mapping", "[]", "10 - silver_mapping")
 silver_mapping = dbutils.widgets.get("silver_mapping")
 silver_mapping = json.loads(silver_mapping)
 print(f"silver_mapping: {silver_mapping}")
 
-dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "12 - key_columns")
+dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "11 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
 print(f"key_columns: {key_columns}")
 
-dbutils.widgets.text("partition_columns", "[]", "13 - partition_columns")
+dbutils.widgets.text("partition_columns", "[]", "12 - partition_columns")
 partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"partition_columns: {partition_columns}")
 
-dbutils.widgets.text("json_dq_check", "", "14 - json_dq_check")
+dbutils.widgets.text("json_dq_check", "", "13 - json_dq_check")
 json_dq_check = dbutils.widgets.get("json_dq_check")
+json_dq_check = json.loads(json_dq_check)
 print(f"json_dq_check: {json_dq_check}")
-
-dbutils.widgets.text("json_dq_mapping", "[]", "15 - json_dq_mapping")
-json_dq_mapping = dbutils.widgets.get("json_mapping")
-json_dq_mapping = json.loads(json_dq_mapping)
-print(f"json_dq_mapping: {json_dq_mapping}")
-
 
 # COMMAND ----------
 
@@ -100,66 +91,121 @@ common_utils.configure_spn_access_for_adls(
 
 from pyspark.sql import functions as F
 
-bronze_df = (
-    spark.read
-    .table(f"{source_hive_database}.{source_hive_table}")
-    .filter(F.col("TARGET_APPLY_DT").between(
-        F.to_date(F.lit(data_interval_start)),
-        F.to_date(F.lit(data_interval_end)),
-    ))
-    .filter(F.col("TARGET_APPLY_TS").between(
-        F.to_timestamp(F.lit(data_interval_start)),
-        F.to_timestamp(F.lit(data_interval_end)),
-    ))
-)
+try:
+    latest_partition = (
+        spark.read
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .agg(F.max("TARGET_APPLY_DT"))
+        .collect()[0][0]
+    )
+    print(f"latest_partition: {latest_partition}")
 
+    max_watermark_value = (
+        spark.read
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition))
+        .agg(F.max("TARGET_APPLY_TS"))
+        .collect()[0][0]
+    )
+    print(f"max_watermark_value: {max_watermark_value}")
+
+    effective_data_interval_end = max_watermark_value
+    print(f"effective_data_interval_end: {effective_data_interval_end}")
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
+
+# COMMAND ----------
+
+try:
+    bronze_df = (
+        spark.read
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .filter(F.col("TARGET_APPLY_DT").between(
+            F.to_date(F.lit(data_interval_start)),
+            F.to_date(F.lit(effective_data_interval_end)),
+        ))
+        .filter(F.col("TARGET_APPLY_TS").between(
+            F.to_timestamp(F.lit(data_interval_start)),
+            F.to_timestamp(F.lit(effective_data_interval_end)),
+        ))
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 #display(bronze_df)
 
 # COMMAND ----------
 
-try:
-    dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)    
-    # Apply data quality checks based on given column mappings
-    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
-    for mapping in mappings:
-        if mapping.target_data_type!="string":
-            dq_checker = dq_checker.check_column_type_cast(
-                column_name=mapping.source_column_name,
-                data_type=mapping.target_data_type,
-            )
-        if mapping.nullable is not None:
-            dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
-
-
-except Exception:
-    #common_utils.exit_with_last_exception(dbutils=dbutils)
+bronze_df=spark.read.format('csv').option('header',True).load('/FileStore/DQData.csv')
 
 # COMMAND ----------
 
 try:
-    if json_dq_check=='yes':
     # Apply data quality checks based on given column mappings
-        mappings = [common_utils.ColumnMapping(**mapping) for mapping in json_dq_mapping]
+    dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
+    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
+    for mapping in mappings:
+        if mapping.target_data_type != "string":
+            dq_checker = dq_checker.check_column_type_cast(
+                column_name=mapping.source_column_name,
+                data_type=mapping.target_data_type,
+            )
+        if mapping.nullable:
+            dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
+            
+    bronze_dq_df = dq_checker.build_df()
+    #display(bronze_dq_df)
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
+
+# COMMAND ----------
+
+try:
+    if json_dq_check:
+    # Apply data quality checks based on given column mappings
         for mapping in mappings:
             if mapping.check_max_length is not None:
-                dq_checker = dq_checker.check_column_max_length(mapping.source_column_name,maximum_length=mapping.check_max_length)
+                dq_checker = dq_checker.check_column_max_length(
+                    mapping.source_column_name,
+                    maximum_length=mapping.check_max_length
+                )
             if mapping.check_min_length is not None:
-                dq_checker = dq_checker.check_column_min_length(mapping.source_column_name,minimum_length=mapping.check_min_length)
+                dq_checker = dq_checker.check_column_min_length(
+                    mapping.source_column_name,
+                    minimum_length=mapping.check_min_length
+                )
             if mapping.check_max_value is not None:
-                dq_checker = dq_checker.check_column_max_value(mapping.source_column_name,maximum_value=mapping.check_max_value)
+                dq_checker = dq_checker.check_column_max_value(
+                    mapping.source_column_name,
+                    maximum_value=mapping.check_max_value
+                )
             if mapping.check_min_value is not None:
-                dq_checker = dq_checker.check_column_min_value(mapping.source_column_name,minimum_value=mapping.check_min_value)
-            if mapping.check_valid_values is not None:
-                dq_checker = dq_checker.check_column_value_is_in(mapping.source_column_name,valid_values=mapping.check_valid_values)
-            if mapping.check_invalid_values is not None:
-                dq_checker = dq_checker.check_column_value_is_not_in(mapping.source_column_name,invalid_values=mapping.check_invalid_values)
+                dq_checker = dq_checker.check_column_min_value(
+                    mapping.source_column_name,
+                    minimum_value=mapping.check_min_value
+                )
+            if mapping.check_valid_values:
+                dq_checker = dq_checker.check_column_value_is_in(
+                    mapping.source_column_name,
+                    valid_values=mapping.check_valid_values
+                )
+            if mapping.check_invalid_values:
+                dq_checker = dq_checker.check_column_value_is_not_in(
+                    mapping.source_column_name,
+                    invalid_values=mapping.check_invalid_values
+                )
             if mapping.check_matches_regex is not None:
-                dq_checker = dq_checker.check_column_matches_regular_expression(mapping.source_column_name,regular_expression=mapping.check_matches_regex)
+                dq_checker = dq_checker.check_column_matches_regular_expression(
+                    mapping.source_column_name,
+                    regular_expression=mapping.check_matches_regex
+                )
             if mapping.check_not_matches_regex is not None:
-                dq_checker = dq_checker.check_column_matches_regular_expression(mapping.source_column_name,regular_expression=mapping.check_not_matches_regex)
-            if mapping.check_composite_column_value_is_unique is not None:
-                dq_checker = dq_checker.check_composite_column_value_is_unique(mapping.source_column_name,column_names=check_composite_column_value_is_unique)
-
+                dq_checker = dq_checker.check_column_does_not_match_regular_expression(
+                    mapping.source_column_name,
+                    regular_expression=mapping.check_not_matches_regex
+                )
 
 except Exception:
     common_utils.exit_with_last_exception(dbutils=dbutils)
@@ -168,8 +214,6 @@ except Exception:
 
 bronze_dq_df = dq_checker.build_df()
 #display(bronze_dq_df)
-
-
 
 # COMMAND ----------
 
@@ -182,7 +226,6 @@ mappings.append(dq_results_column)
 
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(dbutils=dbutils, df=bronze_dq_df, mappings=mappings)
-
 #display(transformed_df)
 
 # COMMAND ----------
@@ -226,7 +269,7 @@ results = write_utils.write_delta_table(
 )
 
 results.effective_data_interval_start = data_interval_start
-results.effective_data_interval_end = data_interval_end
+results.effective_data_interval_end = effective_data_interval_end or data_interval_start
 
 # Warn in case of relevant unmapped columns
 unmapped_columns = list(filter(lambda c: not c.startswith("header__"), unmapped_columns))

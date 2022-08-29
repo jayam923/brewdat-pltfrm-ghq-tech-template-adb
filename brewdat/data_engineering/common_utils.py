@@ -2,7 +2,7 @@ import json
 import sys
 import traceback
 from enum import Enum, unique
-from typing import List,Any
+from typing import Any, List
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -15,7 +15,6 @@ class RunStatus(str, Enum):
     """Represents a succeeded run status."""
     FAILED = "FAILED"
     """Represents a failed run status."""
-
 
 class ReturnObject():
     """Object that holds metadata from a data write operation.
@@ -94,25 +93,47 @@ class ColumnMapping():
     nullable : bool, default=True
         Whether the target column should allow null values.
         Used for data quality checks.
+    check_min_length : int
+        To check target column minimum length
+        Used for data quality checks.
+    check_max_length : int
+        To check target column maximum length
+        Used for data quality checks.
+    check_min_value : int 
+        To check target column minimum value
+        Used for data quality checks.
+    check_max_value : int
+        To check target column maximum value
+        Used for data quality checks.
+    check_valid_values : list
+        To check target column contain these values
+        Used for data quality checks.
+    check_invalid_values : int 
+        To check target column not to contain these values
+        Used for data quality checks.
+    check_matches_regex : str
+        To check target column to have matching value
+        Used for data quality checks.
+    check_not_matches_regex : str
+        To check target column not to have matching value
+        Used for data quality checks.
     """
     def __init__(
         self,
         source_column_name: str,
         target_data_type: str,
-        nullable: bool=True,
+        nullable: bool = True,
+        sql_expression: str = None,
+        target_column_name: str = None,
         check_min_length: int = None,
         check_max_length: int = None,
         check_min_value: Any = None,
         check_max_value: Any = None,
-        check_valid_values: List[Any] = None,
-        check_invalid_values: List[Any] = None,
+        check_valid_values: List[Any] = [],
+        check_invalid_values: List[Any] = [],
         check_matches_regex: str = None,
         check_not_matches_regex: str = None,
-        check_composite_column_value_is_unique: List[Any]=None,
-        sql_expression: str = None,
-        target_column_name: str = None,
-        
-        
+              
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
@@ -127,7 +148,6 @@ class ColumnMapping():
         self.check_invalid_values=check_invalid_values
         self.check_matches_regex=check_matches_regex
         self.check_not_matches_regex=check_not_matches_regex
-        self.check_composite_column_value_is_unique=check_composite_column_value_is_unique
 
     def __str__(self):
         return str(vars(self))
