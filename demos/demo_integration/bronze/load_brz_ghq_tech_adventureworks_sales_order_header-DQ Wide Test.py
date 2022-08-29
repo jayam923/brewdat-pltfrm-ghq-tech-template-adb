@@ -48,13 +48,13 @@ compond_column_unique_percentage = float(dbutils.widgets.get("compond_column_uni
 print(f"compond_column_unique_percentage: {compond_column_unique_percentage}")
 
 
-dbutils.widgets.text("count_varaition_with_prev_min_value", "100", "13 - count_varaition_with_prev_min_value")
-count_varaition_with_prev_min_value = float(dbutils.widgets.get("count_varaition_with_prev_min_value"))
-print(f"count_varaition_with_prev_min_value: {count_varaition_with_prev_min_value}")
+dbutils.widgets.text("count_variation_with_prev_min_value", "100", "13 - count_variation_with_prev_min_value")
+count_variation_with_prev_min_value = float(dbutils.widgets.get("count_variation_with_prev_min_value"))
+print(f"count_variation_with_prev_min_value: {count_variation_with_prev_min_value}")
 
-dbutils.widgets.text("count_varaiton_with_prev_max_value", "200", "14 - count_varaiton_with_prev_max_value")
-count_varaiton_with_prev_max_value = int(dbutils.widgets.get("count_varaiton_with_prev_max_value"))
-print(f"count_varaiton_with_prev_max_value: {count_varaiton_with_prev_max_value}")
+dbutils.widgets.text("count_variation_with_prev_max_value", "200", "14 - count_variation_with_prev_max_value")
+count_variation_with_prev_max_value = int(dbutils.widgets.get("count_variation_with_prev_max_value"))
+print(f"count_variation_with_prev_max_value: {count_variation_with_prev_max_value}")
 
 dbutils.widgets.text("row_count_min_value", "100", "15 - row_count_min_value")
 row_count_min_value = int(dbutils.widgets.get("row_count_min_value"))

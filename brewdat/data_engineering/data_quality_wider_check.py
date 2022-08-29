@@ -86,7 +86,6 @@ from .import common_utils
             Dataframe for history and latest records which are loaded in delta table
         """
         try:
-
             latest_df = self.spark.read.format("delta").option("versionAsOf", latest_version).load(target_location)
             history_df = self.spark.read.format("delta").option("versionAsOf", older_version).load(target_location)
             return latest_df, history_df
@@ -131,10 +130,9 @@ from .import common_utils
             Dataframe for history and latest records which are loaded
         """
         dq_result = str(result['success'])
-
+        dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
         if   dq_function_name == "dq_count_of_records_in_table" or dq_function_name == "dq_column_sum_value" :
             result_value = str(result['result']['observed_value'])
-            dq_mostly = dq_mostly
             dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
             dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
 
@@ -152,8 +150,6 @@ from .import common_utils
             else:
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
                 dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
-            dq_mostly = result['expectation_config']['kwargs']['mostly']
-            dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
           
         self.result_list.append(
                 (dq_function_name, result_value, dq_mostly, dq_range, dq_result, dq_comments))
@@ -241,7 +237,7 @@ from .import common_utils
             ExpectationValidationResult object
         """
         try:
-            if mostly<0.1 or mostly>1:
+            if mostly < 0.1 or mostly > 1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
                 
             result =  self.validator.expect_column_values_to_not_be_null(
