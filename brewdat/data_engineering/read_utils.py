@@ -216,6 +216,12 @@ def read_raw_dataframe_stream(
         """
     try:
 
+        
+        # Enable creation of delta tables in non-empty directories
+        # Required because checkpoint folder will be created first
+        spark.conf.set("spark.databricks.delta.formatCheck.enabled", False)
+
+        # Disable inclusion of filename in the rescue data column
         spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
 
         RESCUE_COLUMN = "__rescued_data"

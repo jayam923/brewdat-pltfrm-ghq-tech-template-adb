@@ -21,6 +21,7 @@ if environment == "dev":
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-d"
     source_system_to_sap_sid = {
         "sap_europe": "ero",
+        "sap_test": "test"
     }
     synapse_blob_storage_account_name = "brewdatpltfrmsynwkssad"
     synapse_connection_string = "jdbc:sqlserver://brewdat-pltfrm-synwks-d.sql.azuresynapse.net:1433;" + \
