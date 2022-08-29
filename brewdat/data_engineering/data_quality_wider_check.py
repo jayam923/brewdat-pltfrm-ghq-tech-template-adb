@@ -138,7 +138,7 @@ class DataQualityCheck():
             if dq_function_name == "dq_count_for_unique_values_in_compond_columns" or dq_function_name == 'dq_count_for_unique_values_in_columns':
                 result_value = str(result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count'])
                 dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']} , null_record_count :-> {result['result']['missing_count']}"
-                if round((int(result_value)/result['result']['element_count']),2) >= dq_mostly:
+                if float(str(int(result_value)/result['result']['element_count'])[:4]) >= dq_mostly:
                     dq_result = 'True'
                     
                 else:
@@ -216,7 +216,10 @@ class DataQualityCheck():
             ExpectationValidationResult object
         """
         try:
-            result = self.validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+            result = self.validator.expect_table_row_count_to_be_between(
+                min_value, 
+                max_value, 
+                result_format = "SUMMARY")
             self.__get_result_list(
                 result= result,
                 dq_function_name = "dq_count_of_records_in_table"
@@ -347,10 +350,18 @@ class DataQualityCheck():
             A DeltaTable object.
         """
         try:
-            current_df, history_df = self.__get_delta_tables_history_dataframe(target_location = target_location, older_version=older_version,latest_version=latest_version)
+            current_df, history_df = self.__get_delta_tables_history_dataframe(
+                target_location = target_location,
+                older_version=older_version,
+                latest_version=latest_version
+            )
             history_load_count = history_df.count()
             Latest_validator = ge.dataset.SparkDFDataset(current_df)
-            result = Latest_validator.expect_table_row_count_to_be_between(min_value, max_value, result_format = "SUMMARY")
+            result = Latest_validator.expect_table_row_count_to_be_between(
+                min_value,
+                max_value,
+                result_format = "SUMMARY"
+            )
             dq_result = str(result['success'])
             dq_function_name = "dq_validate_count_variation_from_previous_version_values"
             result_value = result['result']['observed_value'] - history_load_count
@@ -398,7 +409,11 @@ class DataQualityCheck():
                 
             dq_min_value = None
             dq_min_value = None
-            current_df, history_df = self.__get_delta_tables_history_dataframe(target_location = target_location,older_version=older_version,latest_version=latest_version)
+            current_df, history_df = self.__get_delta_tables_history_dataframe(
+                target_location = target_location,
+                older_version=older_version,
+                latest_version=latest_version
+            )
             history_validator = ge.dataset.SparkDFDataset(history_df)
             Latest_validator = ge.dataset.SparkDFDataset(current_df)
             history_result = history_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
@@ -408,14 +423,16 @@ class DataQualityCheck():
             dq_function_name  = "dq_validate_null_percentage_variation_values"
             dq_comments = f" '{col_name}' : null percentage in history :-> {history_result['result']['unexpected_percent']:.2f} , null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
             dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
-            cal_mostly = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
+            cal_mostly = float(str(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'])[:4])
             if(cal_mostly <= mostly):
                 dq_result = "True"
             self.result_list.append(
                 (
                 dq_function_name, 
-                result_value, mostly, 
-                dq_range, dq_result,
+                result_value, 
+                mostly, 
+                dq_range, 
+                dq_result,
                 dq_comments
             )
             )      
