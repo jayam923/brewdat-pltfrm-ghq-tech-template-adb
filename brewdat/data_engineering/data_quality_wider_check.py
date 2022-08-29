@@ -63,7 +63,6 @@ class DataQualityCheck():
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)   
     
-    
     def __get_delta_tables_history_dataframe(self,
         target_location: str, 
         older_version : int,
@@ -294,9 +293,7 @@ class DataQualityCheck():
             
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
-
-
+            
     def dq_validate_column_unique_values(self,
         col_name : str,
         mostly :int,
@@ -374,7 +371,6 @@ class DataQualityCheck():
             
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
 
     def dq_validate_null_percentage_variation_from_previous_version_values(self,
         target_location: str,
