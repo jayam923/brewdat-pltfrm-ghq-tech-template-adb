@@ -1,7 +1,7 @@
 import os
 import traceback
 from enum import Enum, unique
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -309,8 +309,6 @@ def write_delta_table(
 
 
 def write_stream_delta_table(
-    spark: SparkSession,
-    dbutils: object,
     df: DataFrame,
     location: str,
     database_name: str,
@@ -324,15 +322,12 @@ def write_stream_delta_table(
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = False,
     reset_checkpoint: bool = False,
+    dbutils: Any = None,
 ) -> ReturnObject:
     """Write the stream DataFrame as a delta table.
 
     Parameters
     ----------
-    spark : SparkSession
-        A Spark session.
-    dbutils : object
-        A Databricks utils object.
     df : DataFrame
         PySpark DataFrame to modify.
     location : str
@@ -366,26 +361,32 @@ def write_stream_delta_table(
     enable_caching : bool, default=True
         Cache the DataFrame so that transformations are not recomputed multiple times
         during counting, bad record handling, or writing with TYPE_2_SCD.
-    reset_checkpoint: bool, default=False
-        Whether to reset streaming checkpoint before start processing.
+    reset_checkpoint : bool, default=False
+        Whether to reset streaming checkpoint before processing starts.
+        This causes all source data to be reprocessed.
+    dbutils : Any, default=None
+        A Databricks utils object. Fetched from globals() when not provided.
 
     Returns
     -------
     ReturnObject
         Object containing the results of a write operation.
     """
-
-    return_object = ReturnObject(
+    results = ReturnObject(
         status=RunStatus.SUCCEEDED,
-        target_object=f"{database_name}.{table_name}"
+        target_object=f"{database_name}.{table_name}",
     )
 
     try:
+        # TODO: refactor everywhere
+        spark = SparkSession.getActiveSession()
+        dbutils = dbutils or globals().get("dbutils")
+
         # Get original version number
-        return_object.old_version_number = _get_current_delta_version_number(spark=spark, location=location)
+        results.old_version_number = _get_current_delta_version_number(spark=spark, location=location)
 
         def write_micro_batch(batch_df, batch_id):
-            micro_batch_return_object = write_delta_table(
+            micro_batch_results = write_delta_table(
                 spark=spark,
                 df=batch_df,
                 location=location,
@@ -400,18 +401,22 @@ def write_stream_delta_table(
                 enable_caching=enable_caching,
                 enable_vacuum=False,
             )
-            
-            return_object.status = micro_batch_return_object.status
-            return_object.num_records_loaded += micro_batch_return_object.num_records_loaded
-            return_object.num_records_errored_out += micro_batch_return_object.num_records_errored_out
-            return_object.num_records_read += micro_batch_return_object.num_records_read
-            return_object.new_version_number = micro_batch_return_object.new_version_number
-            return_object.error_message = micro_batch_return_object.error_message
-            return_object.error_details = micro_batch_return_object.error_details
-            
-            if return_object.status != RunStatus.SUCCEEDED:
-                raise ValueError(return_object.error_message)
-                
+
+            results.status = micro_batch_results.status
+            results.num_records_loaded += micro_batch_results.num_records_loaded
+            results.num_records_errored_out += micro_batch_results.num_records_errored_out
+            results.num_records_read += micro_batch_results.num_records_read
+            results.new_version_number = micro_batch_results.new_version_number
+            results.error_message = micro_batch_results.error_message
+            results.error_details = micro_batch_results.error_details
+
+            if results.status != RunStatus.SUCCEEDED:
+                raise Exception(results.error_message)
+
+        # Allow creation of delta table in a folder which is not empty
+        # This is required because checkpoint folder will be there already
+        spark.conf.set("spark.databricks.delta.formatCheck.enabled", False)
+ 
         checkpoint_location = location.rstrip("/") + "/_checkpoint"
         if reset_checkpoint:
             dbutils.fs.rm(checkpoint_location, recurse=True)
@@ -419,9 +424,9 @@ def write_stream_delta_table(
         (
             df
             .writeStream
+            .option("checkpointLocation", checkpoint_location)
             .foreachBatch(write_micro_batch)
             .trigger(availableNow=True)
-            .option('checkpointLocation', checkpoint_location)
             .start()
             .awaitTermination()
         )
@@ -434,15 +439,15 @@ def write_stream_delta_table(
         )
 
         # Get new version number
-        return_object.new_version_number = _get_current_delta_version_number(spark=spark, location=location)
+        results.new_version_number = _get_current_delta_version_number(spark=spark, location=location)
 
-        return return_object
+        return results
 
     except Exception as e:
-        return_object.status = RunStatus.FAILED
-        return_object.error_message = return_object.error_message if return_object.error_message else str(e),
-        return_object.error_details = return_object.error_details if return_object.error_details else traceback.format_exc(),
-        return return_object
+        results.status = RunStatus.FAILED
+        results.error_message = results.error_message or str(e),
+        results.error_details = results.error_details or traceback.format_exc(),
+        return results
 
 
 def _get_current_delta_version_details(

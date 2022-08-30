@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum, unique
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, Window
@@ -373,6 +373,47 @@ def apply_column_mappings(
         return df, unmapped_columns
 
     except Exception:
+        common_utils.exit_with_last_exception(dbutils)
+
+
+def handle_rescued_data(
+    df: DataFrame, 
+    rescue_column_name: str,
+    dbutils: Any = None,
+) -> DataFrame:
+    """Bring back values stored in the rescue_data column and drop that column.
+
+    This is only possible if DataFrame columns are first cast to string.
+
+    Parameters
+    ----------
+    df : DataFrame
+        PySpark DataFrame to modify.
+    rescue_column_name : str
+        Name of the column containing rescued data.
+    dbutils : Any, default=None
+        A Databricks utils object. Fetched from globals() when not provided.
+
+    Returns
+    -------
+    DataFrame
+        The modified PySpark DataFrame.
+
+    See Also
+    --------
+    cast_all_columns_to_string : Cast all DataFrame columns to string.
+    """
+    try:
+        df = df.withColumn(rescue_column, F.from_json(rescue_column_name, df.schema))
+        for col in df.columns:
+            if col == rescue_column_name:
+                continue
+            df = df.withColumn(col, F.coalesce(col, f"`{rescue_column_name}`.`{col}`"))
+        df = df.drop(rescue_column_name)
+        return df
+
+    except Exception:
+        dbutils = dbutils or globals().get("dbutils")
         common_utils.exit_with_last_exception(dbutils)
 
 
