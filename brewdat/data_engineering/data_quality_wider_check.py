@@ -1,5 +1,3 @@
-import datetime
-import math
 import great_expectations as ge
 import pyspark.sql.functions as f
 from pyspark.sql import DataFrame, SparkSession
@@ -30,23 +28,8 @@ class DataQualityCheck():
         self.spark = spark
         
     def get_wider_dq_results( self,
-        spark: SparkSession, 
-        dbutils: object, 
         ) -> DataFrame:
         """Create fuction to return dq check results in dataframe
-
-        Parameters
-        ----------
-        spark : SparkSession
-            A Spark session.
-        dbutils : object
-            A Databricks utils object.
-
-
-        Returns
-        -------
-        DataFrame
-            Dataframe for history and latest records which are loaded
         """
         try:
             result_schema = (
@@ -57,7 +40,7 @@ class DataQualityCheck():
                                                    StructField('status',StringType()),
                                                    StructField('comments',StringType())])
                  )                   
-            result_df= spark.createDataFrame([*set(self.result_list)], result_schema)
+            result_df= self.spark.createDataFrame([*set(self.result_list)], result_schema)
             return result_df
         
         except Exception:
@@ -70,18 +53,15 @@ class DataQualityCheck():
         """ Create function to get the hitory and latest version of given table location
         Parameters
         ----------
-        target_location : str
-            Absolute Delta Lake path for the physical location of this delta table.
-        result : object
-            A DeltaTable object.
-        latet_version:int
+        latest_version:int
             deltalake latest version number
         older_version : int
             deltalake older version number
         Returns
         -------
         DataFrame
-            Dataframe for history and latest records which are loaded in delta table
+            Dataframe with older version of data of given target location
+            Dataframe with latest version of data of given target location
         """
         try:
             latest_df = self.spark.read.format("delta").option("versionAsOf", latest_version).load(target_location)
@@ -93,14 +73,9 @@ class DataQualityCheck():
             
     def __get_result_list(self,
         result : ExpectationValidationResult,
-        resultlist = None,
         dq_result = None,
         result_value = None,
-        dq_unexpected_records = None,
-        dq_unexpected_percent = None,
         dq_function_name = None,
-        dq_min_value = None,
-        dq_max_value = None,
         dq_column_name = None,
         dq_mostly= None,
         dq_range = None,
@@ -118,14 +93,12 @@ class DataQualityCheck():
             Result from the DQ check.
         dq_row_count : DataFrame
             count of records from the DQ check.
-        dq_unexpected_count : BaseDataContext
-            unexpected count of records from the DQ check
-        dq_unexpected_percent : BaseDataContext.
-            unexpected percent of records from the DQ check.
+            
         Returns
         -------
-        DataFrame
-            Dataframe for history and latest records which are loaded
+        List
+            It appends Data quality check results into list
+            
         """
         dq_result = str(result['success'])
         if dq_function_name == "dq_count_of_records_in_table" or dq_function_name == "dq_column_sum_value" :
@@ -170,6 +143,7 @@ class DataQualityCheck():
             hold list of result for result list function
         mostly   : float
             must be a float between 0 and 1. evaluates it as a percentage to fail or pass the validation
+            
         Returns
         -------
         result
@@ -210,6 +184,7 @@ class DataQualityCheck():
             count of the row in the table
         max_value : int
             count of the row in the table
+            
         Returns
         -------
         result
@@ -232,13 +207,14 @@ class DataQualityCheck():
         col_name : str,
         mostly : float,
         )-> ExpectationValidationResult:
-        """Create function to check null percentage for a column in DF
+        """Create function to check null percentage for given column
         Parameters
         ----------
         col_name : str
             Name of the column on which
         mostly :float
             thrashold value to validate the test cases
+            
         Returns
         -------
         result
@@ -267,15 +243,16 @@ class DataQualityCheck():
         min_value : int,
         max_value : int,
         )-> ExpectationValidationResult:
-        """Create function to check null percentage for a column in DF
+        """Create function to check sum of given numeric column
         Parameters
         ----------
         col_name : str
             Name of the column on which 
         min_value : int
-            count of the row in the table
+            minumium sum of the column 
         max_value : int
-            count of the row in the table
+            maximum sum of the column
+            
         Returns
         -------
         result
@@ -308,6 +285,7 @@ class DataQualityCheck():
             Name of the column on which 
         mostly :int
             thrashold value to validate the test cases
+            
         Returns
         -------
         result
@@ -337,7 +315,7 @@ class DataQualityCheck():
         older_version : int,
         latest_version : int
         )-> ExpectationValidationResult:
-        """Create function to Assert column value is not null.
+        """Create function to check count variation from older version
         Parameters
         ----------
         min_value : int
@@ -346,8 +324,15 @@ class DataQualityCheck():
             count of the row in the table
         target_location : str
             Absolute Delta Lake path for the physical location of this delta table.
-        result : object
-            A DeltaTable object.
+        older_version : int
+            Given target delta location of older version
+        latest_version : int
+            Given target delta location of latest version
+
+        Returns
+        -------
+        result
+            ExpectationValidationResult object
         """
         try:
             current_df, history_df = self.__get_delta_tables_history_dataframe(
@@ -391,7 +376,7 @@ class DataQualityCheck():
         latest_version : int
         )-> ExpectationValidationResult:
 
-        """Create function to Assert column value is not null.
+        """Create function to check null percentage variation with older version file for given column name
         Parameters
         ----------
         target_location : str
@@ -402,6 +387,11 @@ class DataQualityCheck():
             Name of the column on which 
         mostly  : float
             threshold value to validate the test cases
+            
+        Returns
+        -------
+        result
+            ExpectationValidationResult object
         """
         try:
             if mostly<0.1 or mostly>1:
