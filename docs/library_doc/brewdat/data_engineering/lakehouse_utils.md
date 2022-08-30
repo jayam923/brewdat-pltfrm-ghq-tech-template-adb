@@ -78,7 +78,7 @@ Build the standard location for a Bronze table.
 
 
 
-### brewdat.data_engineering.lakehouse_utils.generate_gold_table_location(dbutils: object, lakehouse_gold_root: str, target_zone: str, target_business_domain: str, project: str, database_name: str, table_name: str)
+### brewdat.data_engineering.lakehouse_utils.generate_gold_table_location(dbutils: object, lakehouse_gold_root: str, target_zone: str, target_business_domain: str, data_product: str, database_name: str, table_name: str)
 Build the standard location for a Gold table.
 
 
@@ -99,7 +99,7 @@ Build the standard location for a Gold table.
     * **target_business_domain** (*str*) – Business domain of the target dataset.
 
 
-    * **project** (*str*) – Project of the target dataset.
+    * **data_product** (*str*) – Data product of the target dataset.
 
 
     * **database_name** (*str*) – Name of the target database for the table in the metastore.
