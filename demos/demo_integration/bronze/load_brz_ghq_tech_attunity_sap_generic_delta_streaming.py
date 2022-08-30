@@ -66,35 +66,29 @@ print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 
 # COMMAND ----------
 
-try:
-    base_df = (
-        spark.readStream
-        .format("delta")
-        .option("ignoreChanges", True)  # reprocess updates to old files, if any
-        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
-        .withColumn("__src_file", F.input_file_name())
+base_df = (
+    read_utils.read_raw_streaming_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=raw_location,
+        cast_all_to_string=True,
     )
-
-except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    .withColumn("__src_file", F.input_file_name())
+)
 
 #display(base_df)
 
 # COMMAND ----------
 
-try:
-    ct_df = (
-        spark.readStream
-        .format("delta")
-        .option("ignoreChanges", True)  # reprocess updates to old files, if any
-        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
-        # Ignore "Before Image" records from update operations
-        .filter("header__change_oper != 'B'")
-        .withColumn("__src_file", F.input_file_name())
+ct_df = (
+    read_utils.read_raw_streaming_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=f"{raw_location}__ct",
+        cast_all_to_string=True,
     )
-
-except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    # Ignore "Before Image" records from update operations
+    .filter("header__change_oper != 'B'")
+    .withColumn("__src_file", F.input_file_name())
+)
 
 #display(ct_df)
 
@@ -140,46 +134,19 @@ print(f"location: {location}")
 
 # COMMAND ----------
 
-try:
-    # Default return object used when no new data is available
-    results = common_utils.ReturnObject(
-        status=common_utils.RunStatus.SUCCEEDED,
-        target_object=f"{target_hive_database}.{target_hive_table}",
-    )
-
-    # Write streaming micro-batch capturing row statistics
-    def append_to_bronze_table(df, _):
-        global results
-        results = write_utils.write_delta_table(
-            spark=spark,
-            df=df,
-            location=location,
-            database_name=target_hive_database,
-            table_name=target_hive_table,
-            load_type=write_utils.LoadType.APPEND_ALL,
-            partition_columns=["TARGET_APPLY_DT"],
-            schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
-            enable_caching=False,
-        )
-
-    # Allow creation of delta table in a folder which is not empty
-    # This is required because checkpoint folder will be there already
-    spark.conf.set("spark.databricks.delta.formatCheck.enabled", False)
-
-    # Trigger streaming micro-batch
-    (
-        audit_df.writeStream
-        .option("checkpointLocation", location.rstrip("/") + "/_checkpoint")
-        .trigger(once=True)
-        .foreachBatch(append_to_bronze_table)
-        .start()
-        .awaitTermination()
-    )
-
-    print(results)
-
-except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+results = write_utils.write_stream_delta_table(
+    df=audit_df,
+    location=location,
+    database_name=target_hive_database,
+    table_name=target_hive_table,
+    load_type=write_utils.LoadType.APPEND_ALL,
+    partition_columns=["TARGET_APPLY_DT"],
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
+    enable_caching=False,
+    reset_checkpoint=(reset_checkpoint.lower() == "true")
+)
+print(results)
 
 # COMMAND ----------
 

@@ -92,6 +92,8 @@ ct_df = (
         cast_all_to_string=True,
         handle_rescued_data=True,
     )
+    # Ignore "Before Image" records from update operations
+    .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
 )
 
@@ -122,7 +124,7 @@ print(f"location: {location}")
 
 # COMMAND ----------
 
-result = write_utils.write_stream_delta_table(
+results = write_utils.write_stream_delta_table(
     df=audit_df,
     location=location,
     database_name=target_hive_database,
@@ -134,8 +136,8 @@ result = write_utils.write_stream_delta_table(
     enable_caching=False,
     reset_checkpoint=(reset_checkpoint.lower() == "true")
 )
-print(result)
+print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=result)
+common_utils.exit_with_object(dbutils=dbutils, results=results)
