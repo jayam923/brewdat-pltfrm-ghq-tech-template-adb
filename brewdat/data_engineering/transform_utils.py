@@ -404,7 +404,7 @@ def handle_rescued_data(
     cast_all_columns_to_string : Cast all DataFrame columns to string.
     """
     try:
-        df = df.withColumn(rescue_column, F.from_json(rescue_column_name, df.schema))
+        df = df.withColumn(rescue_column_name, F.from_json(rescue_column_name, df.schema))
         for col in df.columns:
             if col == rescue_column_name:
                 continue

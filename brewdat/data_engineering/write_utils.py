@@ -321,8 +321,9 @@ def write_stream_delta_table(
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = False,
+    enable_vacuum: bool = True,
     reset_checkpoint: bool = False,
-    dbutils: Any = None,
+    dbutils: Any = None, 
 ) -> ReturnObject:
     """Write the stream DataFrame as a delta table.
 
@@ -361,6 +362,8 @@ def write_stream_delta_table(
     enable_caching : bool, default=True
         Cache the DataFrame so that transformations are not recomputed multiple times
         during counting, bad record handling, or writing with TYPE_2_SCD.
+    enable_vacuum: bool, default=True
+        Runs Vacuum operation right after writing data to delta location.
     reset_checkpoint : bool, default=False
         Whether to reset streaming checkpoint before processing starts.
         This causes all source data to be reprocessed.
@@ -430,13 +433,14 @@ def write_stream_delta_table(
             .start()
             .awaitTermination()
         )
-
-        _vacuum_delta_table(
-            spark=spark,
-            database_name=database_name,
-            table_name=table_name,
-            time_travel_retention_days=time_travel_retention_days,
-        )
+        
+        if enable_vacuum:
+            _vacuum_delta_table(
+                spark=spark,
+                database_name=database_name,
+                table_name=table_name,
+                time_travel_retention_days=time_travel_retention_days,
+            )
 
         # Get new version number
         results.new_version_number = _get_current_delta_version_number(spark=spark, location=location)

@@ -211,6 +211,8 @@ def read_raw_streaming_dataframe(
                 spark.readStream
                 .format("delta")
                 .option("ignoreChanges", True)  # reprocess updates to old files
+                .option("maxBytesPerTrigger", "10g")
+                .option("maxFilesPerTrigger", 1000)
                 .load(location)
             )
         else:
@@ -255,7 +257,7 @@ def read_raw_streaming_dataframe(
             # Not necessary for CSV and JSON formats, as they are inferred as string
             # Also not necessary for Delta, as it leverages Delta Streaming instead
             if handle_rescued_data and RESCUE_COLUMN in df.columns:
-                df = transform_utils.handle_rescued_data(dbutils, df, RESCUE_COLUMN)
+                df = transform_utils.handle_rescued_data(df, RESCUE_COLUMN)
 
         return df
 
