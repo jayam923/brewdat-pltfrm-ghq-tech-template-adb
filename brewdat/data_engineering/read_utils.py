@@ -5,6 +5,7 @@ import pyspark.pandas as ps
 from pyspark.sql import DataFrame, SparkSession
 
 from . import common_utils, transform_utils
+from .common_utils import with_exception_handling
 
 
 @unique
@@ -29,9 +30,8 @@ class RawFileFormat(str, Enum):
     """XML format."""
 
 
+@with_exception_handling
 def read_raw_dataframe(
-    spark: SparkSession,
-    dbutils: Any,
     file_format: RawFileFormat,
     location: str,
     cast_all_to_string: bool = True,
@@ -48,10 +48,6 @@ def read_raw_dataframe(
 
     Parameters
     ----------
-    spark : SparkSession
-        A Spark session.
-    dbutils : Any
-        A Databricks utils object.
     file_format : RawFileFormat
         The raw file format use in this dataset (CSV, PARQUET, etc.).
     location : str
@@ -85,63 +81,61 @@ def read_raw_dataframe(
     DataFrame
         The PySpark DataFrame read from the Raw Layer.
     """
-    try:
-        # Read DataFrame
-        if file_format == RawFileFormat.CSV:
-            df = (
-                spark.read
-                .option("mergeSchema", True)
-                .option("header", csv_has_headers)
-                .option("delimiter", csv_delimiter)
-                .option("escape", csv_escape_character)
-                .options(**additional_options)
-                .csv(location)
-            )
-        elif file_format == RawFileFormat.EXCEL:
-            psdf = ps.read_excel(
-                location,
-                excel_sheet_name,
-                header=(0 if excel_has_headers else None),
-            )
-            df = psdf.to_spark()
-        elif file_format == RawFileFormat.JSON:
-            df = (
-                spark.read
-                .option("mergeSchema", True)
-                .option("multiLine", json_is_multiline)
-                .options(**additional_options)
-                .json(location)
-            )
-        elif file_format == RawFileFormat.XML:
-            df = (
-                spark.read
-                .format("xml")
-                .option("mergeSchema", True)
-                .option("attributePrefix", "")
-                .option("valueTag", "value")
-                .option("rowTag", xml_row_tag)
-                .options(**additional_options)
-                .load(location)
-            )
-        else:
-            df = (
-                spark.read
-                .format(file_format.lower())
-                .option("mergeSchema", True)
-                .options(**additional_options)
-                .load(location)
-            )
+    # Read DataFrame
+    spark = SparkSession.getActiveSession()
+    if file_format == RawFileFormat.CSV:
+        df = (
+            spark.read
+            .option("mergeSchema", True)
+            .option("header", csv_has_headers)
+            .option("delimiter", csv_delimiter)
+            .option("escape", csv_escape_character)
+            .options(**additional_options)
+            .csv(location)
+        )
+    elif file_format == RawFileFormat.EXCEL:
+        psdf = ps.read_excel(
+            location,
+            excel_sheet_name,
+            header=(0 if excel_has_headers else None),
+        )
+        df = psdf.to_spark()
+    elif file_format == RawFileFormat.JSON:
+        df = (
+            spark.read
+            .option("mergeSchema", True)
+            .option("multiLine", json_is_multiline)
+            .options(**additional_options)
+            .json(location)
+        )
+    elif file_format == RawFileFormat.XML:
+        df = (
+            spark.read
+            .format("xml")
+            .option("mergeSchema", True)
+            .option("attributePrefix", "")
+            .option("valueTag", "value")
+            .option("rowTag", xml_row_tag)
+            .options(**additional_options)
+            .load(location)
+        )
+    else:
+        df = (
+            spark.read
+            .format(file_format.lower())
+            .option("mergeSchema", True)
+            .options(**additional_options)
+            .load(location)
+        )
 
-        # Apply Bronze transformations
-        if cast_all_to_string:
-            df = transform_utils.cast_all_columns_to_string(dbutils, df)
+    # Apply Bronze transformations
+    if cast_all_to_string:
+        df = transform_utils.cast_all_columns_to_string(df)
 
-        return df
-
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+    return df
 
 
+@with_exception_handling
 def read_raw_streaming_dataframe(
     file_format: RawFileFormat,
     location: str,
@@ -153,7 +147,6 @@ def read_raw_streaming_dataframe(
     csv_escape_character: str = "\"",
     json_is_multiline: bool = True,
     additional_options: dict = {},
-    dbutils: Any = None,
 ) -> DataFrame:
     """Read a streaming DataFrame from the Raw Layer.
 
@@ -186,80 +179,70 @@ def read_raw_streaming_dataframe(
     additional_options : dict, default={}
         Dictionary with additional options for spark.readStream.
         This may be used to override default options set by this function.
-    dbutils : Any, default=None
-        A Databricks utils object. Fetched from globals() when not provided.
 
     Returns
     -------
     DataFrame
         The PySpark streaming DataFrame read from the Raw Layer.
     """
-    try:
-        # TODO: refactor everywhere
-        spark = SparkSession.getActiveSession()
-        dbutils = dbutils or globals().get("dbutils")
+    RESCUE_COLUMN = "__rescued_data"
 
-        RESCUE_COLUMN = "__rescued_data"
+    # Create streaming DataFrame
+    spark = SparkSession.getActiveSession()
+    if file_format in [RawFileFormat.EXCEL, RawFileFormat.XML]:
+        # Unsupported formats
+        raise NotImplementedError
+    elif file_format == RawFileFormat.DELTA:
+        # Read using Delta Streaming
+        df = (
+            spark.readStream
+            .format("delta")
+            .option("ignoreChanges", True)  # reprocess updates to old files
+            .option("maxBytesPerTrigger", "10g")
+            .option("maxFilesPerTrigger", 1000)
+            .load(location)
+        )
+    else:
+        # Disable inclusion of filename in the rescue data column
+        spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
 
-        # Create streaming DataFrame
-        if file_format in [RawFileFormat.EXCEL, RawFileFormat.XML]:
-            # Unsupported formats
-            raise NotImplementedError
-        elif file_format == RawFileFormat.DELTA:
-            # Read using Delta Streaming
-            df = (
-                spark.readStream
-                .format("delta")
-                .option("ignoreChanges", True)  # reprocess updates to old files
-                .option("maxBytesPerTrigger", "10g")
-                .option("maxFilesPerTrigger", 1000)
-                .load(location)
-            )
-        else:
-            # Read using Auto Loader
+        # Read using Auto Loader
+        df_reader = (
+            spark.readStream
+            .format("cloudFiles")
+            .option("cloudFiles.format", file_format.lower())
+            .option("cloudFiles.useNotifications", False)
+            .option("cloudFiles.useIncrementalListing", "auto")
+            .option("cloudFiles.allowOverwrites", True)  # reprocess updates to old files
+            .option("cloudFiles.maxBytesPerTrigger", "10g")
+            .option("cloudFiles.maxFilesPerTrigger", 1000)
+            .option("cloudFiles.schemaEvolutionMode", "addNewColumns")
+            .option("cloudFiles.schemaLocation", schema_location or location)
+            .option("rescuedDataColumn", RESCUE_COLUMN)
+            .option("readerCaseSensitive", False)
+            .options(**additional_options)
+        )
 
-            # Disable inclusion of filename in the rescue data column
-            spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
-
+        if file_format == RawFileFormat.CSV:
             df_reader = (
-                spark.readStream
-                .format("cloudFiles")
-                .option("cloudFiles.format", file_format.lower())
-                .option("cloudFiles.useNotifications", False)
-                .option("cloudFiles.useIncrementalListing", "auto")
-                .option("cloudFiles.allowOverwrites", True)  # reprocess updates to old files
-                .option("cloudFiles.maxBytesPerTrigger", "10g")
-                .option("cloudFiles.maxFilesPerTrigger", 1000)
-                .option("cloudFiles.schemaEvolutionMode", "addNewColumns")
-                .option("cloudFiles.schemaLocation", schema_location or location)
-                .option("rescuedDataColumn", RESCUE_COLUMN)
-                .option("readerCaseSensitive", False)
-                .options(**additional_options)
+                df_reader
+                .option("header", csv_has_headers)
+                .option("delimiter", csv_delimiter)
+                .option("escape", csv_escape_character)
             )
+        elif file_format == RawFileFormat.JSON:
+            df_reader = df_reader.option("multiLine", json_is_multiline)
 
-            if file_format == RawFileFormat.CSV:
-                df_reader = (
-                    df_reader
-                    .option("header", csv_has_headers)
-                    .option("delimiter", csv_delimiter)
-                    .option("escape", csv_escape_character)
-                )
-            elif file_format == RawFileFormat.JSON:
-                df_reader = df_reader.option("multiLine", json_is_multiline)
+        df = df_reader.load(location)
 
-            df = df_reader.load(location)
+    # Apply Bronze transformations
+    if cast_all_to_string:
+        df = transform_utils.cast_all_columns_to_string(df)
 
-        # Apply Bronze transformations
-        if cast_all_to_string:
-            df = transform_utils.cast_all_columns_to_string(dbutils, df)
+        # Bring back rescued data from columns that had schema mismatches during schema inference
+        # Not necessary for CSV and JSON formats, as they are inferred as string
+        # Also not necessary for Delta, as it leverages Delta Streaming instead
+        if handle_rescued_data and RESCUE_COLUMN in df.columns:
+            df = transform_utils.handle_rescued_data(df, RESCUE_COLUMN)
 
-            # Bring back rescued data from columns that had schema mismatches during schema inference
-            # Not necessary for CSV and JSON formats, as they are inferred as string
-            # Also not necessary for Delta, as it leverages Delta Streaming instead
-            if handle_rescued_data and RESCUE_COLUMN in df.columns:
-                df = transform_utils.handle_rescued_data(df, RESCUE_COLUMN)
-
-        return df
-
-    except Exception:
-        common_utils.exit_with_last_exception(dbutils)
+    return df

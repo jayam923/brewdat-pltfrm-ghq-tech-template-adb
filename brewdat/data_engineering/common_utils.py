@@ -1,8 +1,9 @@
+import functools
 import json
 import sys
 import traceback
 from enum import Enum, unique
-from typing import List
+from typing import Any, Callable, List
 
 from py4j.protocol import Py4JError
 from pyspark.sql import DataFrame, SparkSession
@@ -114,14 +115,24 @@ class ColumnMapping():
         return str(vars(self))
 
 
+def with_exception_handling(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception:
+            exit_with_last_exception()
+    return wrapper
+
+
+@with_exception_handling
 def configure_spn_access_for_adls(
-    spark: SparkSession,
-    dbutils: object,
     storage_account_names: List[str],
     key_vault_name: str,
     spn_client_id: str,
     spn_secret_name: str,
     spn_tenant_id: str = "cef04b19-7776-4a94-b89b-375c77a8f936",
+    dbutils: Any = None,
 ):
     """Set up access to an ADLS Storage Account using a Service Principal.
 
@@ -131,10 +142,6 @@ def configure_spn_access_for_adls(
 
     Parameters
     ----------
-    spark : SparkSession
-        A Spark session.
-    dbutils : object
-        A Databricks utils object.
     storage_account_names : List[str]
         Name of the ADLS Storage Accounts to configure with this SPN.
     key_vault_name : str
@@ -145,58 +152,59 @@ def configure_spn_access_for_adls(
         Name of the secret containing the Service Principal's client secret.
     spn_tenant_id: str, default="cef04b19-7776-4a94-b89b-375c77a8f936"
         Tenant Id for the Service Principal in Azure Active Directory.
+    dbutils : Any, default=None
+        A Databricks utils object. Fetched from globals() when not provided.
     """
-    try:
-        for storage_account_name in storage_account_names:
-            storage_account_suffix = f"{storage_account_name}.dfs.core.windows.net"
-            try:
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.auth.type.{storage_account_suffix}",
-                    "OAuth"
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
-                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
-                    spn_client_id
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                    dbutils.secrets.get(key_vault_name, spn_secret_name)
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
-                    f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
-                )
-            except Py4JError:
-                print("Could not configure ADLS access using Spark Context. " + \
-                      "Falling back to Spark Session configuration. " + \
-                      "XML and Excel libraries will not be supported.")
+    spark = SparkSession.getActiveSession()
+    dbutils = dbutils or globals().get("dbutils")
+    for storage_account_name in storage_account_names:
+        storage_account_suffix = f"{storage_account_name}.dfs.core.windows.net"
+        try:
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.auth.type.{storage_account_suffix}",
+                "OAuth"
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
+                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
+                spn_client_id
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
+                dbutils.secrets.get(key_vault_name, spn_secret_name)
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
+                f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
+            )
+        except Py4JError:
+            print("Could not configure ADLS access using Spark Context. " + \
+                  "Falling back to Spark Session configuration. " + \
+                  "XML and Excel libraries will not be supported.")
 
-                spark.conf.set(
-                    f"fs.azure.account.auth.type.{storage_account_suffix}",
-                    "OAuth"
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
-                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
-                    spn_client_id
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                    dbutils.secrets.get(key_vault_name, spn_secret_name)
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
-                    f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
-                )
-    except Exception:
-        exit_with_last_exception(dbutils)
+            spark.conf.set(
+                f"fs.azure.account.auth.type.{storage_account_suffix}",
+                "OAuth"
+            )
+            spark.conf.set(
+                f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
+                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+            )
+            spark.conf.set(
+                f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
+                spn_client_id
+            )
+            spark.conf.set(
+                f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
+                dbutils.secrets.get(key_vault_name, spn_secret_name)
+            )
+            spark.conf.set(
+                f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
+                f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
+            )
 
 
 def list_non_metadata_columns(df: DataFrame) -> List[str]:
@@ -217,18 +225,19 @@ def list_non_metadata_columns(df: DataFrame) -> List[str]:
     return [col for col in df.columns if not col.startswith("__")]
 
 
-def exit_with_object(dbutils: object, results: ReturnObject):
+def exit_with_object(results: ReturnObject, dbutils: Any = None):
     """Finish execution returning an object to the notebook's caller.
 
     Used to return the results of a write operation to the orchestrator.
 
     Parameters
     ----------
-    dbutils : object
-        A Databricks utils object.
     results : ReturnObject
         Object containing the results of a write operation.
+    dbutils : Any, default=None
+        A Databricks utils object. Fetched from globals() when not provided.
     """
+    dbutils = dbutils or globals().get("dbutils")
     results_json = json.dumps(results, default=vars)
     if dbutils:
         dbutils.notebook.exit(results_json)
@@ -236,23 +245,24 @@ def exit_with_object(dbutils: object, results: ReturnObject):
         raise Exception(results_json)
 
 
-def exit_with_last_exception(dbutils: object):
+def exit_with_last_exception(dbutils: Any = None):
     """Handle the last unhandled exception, returning an object to the notebook's caller.
 
     The most recent exception is obtained from sys.exc_info().
 
     Parameters
     ----------
-    dbutils : object
-        A Databricks utils object.
+    dbutils : Any, default=None
+        A Databricks utils object. Fetched from globals() when not provided.
 
     Examples
     --------
     >>> try:
     >>>    # some code
     >>> except:
-    >>>    common_utils.exit_with_last_exception(dbutils)
+    >>>    common_utils.exit_with_last_exception()
     """
+    dbutils = dbutils or globals().get("dbutils")
     exc_type, exc_value, _ = sys.exc_info()
     results = ReturnObject(
         status=RunStatus.FAILED,
@@ -260,4 +270,4 @@ def exit_with_last_exception(dbutils: object):
         error_message=f"{exc_type.__name__}: {exc_value}",
         error_details=traceback.format_exc(),
     )
-    exit_with_object(dbutils, results)
+    exit_with_object(results, dbutils)

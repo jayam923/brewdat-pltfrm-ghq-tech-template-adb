@@ -4,6 +4,7 @@ import pyspark.sql.functions as F
 from pyspark.sql import Column, DataFrame, Window
 
 from . import common_utils
+from .common_utils import with_exception_handling
 
 
 DQ_RESULTS_COLUMN = "__data_quality_issues"
@@ -15,13 +16,10 @@ class DataQualityChecker():
 
     Attributes
     ----------
-    dbutils : object
-        A Databricks utils object.
     df : DataFrame
         PySpark DataFrame to validate.
     """
-    def __init__(self, dbutils: object, df: DataFrame):
-        self.dbutils = dbutils
+    def __init__(self, df: DataFrame):
         self.df = df
 
         if DQ_RESULTS_COLUMN not in self.df.columns:
@@ -40,6 +38,7 @@ class DataQualityChecker():
         """
         return self.df
 
+    @with_exception_handling
     def check_narrow_condition(
         self,
         expected_condition: Union[str, Column],
@@ -72,36 +71,33 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if isinstance(failure_message, str):
-                failure_message = F.lit(failure_message)
+        if isinstance(failure_message, str):
+            failure_message = F.lit(failure_message)
 
-            if isinstance(expected_condition, str):
-                expected_condition = F.expr(expected_condition)
+        if isinstance(expected_condition, str):
+            expected_condition = F.expr(expected_condition)
 
-            if filter_condition is None:
-                filter_condition = F.expr("1 = 1")
-            elif isinstance(filter_condition, str):
-                filter_condition = F.expr(filter_condition)
+        if filter_condition is None:
+            filter_condition = F.expr("1 = 1")
+        elif isinstance(filter_condition, str):
+            filter_condition = F.expr(filter_condition)
 
-            self.df = (
-                self.df
-                .withColumn(
-                    DQ_RESULTS_COLUMN,
-                    F.when(~filter_condition, F.col(DQ_RESULTS_COLUMN))
-                    .when(
-                        ~expected_condition,
-                        F.concat(F.coalesce(DQ_RESULTS_COLUMN, F.array()), F.array(failure_message))
-                    )
-                    .otherwise(F.col(DQ_RESULTS_COLUMN))
+        self.df = (
+            self.df
+            .withColumn(
+                DQ_RESULTS_COLUMN,
+                F.when(~filter_condition, F.col(DQ_RESULTS_COLUMN))
+                .when(
+                    ~expected_condition,
+                    F.concat(F.coalesce(DQ_RESULTS_COLUMN, F.array()), F.array(failure_message))
                 )
+                .otherwise(F.col(DQ_RESULTS_COLUMN))
             )
+        )
 
-            return self
+        return self
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_is_not_null(
         self,
         column_name: str,
@@ -128,21 +124,18 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            expected_condition = F.col(column_name).isNotNull()
-            failure_message = f"CHECK_NOT_NULL: Column `{column_name}` is null"
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name).isNotNull()
+        failure_message = f"CHECK_NOT_NULL: Column `{column_name}` is null"
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_type_cast(
         self,
         column_name: str,
@@ -181,38 +174,35 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if not data_type:
-                raise ValueError("Invalid data type")
+        if not data_type:
+            raise ValueError("Invalid data type")
 
-            if data_type == "date":
-                self.df = self.df.withColumn("__value_after_cast", F.to_date(column_name, date_format))
-            elif data_type == "timestamp":
-                self.df = self.df.withColumn("__value_after_cast", F.to_timestamp(column_name, date_format))
-            else:
-                self.df = self.df.withColumn("__value_after_cast", F.col(column_name).cast(data_type))
+        if data_type == "date":
+            self.df = self.df.withColumn("__value_after_cast", F.to_date(column_name, date_format))
+        elif data_type == "timestamp":
+            self.df = self.df.withColumn("__value_after_cast", F.to_timestamp(column_name, date_format))
+        else:
+            self.df = self.df.withColumn("__value_after_cast", F.col(column_name).cast(data_type))
 
-            expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
-            failure_message = F.concat(
-                F.lit(f"CHECK_TYPE_CAST: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(f", which cannot be safely cast to type {data_type}")
-            )
-            self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col("__value_after_cast").isNotNull() | F.col(column_name).isNull()
+        failure_message = F.concat(
+            F.lit(f"CHECK_TYPE_CAST: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(f", which cannot be safely cast to type {data_type}")
+        )
+        self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-            self.df = self.df.drop("__value_after_cast")
-            return self
+        self.df = self.df.drop("__value_after_cast")
+        return self
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_max_length(
         self,
         column_name: str,
@@ -242,28 +232,25 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if maximum_length <= 0:
-                raise ValueError("Maximum length must be greater than 0.")
+        if maximum_length <= 0:
+            raise ValueError("Maximum length must be greater than 0.")
 
-            expected_condition = F.length(column_name) <= maximum_length
-            failure_message = F.concat(
-                F.lit(f"CHECK_MAX_LENGTH: Column `{column_name}` has length "),
-                F.length(column_name),
-                F.lit(f", which is greater than {maximum_length}")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.length(column_name) <= maximum_length
+        failure_message = F.concat(
+            F.lit(f"CHECK_MAX_LENGTH: Column `{column_name}` has length "),
+            F.length(column_name),
+            F.lit(f", which is greater than {maximum_length}")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_min_length(
         self,
         column_name: str,
@@ -294,28 +281,25 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if minimum_length <= 0:
-                raise ValueError("Minimum length must be greater than 0.")
+        if minimum_length <= 0:
+            raise ValueError("Minimum length must be greater than 0.")
 
-            expected_condition = F.length(column_name) >= minimum_length
-            failure_message = F.concat(
-                F.lit(f"CHECK_MIN_LENGTH: Column `{column_name}` has length "),
-                F.length(column_name),
-                F.lit(f", which is less than {minimum_length}")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.length(column_name) >= minimum_length
+        failure_message = F.concat(
+            F.lit(f"CHECK_MIN_LENGTH: Column `{column_name}` has length "),
+            F.length(column_name),
+            F.lit(f", which is less than {minimum_length}")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_length_between(
         self,
         column_name: str,
@@ -348,34 +332,31 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if minimum_length <= 0:
-                raise ValueError("Minimum length must be greater than 0.")
+        if minimum_length <= 0:
+            raise ValueError("Minimum length must be greater than 0.")
 
-            if maximum_length <= 0:
-                raise ValueError("Maximum length must be greater than 0.")
+        if maximum_length <= 0:
+            raise ValueError("Maximum length must be greater than 0.")
 
-            if minimum_length > maximum_length:
-                raise ValueError("Minimum length must be less than or equal to maximum length.")
+        if minimum_length > maximum_length:
+            raise ValueError("Minimum length must be less than or equal to maximum length.")
 
-            expected_condition = F.length(column_name).between(minimum_length, maximum_length)
-            failure_message = F.concat(
-                F.lit(f"CHECK_LENGTH_RANGE: Column `{column_name}` has length "),
-                F.length(column_name),
-                F.lit(f", which is not between {minimum_length} and {maximum_length}")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.length(column_name).between(minimum_length, maximum_length)
+        failure_message = F.concat(
+            F.lit(f"CHECK_LENGTH_RANGE: Column `{column_name}` has length "),
+            F.length(column_name),
+            F.lit(f", which is not between {minimum_length} and {maximum_length}")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_max_value(
         self,
         column_name: str,
@@ -405,25 +386,22 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            expected_condition = F.col(column_name) <= F.lit(maximum_value)
-            failure_message = F.concat(
-                F.lit(f"CHECK_MAX_VALUE: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(f", which is greater than {maximum_value}")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name) <= F.lit(maximum_value)
+        failure_message = F.concat(
+            F.lit(f"CHECK_MAX_VALUE: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(f", which is greater than {maximum_value}")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_min_value(
         self,
         column_name: str,
@@ -454,25 +432,22 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            expected_condition = F.col(column_name) >= F.lit(minimum_value)
-            failure_message = F.concat(
-                F.lit(f"CHECK_MIN_VALUE: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(f", which is less than {minimum_value}")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name) >= F.lit(minimum_value)
+        failure_message = F.concat(
+            F.lit(f"CHECK_MIN_VALUE: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(f", which is less than {minimum_value}")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_value_between(
         self,
         column_name: str,
@@ -505,25 +480,22 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            expected_condition = F.col(column_name).between(minimum_value, maximum_value)
-            failure_message = F.concat(
-                F.lit(f"CHECK_VALUE_RANGE: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(f", which is not between {minimum_value} and {maximum_value}")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name).between(minimum_value, maximum_value)
+        failure_message = F.concat(
+            F.lit(f"CHECK_VALUE_RANGE: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(f", which is not between {minimum_value} and {maximum_value}")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_value_is_in(
         self,
         column_name: str,
@@ -553,28 +525,25 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if not valid_values:
-                raise ValueError("No valid value was given")
+        if not valid_values:
+            raise ValueError("No valid value was given")
 
-            expected_condition = F.col(column_name).isin(valid_values)
-            failure_message = F.concat(
-                F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(", which is not in the list of valid values")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name).isin(valid_values)
+        failure_message = F.concat(
+            F.lit(f"CHECK_VALUE_IN: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(", which is not in the list of valid values")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_value_is_not_in(
         self,
         column_name: str,
@@ -604,28 +573,25 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if not invalid_values:
-                raise ValueError("No invalid value was given")
+        if not invalid_values:
+            raise ValueError("No invalid value was given")
 
-            expected_condition = ~F.col(column_name).isin(invalid_values)
-            failure_message = F.concat(
-                F.lit(f"CHECK_VALUE_NOT_IN: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(", which is in the list of invalid values")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = ~F.col(column_name).isin(invalid_values)
+        failure_message = F.concat(
+            F.lit(f"CHECK_VALUE_NOT_IN: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(", which is in the list of invalid values")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_matches_regular_expression(
         self,
         column_name: str,
@@ -655,28 +621,25 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if not regular_expression:
-                raise ValueError("Invalid regular expression")
+        if not regular_expression:
+            raise ValueError("Invalid regular expression")
 
-            expected_condition = F.col(column_name).rlike(regular_expression)
-            failure_message = F.concat(
-                F.lit(f"CHECK_REGEX_MATCH: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(f", which does not match the regular expression '{regular_expression}'")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name).rlike(regular_expression)
+        failure_message = F.concat(
+            F.lit(f"CHECK_REGEX_MATCH: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(f", which does not match the regular expression '{regular_expression}'")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_does_not_match_regular_expression(
         self,
         column_name: str,
@@ -706,28 +669,25 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            if not regular_expression:
-                raise ValueError("Invalid regular expression")
+        if not regular_expression:
+            raise ValueError("Invalid regular expression")
 
-            expected_condition = ~F.col(column_name).rlike(regular_expression)
-            failure_message = F.concat(
-                F.lit(f"CHECK_REGEX_NOT_MATCH: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(f", which matches the regular expression '{regular_expression}'")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = ~F.col(column_name).rlike(regular_expression)
+        failure_message = F.concat(
+            F.lit(f"CHECK_REGEX_NOT_MATCH: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(f", which matches the regular expression '{regular_expression}'")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_is_numeric(
         self,
         column_name: str,
@@ -755,25 +715,22 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            expected_condition = F.col(column_name).rlike(r"^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$")
-            failure_message = F.concat(
-                F.lit(f"CHECK_NUMERIC: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(", which is not a numeric value")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name).rlike(r"^[0-9]*\.?[0-9]*([Ee][+-]?[0-9]+)?$")
+        failure_message = F.concat(
+            F.lit(f"CHECK_NUMERIC: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(", which is not a numeric value")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_column_is_alphanumeric(
         self,
         column_name: str,
@@ -801,25 +758,22 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_name:
-                raise ValueError("Invalid column name")
+        if not column_name:
+            raise ValueError("Invalid column name")
 
-            expected_condition = F.col(column_name).rlike(r"^[A-Za-z0-9]*$")
-            failure_message = F.concat(
-                F.lit(f"CHECK_ALPHANUMERIC: Column `{column_name}` has value "),
-                F.col(column_name).cast("string"),
-                F.lit(", which is not an alphanumeric value")
-            )
-            return self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col(column_name).rlike(r"^[A-Za-z0-9]*$")
+        failure_message = F.concat(
+            F.lit(f"CHECK_ALPHANUMERIC: Column `{column_name}` has value "),
+            F.col(column_name).cast("string"),
+            F.lit(", which is not an alphanumeric value")
+        )
+        return self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
+    @with_exception_handling
     def check_composite_column_value_is_unique(
         self,
         column_names: List[str],
@@ -848,41 +802,37 @@ class DataQualityChecker():
         DataQualityChecker
             The modified DataQualityChecker instance.
         """
-        try:
-            if not column_names:
-                raise ValueError("No column was given")
+        if not column_names:
+            raise ValueError("No column was given")
 
-            for column_name in column_names:
-                if not column_name:
-                    raise ValueError("Invalid column name")
+        for column_name in column_names:
+            if not column_name:
+                raise ValueError("Invalid column name")
 
-            self.df = self.df.withColumn("__duplicate_count", F.count("*").over(
-                Window.partitionBy(*column_names)
-            ))
+        self.df = self.df.withColumn("__duplicate_count", F.count("*").over(
+            Window.partitionBy(*column_names)
+        ))
 
-            expected_condition = F.col("__duplicate_count") == 1
-            formatted_columns = ", ".join([f"`{col}`" for col in column_names])
-            failure_message = F.concat(
-                F.lit(f"CHECK_UNIQUE: Column(s) {formatted_columns} has value ("),
-                F.concat_ws(", ", *column_names),
-                F.lit("), which is a duplicate value")
-            )
-            self.check_narrow_condition(
-                expected_condition=expected_condition,
-                failure_message=failure_message,
-                filter_condition=filter_condition,
-            )
+        expected_condition = F.col("__duplicate_count") == 1
+        formatted_columns = ", ".join([f"`{col}`" for col in column_names])
+        failure_message = F.concat(
+            F.lit(f"CHECK_UNIQUE: Column(s) {formatted_columns} has value ("),
+            F.concat_ws(", ", *column_names),
+            F.lit("), which is a duplicate value")
+        )
+        self.check_narrow_condition(
+            expected_condition=expected_condition,
+            failure_message=failure_message,
+            filter_condition=filter_condition,
+        )
 
-            self.df = self.df.drop("__duplicate_count")
-            return self
-
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
+        self.df = self.df.drop("__duplicate_count")
+        return self
 
     @classmethod
+    @with_exception_handling
     def check_columns_exist(
         cls,
-        dbutils: object,
         df: DataFrame,
         column_names: List[str],
         raise_exception: bool = True,
@@ -893,8 +843,6 @@ class DataQualityChecker():
 
         Parameters
         ----------
-        dbutils : object
-            A Databricks utils object.
         df : DataFrame
             PySpark DataFrame to validate.
         column_names : List[str]
@@ -907,23 +855,19 @@ class DataQualityChecker():
         List[str]
             The list of missing columns.
         """
-        try:
-            if not column_names:
-                raise ValueError("No column name was given")
+        if not column_names:
+            raise ValueError("No column name was given")
 
-            for column_name in column_names:
-                if not column_name:
-                    raise ValueError("Invalid column name")
+        for column_name in column_names:
+            if not column_name:
+                raise ValueError("Invalid column name")
 
-            # Use case insensitive comparison like Spark does
-            existing_columns = [col.lower() for col in df.columns]
-            missing_columns = [col for col in column_names if col.lower() not in existing_columns]
+        # Use case insensitive comparison like Spark does
+        existing_columns = [col.lower() for col in df.columns]
+        missing_columns = [col for col in column_names if col.lower() not in existing_columns]
 
-            if len(missing_columns) > 0 and raise_exception:
-                formatted_columns = ", ".join([f"`{col}`" for col in missing_columns])
-                raise KeyError(f"DataFrame is missing required column(s): {formatted_columns}")
+        if len(missing_columns) > 0 and raise_exception:
+            formatted_columns = ", ".join([f"`{col}`" for col in missing_columns])
+            raise KeyError(f"DataFrame is missing required column(s): {formatted_columns}")
 
-            return missing_columns
-
-        except Exception:
-            common_utils.exit_with_last_exception(dbutils)
+        return missing_columns
