@@ -144,28 +144,50 @@ try:
     mappings = [common_utils.WiderColumnMapping(**mapping) for mapping in  json_dq_wide_mapping]
     for mapping in mappings:
         if mapping.unique_percentage_col is not None:
-            data_quality_wider_modify.dq_validate_column_unique_values(col_name = mapping.source_column_name, mostly = mapping.unique_percentage_col)
+            data_quality_wider_modify.dq_validate_column_unique_values(
+              col_name = mapping.source_column_name,
+                mostly = mapping.unique_percentage_col
+            )
         if mapping.null_percentage_for_col is not None:
-            data_quality_wider_modify.dq_validate_column_values_to_not_be_null( col_name = mapping.source_column_name, mostly =mapping.null_percentage_for_col)
+            data_quality_wider_modify.dq_validate_column_values_to_not_be_null( 
+                col_name = mapping.source_column_name,
+                mostly =mapping.null_percentage_for_col
+            )
         if mapping.null_percentage_variation_with_prev is not None:
-            data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(target_location = target_location,  col_name = mapping.source_column_name, mostly = mapping.null_percentage_variation_with_prev,older_version=results.old_version_number,latest_version=results.new_version_number)
+            data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(
+                target_location = target_location,
+                col_name = mapping.source_column_name,
+                mostly = mapping.null_percentage_variation_with_prev,
+                older_version=results.old_version_number,
+                latest_version=results.new_version_number
+            )
 
     if key_columns is not None:
-        data_quality_wider_modify.dq_validate_compond_column_unique_values(col_list = key_columns , mostly =compond_column_unique_percentage)
+        data_quality_wider_modify.dq_validate_compond_column_unique_values(
+            col_list = key_columns,
+            mostly =compond_column_unique_percentage
+        )
     if (count_variation_with_prev_min_value is not None) and (count_variation_with_prev_max_value is not None):
-        data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( target_location = target_location, min_value = count_variation_with_prev_min_value, max_value = count_variation_with_prev_max_value,older_version=results.old_version_number,latest_version=results.new_version_number)
+        data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( 
+            target_location = target_location,
+            min_value = count_variation_with_prev_min_value,
+            max_value = count_variation_with_prev_max_value,
+            older_version=results.old_version_number,
+            latest_version=results.new_version_number)
     if (row_count_min_value is not None) and (row_count_max_value is not None):
-        data_quality_wider_modify.dq_validate_row_count( min_value =row_count_min_value, max_value = row_count_min_value)
+        data_quality_wider_modify.dq_validate_row_count( 
+            min_value=row_count_min_value,
+            max_value = row_count_min_value
+        )
         
 except Exception:
     common_utils.exit_with_last_exception(dbutils=dbutils)
 
 # COMMAND ----------
 
-final_result_df = data_quality_wider_modify.get_wider_dq_results(spark=spark, dbutils=dbutils)
+final_result_df = data_quality_wider_modify.get_wider_dq_results()
 display(final_result_df)
 
 # COMMAND ----------
 
- data_quality_wider_modify.dq_validate_column_unique_values(col_name = mapping.source_column_name, mostly = mapping.unique_percentage_col)
 

@@ -194,8 +194,8 @@ class WiderColumnMapping():
         self.sum_max_value = sum_max_value
         self.sum_min_value = sum_min_value
 
-        def __str__(self):
-            return str(vars(self))
+    def __str__(self):
+        return str(vars(self))
 
 def list_non_metadata_columns(df: DataFrame) -> List[str]:
     """Obtain a list of DataFrame columns except for metadata columns.

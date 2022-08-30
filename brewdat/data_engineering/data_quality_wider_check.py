@@ -404,10 +404,8 @@ class DataQualityCheck():
                 older_version=older_version,
                 latest_version=latest_version
             )
-            history_validator = ge.dataset.SparkDFDataset(history_df)
-            Latest_validator = ge.dataset.SparkDFDataset(current_df)
-            history_result = history_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
-            current_result = Latest_validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
+            history_result = self.validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
+            current_result = self.validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
             dq_result = str(current_result['success'])
             result_value = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
             dq_function_name  = "dq_validate_null_percentage_variation_values"
