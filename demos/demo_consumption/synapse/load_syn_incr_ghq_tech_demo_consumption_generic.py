@@ -32,7 +32,7 @@ sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils
 
 # Print a module's help
-help(common_utils)
+#help(common_utils)
 
 # COMMAND ----------
 

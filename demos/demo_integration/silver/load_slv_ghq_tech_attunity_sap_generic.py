@@ -61,7 +61,7 @@ sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils
 
 # Print a module's help
-help(transform_utils)
+#help(transform_utils)
 
 # COMMAND ----------
 
