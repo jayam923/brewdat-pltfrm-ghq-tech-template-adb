@@ -2,8 +2,8 @@ import json
 import sys
 import traceback
 from enum import Enum, unique
-from typing import List, Any
-from py4j.protocol import Py4JError
+from typing import Any, List
+
 from pyspark.sql import DataFrame, SparkSession
 
 
@@ -15,7 +15,6 @@ class RunStatus(str, Enum):
     """Represents a succeeded run status."""
     FAILED = "FAILED"
     """Represents a failed run status."""
-
 
 class ReturnObject():
     """Object that holds metadata from a data write operation.
@@ -73,8 +72,7 @@ class ReturnObject():
 
     def __str__(self):
         return str(vars(self))
-
-
+    
 class ColumnMapping():
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
@@ -94,44 +92,65 @@ class ColumnMapping():
     nullable : bool, default=True
         Whether the target column should allow null values.
         Used for data quality checks.
+    check_min_length : int, default=None
+        To check target column minimum length
+        Used for data quality checks.
+    check_max_length : int, default=None
+        To check target column maximum length
+        Used for data quality checks.
+    check_min_value : int, default=None
+        To check target column minimum value
+        Used for data quality checks.
+    check_max_value : int, default=None
+        To check target column maximum value
+        Used for data quality checks.
+    check_valid_values : list, default=[]
+        To check target column contain these values
+        Used for data quality checks.
+    check_invalid_values : int, default=[] 
+        To check target column not to contain these values
+        Used for data quality checks.
+    check_matches_regex : str, default=None
+        To check target column to have matching value
+        Used for data quality checks.
+    check_not_matches_regex : str, default=None
+        To check target column not to have matching value
+        Used for data quality checks.
     """
     def __init__(
         self,
         source_column_name: str,
         target_data_type: str,
-        nullable: bool=True,
+        nullable: bool = True,
+        sql_expression: str = None,
+        target_column_name: str = None,
         check_min_length: int = None,
         check_max_length: int = None,
         check_min_value: Any = None,
         check_max_value: Any = None,
-        check_valid_values: List[Any] = None,
-        check_invalid_values: List[Any] = None,
+        check_valid_values: List[Any] = [],
+        check_invalid_values: List[Any] = [],
         check_matches_regex: str = None,
-        check_not_matches_regex: str = None,
-        check_composite_column_value_is_unique: List[Any]=None,
-        sql_expression: str = None,
-        target_column_name: str = None,
+        check_not_matches_regex: str = None,          
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
         self.nullable = nullable
-        self.check_max_length=check_max_length
-        self.check_min_length=check_min_length
-        self.check_max_value=check_max_value
-        self.check_min_value=check_min_value
-        self.check_valid_values=check_valid_values
-        self.check_invalid_values=check_invalid_values
-        self.check_matches_regex=check_matches_regex
-        self.check_not_matches_regex=check_not_matches_regex
-        self.check_composite_column_value_is_unique=check_composite_column_value_is_unique
+        self.check_max_length = check_max_length
+        self.check_min_length = check_min_length
+        self.check_max_value = check_max_value
+        self.check_min_value = check_min_value
+        self.check_valid_values = check_valid_values
+        self.check_invalid_values = check_invalid_values
+        self.check_matches_regex = check_matches_regex
+        self.check_not_matches_regex = check_not_matches_regex
 
     def __str__(self):
         return str(vars(self))
-
-
-class widerColumnMapping():
+    
+class WiderColumnMapping():
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
 
@@ -144,37 +163,56 @@ class widerColumnMapping():
     sql_expression : str, default=None
         Spark SQL expression to create the target column.
         If None, simply cast and possibly rename the source column.
-    target_column_name : str, default=None
-        Column name in the target DataFrame.
-        If None, use source_column_name as target_column_name.
-    nullable : bool, default=True
-        Whether the target column should allow null values.
+    unique_percentage_col : float
+        To check the column percentage for target column.
+        Used for data quality checks.
+    null_percentage_for_col : float
+        To check the null percentage of target column.
+        Used for data quality checks.
+    sum_max_value : int
+         To check column sum value maximum
+         Used for data quality checks.
+    sum_min_value : int
+        To check column sum value minimum
         Used for data quality checks.
     """
     def __init__(
         self,
         source_column_name: str,
         target_data_type: str,
-        unique_percentage_col: int =None ,
-        null_percentage_for_col: int =None,
-        null_percentage_variation_with_prev: int =None ,
-        sum_max_value: int =None,
-        sum_min_value: int=None,
-
-        
-        
+        unique_percentage_col: int = None ,
+        null_percentage_for_col: int = None,
+        null_percentage_variation_with_prev: int = None ,
+        sum_max_value: int = None,
+        sum_min_value: int= None,  
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
         self.unique_percentage_col = unique_percentage_col
         self.null_percentage_for_col = null_percentage_for_col
-        self.null_percentage_variation_with_prev=null_percentage_variation_with_prev
-        self.sum_max_value=sum_max_value
-        self.sum_min_value=sum_min_value
+        self.null_percentage_variation_with_prev = null_percentage_variation_with_prev
+        self.sum_max_value = sum_max_value
+        self.sum_min_value = sum_min_value
 
-    def __str__(self):
-        return str(vars(self))
+        def __str__(self):
+            return str(vars(self))
 
+def list_non_metadata_columns(df: DataFrame) -> List[str]:
+    """Obtain a list of DataFrame columns except for metadata columns.
+
+    Metadata columns are all columns whose name begins with "__".
+
+    Parameters
+    ----------
+    df : DataFrame
+        The PySpark DataFrame to inspect.
+
+    Returns
+    -------
+    List[str]
+        The list of DataFrame columns, except for metadata columns.
+    """
+    return [col for col in df.columns if not col.startswith("__")]
 
 def configure_spn_access_for_adls(
     spark: SparkSession,
@@ -187,9 +225,8 @@ def configure_spn_access_for_adls(
 ):
     """Set up access to an ADLS Storage Account using a Service Principal.
 
-    We try to use Spark Context to make it available to the RDD API.
+    We use Hadoop Configuration to make it available to the RDD API.
     This is a requirement for using spark-xml and similar libraries.
-    If Spark Context fails, we use Spark Session configuration instead.
 
     Parameters
     ----------
@@ -211,72 +248,29 @@ def configure_spn_access_for_adls(
     try:
         for storage_account_name in storage_account_names:
             storage_account_suffix = f"{storage_account_name}.dfs.core.windows.net"
-            try:
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.auth.type.{storage_account_suffix}",
-                    "OAuth"
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
-                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
-                    spn_client_id
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                    dbutils.secrets.get(key_vault_name, spn_secret_name)
-                )
-                spark._jsc.hadoopConfiguration().set(
-                    f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
-                    f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
-                )
-            except Py4JError:
-                print("Could not configure ADLS access using Spark Context. " + \
-                      "Falling back to Spark Session configuration. " + \
-                      "XML and Excel libraries will not be supported.")
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.auth.type.{storage_account_suffix}",
+                "OAuth"
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
+                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
+                spn_client_id
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
+                dbutils.secrets.get(key_vault_name, spn_secret_name)
+            )
+            spark._jsc.hadoopConfiguration().set(
+                f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
+                f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
+            )
 
-                spark.conf.set(
-                    f"fs.azure.account.auth.type.{storage_account_suffix}",
-                    "OAuth"
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth.provider.type.{storage_account_suffix}",
-                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth2.client.id.{storage_account_suffix}",
-                    spn_client_id
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                    dbutils.secrets.get(key_vault_name, spn_secret_name)
-                )
-                spark.conf.set(
-                    f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
-                    f"https://login.microsoftonline.com/{spn_tenant_id}/oauth2/token"
-                )
     except Exception:
         exit_with_last_exception(dbutils)
-
-
-def list_non_metadata_columns(df: DataFrame) -> List[str]:
-    """Obtain a list of DataFrame columns except for metadata columns.
-
-    Metadata columns are all columns whose name begins with "__".
-
-    Parameters
-    ----------
-    df : DataFrame
-        The PySpark DataFrame to inspect.
-
-    Returns
-    -------
-    List[str]
-        The list of DataFrame columns, except for metadata columns.
-    """
-    return [col for col in df.columns if not col.startswith("__")]
 
 
 def exit_with_object(dbutils: object, results: ReturnObject):
