@@ -352,7 +352,7 @@ def write_stream_delta_table(
         Whether to reset streaming checkpoint before processing starts.
         This causes all source data to be reprocessed.
     dbutils : Any, default=None
-        A Databricks utils object. Fetched from globals() when not provided.
+        A Databricks utils object. If None, fetch global dbutils from common_utils.
 
     Returns
     -------
@@ -365,7 +365,7 @@ def write_stream_delta_table(
     )
 
     try:
-        dbutils = dbutils or globals().get("dbutils")
+        dbutils = dbutils or common_utils.get_global_dbutils()
 
         # Get original version number
         results.old_version_number = _get_current_delta_version_number(location)
@@ -621,7 +621,6 @@ def _write_to_error_table(
 
 
 def _create_df_writer_with_options(
-    spark: SparkSession,
     df: DataFrame,
     location: str,
     schema_evolution_mode: SchemaEvolutionMode,
@@ -631,8 +630,6 @@ def _create_df_writer_with_options(
 
     Parameters
     ----------
-    spark : SparkSession
-        A Spark session.
     df : DataFrame
         PySpark DataFrame to write.
     location : str

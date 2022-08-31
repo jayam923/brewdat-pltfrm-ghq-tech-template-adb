@@ -9,6 +9,9 @@ from py4j.protocol import Py4JError
 from pyspark.sql import DataFrame, SparkSession
 
 
+GLOBAL_DBUTILS = None
+
+
 @unique
 class RunStatus(str, Enum):
     """Available run statuses.
@@ -175,9 +178,9 @@ def configure_spn_access_for_adls(
     spn_tenant_id : str, default="cef04b19-7776-4a94-b89b-375c77a8f936"
         Tenant Id for the Service Principal in Azure Active Directory.
     dbutils : Any, default=None
-        A Databricks utils object. Fetched from globals() when not provided.
+        A Databricks utils object. If None, fetch global dbutils from common_utils.
     """
-    dbutils = dbutils or globals().get("dbutils")
+    dbutils = dbutils or get_global_dbutils()
     if not dbutils:
         raise ValueError("Could not locate dbutils object to fetch required secrets")
 
@@ -250,6 +253,32 @@ def list_non_metadata_columns(df: DataFrame) -> List[str]:
     return [col for col in df.columns if not col.startswith("__")]
 
 
+def set_global_dbutils(dbutils: Any):
+    """Set global copy of the Databricks utils object.
+
+    This is done to simplify access to dbutils, as it is necessary
+    for global error handling.
+
+    Parameters
+    ----------
+    dbutils : Any
+        A Databricks utils object.
+    """
+    global GLOBAL_DBUTILS
+    GLOBAL_DBUTILS = dbutils
+
+
+def get_global_dbutils() -> Any:
+    """Return the global copy of the Databricks utils object.
+
+    Returns
+    -------
+    Any
+        A Databricks utils object.
+    """
+    return GLOBAL_DBUTILS
+
+
 def exit_with_object(results: ReturnObject, dbutils: Any = None):
     """Finish execution returning an object to the notebook's caller.
 
@@ -260,9 +289,9 @@ def exit_with_object(results: ReturnObject, dbutils: Any = None):
     results : ReturnObject
         Object containing the results of a write operation.
     dbutils : Any, default=None
-        A Databricks utils object. Fetched from globals() when not provided.
+        A Databricks utils object. If None, fetch global dbutils from common_utils.
     """
-    dbutils = dbutils or globals().get("dbutils")
+    dbutils = dbutils or get_global_dbutils()
     results_json = json.dumps(results, default=vars)
     if dbutils:
         dbutils.notebook.exit(results_json)
@@ -278,7 +307,7 @@ def exit_with_last_exception(dbutils: Any = None):
     Parameters
     ----------
     dbutils : Any, default=None
-        A Databricks utils object. Fetched from globals() when not provided.
+        A Databricks utils object. If None, fetch global dbutils from common_utils.
 
     Examples
     --------
@@ -287,7 +316,7 @@ def exit_with_last_exception(dbutils: Any = None):
     >>> except:
     >>>    common_utils.exit_with_last_exception()
     """
-    dbutils = dbutils or globals().get("dbutils")
+    dbutils = dbutils or get_global_dbutils()
     exc_type, exc_value, _ = sys.exc_info()
     results = ReturnObject(
         status=RunStatus.FAILED,

@@ -27,9 +27,10 @@ print(f"data_interval_start: {data_interval_start}")
 
 import sys
 
-# Import BrewDat Library modules
+# Import BrewDat Library modules and share dbutils globally
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils
+common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
 #help(common_utils)
