@@ -5,11 +5,11 @@ from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 from great_expectations.core import ExpectationValidationResult
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, FloatType, BooleanType
+from pyspark.sql.types import StructType, StructField, StringType, BooleanType
+
+import pyspark.sql.functions as F
 
 from . import common_utils
-from . import read_utils
-from .read_utils import RawFileFormat
 
 
 class DataQualityCheck:
@@ -47,11 +47,14 @@ class DataQualityCheck:
                                     StructField('columns', StringType()),
                                     StructField('passed', BooleanType()),
                                     StructField('comments', StringType())])
-                 )                   
-            result_df\
-                = self.spark.createDataFrame([*set(self.result_list)], result_schema)
-            return result_df
-        
+                 )
+
+            return (
+                self.spark.createDataFrame([*set(self.result_list)], result_schema)
+                .withColumn("__data_quality_check_ts", F.current_timestamp())
+                .withColumn("__data_quality_check_dt", F.to_date("__data_quality_check_ts"))
+            )
+
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
@@ -81,63 +84,6 @@ class DataQualityCheck:
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-            
-    # def __append_results(self,
-    #                      result: ExpectationValidationResult,
-    #                      dq_function_name: str = None,
-    #                      dq_column_name: str = None,
-    #                      dq_mostly: str = None,
-    #                      dq_range: str = None, ):
-    #     """ Create a list for the results from the DQ checks.
-    #
-    #     Parameters
-    #     ----------
-    #     result : object
-    #         A ExpectationValidationResult object.
-    #     dq_name : DataFrame
-    #         Name of the DQ check.
-    #     dq_result : BaseDataContext
-    #         Result from the DQ check.
-    #     dq_row_count : DataFrame
-    #         count of records from the DQ check.
-    #
-    #     Returns
-    #     -------
-    #     List
-    #         It appends Data quality check results into list
-    #
-    #     """
-    #     dq_result = bool(result['success'])
-    #     if dq_function_name == "dq_count_of_records_in_table" or dq_function_name == "dq_column_sum_value" :
-    #         result_value = str(result['result']['observed_value'])
-    #         dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-    #         dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-    #
-    #     else:
-    #         dq_mostly=result['expectation_config']['kwargs']['mostly']
-    #         if dq_function_name == "dq_count_for_unique_values_in_compond_columns" or dq_function_name == 'dq_count_for_unique_values_in_columns':
-    #             result_value = str(result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count'])
-    #             dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']} , null_record_count :-> {result['result']['missing_count']}"
-    #             if float(str(int(result_value)/result['result']['element_count'])[:4]) >= dq_mostly:
-    #                 dq_result = True
-    #
-    #             else:
-    #                 dq_result = False
-    #
-    #         else:
-    #             result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
-    #             dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
-    #
-    #     self.result_list.append(
-    #             (
-    #       dq_function_name,
-    #       result_value,
-    #       dq_mostly,
-    #       dq_range,
-    #       dq_result,
-    #       dq_comments
-    #             )
-    #     )
 
     def __append_results(
             self,
@@ -390,11 +336,9 @@ class DataQualityCheck:
 
     def check_count_variation_from_previous_version(
             self,
-            target_location: str,
-            min_value: int,
-            max_value: int,
-            older_version: int,
-            latest_version: int
+            min_variation: int,
+            max_variation: int,
+            previous_version: int,
     ) -> "DataQualityCheck":
         """Create function to check count variation from older version
         Parameters
@@ -416,57 +360,41 @@ class DataQualityCheck:
             ExpectationValidationResult object
         """
         try:
-            current_df = read_utils.read_raw_dataframe(
-                spark=self.spark,
-                dbutils=self.dbutils,
-                file_format=RawFileFormat.DELTA,
-                location=target_location,
-                delta_version_as_of=latest_version
+            previous_count = (
+                self.spark.read.format("delta")
+                    .option("versionAsOf", previous_version)
+                    .load(self.location)
+                    .count()
+            )
+            current_count = self.df.count()
+            count_diff = previous_count - current_count
+
+            passed = True
+            comment = None
+
+            if (min_variation and count_diff < min_variation) or (max_variation and count_diff > max_variation):
+                passed = False
+                comment = f"The record count difference from previous version is {count_diff}, which is outside of " \
+                          f"expected range of {min_variation} to {max_variation}."
+
+            self.__append_results(
+                validation_rule="check_count_variation_from_previous_version",
+                passed=passed,
+                columns=None,
+                comments=comment
             )
 
-            history_df = read_utils.read_raw_dataframe(
-                spark=self.spark,
-                dbutils=self.dbutils,
-                file_format=RawFileFormat.DELTA,
-                location=target_location,
-                delta_version_as_of=older_version
-            )
-
-            history_load_count = history_df.count()
-            Latest_validator = ge.dataset.SparkDFDataset(current_df)
-            result = Latest_validator.expect_table_row_count_to_be_between(
-                min_value,
-                max_value,
-                result_format = "SUMMARY"
-            )
-            dq_result = str(result['success'])
-            dq_function_name = "dq_validate_count_variation_from_previous_version_values"
-            result_value = result['result']['observed_value'] - history_load_count
-            dq_comments = f" total_record_count_in_history :-> {history_load_count} , total_record_count_in_Latest :-> {result['result']['observed_value']}"
-            dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-            dq_mostly = None 
-            if result['expectation_config']['kwargs']['min_value'] <= result_value <= result['expectation_config']['kwargs']['max_value']:
-                dq_result = "True"
-            self.result_list.append(
-                (
-                dq_function_name,
-                result_value, 
-                dq_mostly, 
-                dq_range, 
-                dq_result,
-                dq_comments)
-            )  
+            return self
             
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-    def dq_validate_null_percentage_variation_from_previous_version_values(self,
-        target_location: str,
-        col_name : str,
-        mostly : float,
-        older_version : int,
-        latest_version : int
-        )-> ExpectationValidationResult:
+    def check_null_percentage_variation_from_previous_version(
+            self,
+            col_name: str,
+            max_accepted_variation: float,
+            previous_version: int,
+    ) -> ExpectationValidationResult:
 
         """Create function to check null percentage variation with older version file for given column name
         Parameters
@@ -486,36 +414,35 @@ class DataQualityCheck:
             ExpectationValidationResult object
         """
         try:
-            if mostly<0.1 or mostly>1:
-                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
-                
-            dq_min_value = None
-            dq_min_value = None
-            current_df, history_df = self.__get_delta_tables_history_dataframe(
-                target_location = target_location,
-                older_version=older_version,
-                latest_version=latest_version
+
+            previous_validator = ge.dataset.SparkDFDataset(
+                self.spark.read.format("delta")
+                    .option("versionAsOf", previous_version)
+                    .load(self.location)
             )
-            history_result = self.validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
-            current_result = self.validator.expect_column_values_to_not_be_null(col_name, result_format = "SUMMARY")
-            dq_result = str(current_result['success'])
-            result_value = round(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'], 2)
-            dq_function_name  = "dq_validate_null_percentage_variation_values"
-            dq_comments = f" '{col_name}' : null percentage in history :-> {history_result['result']['unexpected_percent']:.2f} , null percentage in latest :-> {current_result['result']['unexpected_percent']:.2f}"
-            dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
-            cal_mostly = float(str(current_result['result']['unexpected_percent']- history_result['result']['unexpected_percent'])[:4])
-            if(cal_mostly <= mostly):
-                dq_result = "True"
-            self.result_list.append(
-                (
-                dq_function_name, 
-                result_value, 
-                mostly, 
-                dq_range, 
-                dq_result,
-                dq_comments
+
+            current_result = self.validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
+            previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
+            variation = (current_result['result']['unexpected_percent']
+                         - previous_result['result']['unexpected_percent'])
+
+            passed = True
+            comment = None
+
+            if variation > max_accepted_variation:
+                passed = False
+                comment = f"The percentage of null records for column {col_name} increased by {variation * 100}% " \
+                          f"(version {previous_version}) when compared with previous version of the table, which is" \
+                          f" higher than the max allowed of {max_accepted_variation * 100}%"
+
+            self.__append_results(
+                validation_rule="check_null_percentage_variation_from_previous_version",
+                passed=passed,
+                columns=col_name,
+                comments=comment
             )
-            )      
+
+            return self
             
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)

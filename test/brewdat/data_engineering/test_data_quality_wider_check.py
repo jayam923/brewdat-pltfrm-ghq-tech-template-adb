@@ -131,3 +131,70 @@ def test_check_column_uniqueness(tmpdir):
     result = result_df.toPandas().to_dict('records')[0]
     print(result)
     assert not result['passed']
+
+
+def test_check_count_variation_from_previous_version(tmpdir):
+    # ARRANGE
+    df1 = spark.createDataFrame([
+        {"id": "1", "qtd": "1"},
+        {"id": "1", "qtd": "1"},
+    ])
+    df2 = spark.createDataFrame([
+        {"id": "1", "qtd": "1"},
+        {"id": "1", "qtd": "1"},
+    ])
+    location = f"{tmpdir}/test_check_count_variation_from_previous_version"
+    df1.write.format("delta").mode("append").save(location)
+    df2.write.format("delta").mode("append").save(location)
+
+    # ACT
+    result_df = (
+        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+            .check_count_variation_from_previous_version(
+                min_value=0,
+                max_value=1,
+                previous_version=0
+            )
+            .build()
+    )
+
+    # ASSERT
+    result_df.show(100, False)
+
+    result = result_df.toPandas().to_dict('records')[0]
+    print(result)
+    assert not result['passed']
+
+
+def test_check_null_percentage_variation_from_previous_version(tmpdir):
+    # ARRANGE
+    df1 = spark.createDataFrame([
+        {"id": "1", "qtd": "1"},
+        {"id": "1", "qtd": "1"},
+    ])
+    df2 = spark.createDataFrame([
+        {"id": "1", "qtd": "1"},
+        {"id": None, "qtd": "1"},
+    ])
+    location = f"{tmpdir}/test_check_count_variation_from_previous_version"
+    df1.write.format("delta").mode("append").save(location)
+    df2.write.format("delta").mode("append").save(location)
+
+    # ACT
+    result_df = (
+        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+            .check_null_percentage_variation_from_previous_version(
+                col_name="id",
+                max_accepted_variation=0.1,
+                previous_version=0
+            )
+            .build()
+    )
+
+    # ASSERT
+    result_df.show(100, False)
+
+    result = result_df.toPandas().to_dict('records')[0]
+    print(result)
+    assert not result['passed']
+
