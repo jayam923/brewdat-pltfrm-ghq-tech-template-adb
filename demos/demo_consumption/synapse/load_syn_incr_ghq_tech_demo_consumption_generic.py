@@ -107,7 +107,7 @@ try:
     )
 
 except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    common_utils.exit_with_last_exception()
 
 # COMMAND ----------
 

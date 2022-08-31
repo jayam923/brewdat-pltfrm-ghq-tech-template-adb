@@ -112,7 +112,6 @@ union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
 # COMMAND ----------
 
 location = lakehouse_utils.generate_bronze_table_location(
-    dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=source_zone,
     target_business_domain=source_business_domain,
@@ -139,4 +138,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)
