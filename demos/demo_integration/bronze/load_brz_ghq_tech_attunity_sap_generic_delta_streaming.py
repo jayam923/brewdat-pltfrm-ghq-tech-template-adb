@@ -47,8 +47,6 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, transform_ut
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[
         adls_raw_bronze_storage_account_name,
         adls_brewdat_ghq_storage_account_name,
@@ -70,9 +68,12 @@ base_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
         location=raw_location,
-        cast_all_to_string=True,
+        cast_all_to_string=False,
     )
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.cast_all_columns_to_string)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
 
 #display(base_df)
@@ -83,47 +84,27 @@ ct_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
         location=f"{raw_location}__ct",
-        cast_all_to_string=True,
+        cast_all_to_string=False,
     )
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.cast_all_columns_to_string)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
 
 #display(ct_df)
 
 # COMMAND ----------
 
-clean_base_df = transform_utils.clean_column_names(dbutils=dbutils, df=base_df)
-clean_ct_df = transform_utils.clean_column_names(dbutils=dbutils, df=ct_df)
-
-#display(clean_base_df)
-#display(clean_ct_df)
-
-# COMMAND ----------
-
-transformed_base_df = transform_utils.cast_all_columns_to_string(dbutils=dbutils, df=clean_base_df)
-transformed_ct_df = transform_utils.cast_all_columns_to_string(dbutils=dbutils, df=clean_ct_df)
-
-#display(transformed_base_df)
-#display(transformed_ct_df)
-
-# COMMAND ----------
-
-union_df = transformed_base_df.unionByName(transformed_ct_df, allowMissingColumns=True)
+union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
 
 #display(union_df)
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=union_df)
-
-#display(audit_df)
-
-# COMMAND ----------
-
 location = lakehouse_utils.generate_bronze_table_location(
-    dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -135,7 +116,7 @@ print(f"location: {location}")
 # COMMAND ----------
 
 results = write_utils.write_stream_delta_table(
-    df=audit_df,
+    df=union_df,
     location=location,
     database_name=target_hive_database,
     table_name=target_hive_table,
@@ -150,4 +131,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)

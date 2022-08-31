@@ -19,7 +19,7 @@ dbutils.widgets.text("target_hive_database", "slv_ghq_tech_adventureworks", "5 -
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
-dbutils.widgets.text("target_hive_table", "sales_order_header", "6 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "sales_order_header_history", "6 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
@@ -199,7 +199,7 @@ results = write_utils.write_delta_table(
     location=location,
     database_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=write_utils.LoadType.UPSERT,
+    load_type=write_utils.LoadType.TYPE_2_SCD,
     key_columns=key_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )

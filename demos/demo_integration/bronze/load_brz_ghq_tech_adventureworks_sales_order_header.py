@@ -49,8 +49,6 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 # COMMAND ----------
 
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[adls_raw_bronze_storage_account_name],
     key_vault_name=key_vault_name,
     spn_client_id=spn_client_id,
@@ -60,45 +58,34 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 raw_df = read_utils.read_raw_dataframe(
-    spark=spark,
-    dbutils=dbutils,
     file_format=read_utils.RawFileFormat.ORC,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    cast_all_to_string=False,
 )
 
 #display(raw_df)
 
 # COMMAND ----------
 
-clean_df = transform_utils.clean_column_names(dbutils=dbutils, df=raw_df)
-
-#display(clean_df)
-
-# COMMAND ----------
-
 from pyspark.sql import functions as F
 
 transformed_df = (
-    clean_df
+    raw_df
     .filter(F.col("__ref_dt").between(
         F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
     ))
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.cast_all_columns_to_string)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
 
 #display(transformed_df)
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
-
-#display(audit_df)
-
-# COMMAND ----------
-
 location = lakehouse_utils.generate_bronze_table_location(
-    dbutils=dbutils,
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -110,8 +97,7 @@ print(f"location: {location}")
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
-    spark=spark,
-    df=audit_df,
+    df=transformed_df,
     location=location,
     database_name=target_hive_database,
     table_name=target_hive_table,
@@ -124,4 +110,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)

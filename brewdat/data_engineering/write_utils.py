@@ -112,7 +112,7 @@ def write_delta_table(
     bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
         Specifies the way in which bad records should be handled.
         See documentation for BrewDatLibrary.BadRecordHandlingMode.
-    enable_vacuum: bool, default=True
+    enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the Delta table.
@@ -336,7 +336,7 @@ def write_stream_delta_table(
     bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
         Specifies the way in which bad records should be handled.
         See documentation for BrewDatLibrary.BadRecordHandlingMode.
-    enable_vacuum: bool, default=True
+    enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the Delta table.
@@ -507,7 +507,7 @@ def _handle_bad_records(
         Database is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
-    enable_vacuum: bool, default=True
+    enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the error delta table.
@@ -573,7 +573,7 @@ def _write_to_error_table(
         determine proper error table name. Database is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
-    enable_vacuum: bool, default=True
+    enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the error delta table.

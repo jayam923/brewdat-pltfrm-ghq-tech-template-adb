@@ -51,8 +51,6 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[
         adls_raw_bronze_storage_account_name,
         adls_brewdat_ghq_storage_account_name,
@@ -81,7 +79,11 @@ base_df = (
         },
     )
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
+
+#display(base_df)
 
 # COMMAND ----------
 
@@ -95,20 +97,17 @@ ct_df = (
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-# COMMAND ----------
-
-clean_base_df = transform_utils.clean_column_names(dbutils=dbutils, df=base_df)
-clean_ct_df = transform_utils.clean_column_names(dbutils=dbutils, df=ct_df)
+#display(ct_df)
 
 # COMMAND ----------
 
-union_df = clean_base_df.unionByName(clean_ct_df, allowMissingColumns=True)
+union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
 
-# COMMAND ----------
-
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=union_df)
+#display(union_df)
 
 # COMMAND ----------
 
@@ -125,7 +124,7 @@ print(f"location: {location}")
 # COMMAND ----------
 
 results = write_utils.write_stream_delta_table(
-    df=audit_df,
+    df=union_df,
     location=location,
     database_name=target_hive_database,
     table_name=target_hive_table,

@@ -33,7 +33,6 @@ print(f"data_interval_end: {data_interval_end}")
 
 # COMMAND ----------
 
-import os
 import sys
 
 # Import BrewDat Library modules
@@ -50,8 +49,6 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, transform_ut
 # COMMAND ----------
 
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[adls_silver_gold_storage_account_name],
     key_vault_name=key_vault_name,
     spn_client_id=spn_client_id,
@@ -99,14 +96,13 @@ df = spark.sql("""
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=df)
+audit_df = transform_utils.create_or_replace_audit_columns(df)
 
 #display(audit_df)
 
 # COMMAND ----------
 
 location = lakehouse_utils.generate_gold_table_location(
-    dbutils=dbutils,
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -119,7 +115,6 @@ print(f"location: {location}")
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
-    spark=spark,
     df=audit_df,
     location=location,
     database_name=target_hive_database,
@@ -131,4 +126,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)

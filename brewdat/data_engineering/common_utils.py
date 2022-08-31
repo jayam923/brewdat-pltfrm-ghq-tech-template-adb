@@ -32,15 +32,15 @@ class ReturnObject():
         Number of records read from the DataFrame.
     num_records_loaded : int, default=0
         Number of records written to the target table.
-    num_records_errored_out: int, default=0
+    num_records_errored_out : int, default=0
         Number of records that have been rejected.
     error_message : str, default=""
         Error message describing whichever error that occurred.
     error_details : str, default=""
         Detailed error message or stack trace for the above error.
-    old_version_number: Optional[int], default=None
+    old_version_number : Optional[int], default=None
         Version number of target object before write operation.
-    new_version_number: Optional[int], default=None
+    new_version_number : Optional[int], default=None
         Version number of target object after write operation.
     effective_data_interval_start : Optional[str], default=None
         The effective watermark lower bound of the input DataFrame.
@@ -170,9 +170,9 @@ def configure_spn_access_for_adls(
         Databricks secret scope name. Usually the same as the name of the Azure Key Vault.
     spn_client_id : str
         Application (Client) Id for the Service Principal in Azure Active Directory.
-    spn_secret_name: str
+    spn_secret_name : str
         Name of the secret containing the Service Principal's client secret.
-    spn_tenant_id: str, default="cef04b19-7776-4a94-b89b-375c77a8f936"
+    spn_tenant_id : str, default="cef04b19-7776-4a94-b89b-375c77a8f936"
         Tenant Id for the Service Principal in Azure Active Directory.
     dbutils : Any, default=None
         A Databricks utils object. Fetched from globals() when not provided.

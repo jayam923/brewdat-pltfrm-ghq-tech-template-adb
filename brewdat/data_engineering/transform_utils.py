@@ -231,7 +231,7 @@ def flatten_dataframe(
         struct/map/array columns will also be flattened. Otherwise, only
         top-level complex columns will be flattened and inner columns
         will keep their original types.
-    column_name_separator: str, default="__"
+    column_name_separator : str, default="__"
         A string for separating parent and nested column names in the
         new flattened columns.
 
@@ -304,9 +304,9 @@ def apply_column_mappings(
     ----------
     df : DataFrame
         The PySpark DataFrame to cast.
-    mappings: List[ColumnMapping]
+    mappings : List[ColumnMapping]
         List of column mapping objects.
-    unmapped_behavior: UnmappedColumnBehavior, default=IGNORE_UNMAPPED_COLUMNS
+    unmapped_behavior : UnmappedColumnBehavior, default=IGNORE_UNMAPPED_COLUMNS
         Specifies the way in which unmapped DataFrame columns should be handled.
 
     Returns

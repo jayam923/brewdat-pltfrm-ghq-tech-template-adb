@@ -34,8 +34,6 @@ from brewdat.data_engineering import common_utils
 
 # Service Principal to authenticate Databricks to both ADLS and a temporary Blob Storage location
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[adls_silver_gold_storage_account_name, synapse_blob_storage_account_name],
     key_vault_name=key_vault_name,
     spn_client_id=spn_client_id,
@@ -91,7 +89,7 @@ try:
     )
 
 except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    common_utils.exit_with_last_exception()
 
 # COMMAND ----------
 
@@ -105,4 +103,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)

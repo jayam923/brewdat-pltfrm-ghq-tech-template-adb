@@ -71,8 +71,6 @@ from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[
         adls_raw_bronze_storage_account_name,
         adls_silver_gold_storage_account_name,
@@ -108,7 +106,7 @@ try:
     print(f"effective_data_interval_end: {effective_data_interval_end}")
 
 except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    common_utils.exit_with_last_exception()
 
 # COMMAND ----------
 
@@ -127,7 +125,7 @@ try:
     )
 
 except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    common_utils.exit_with_last_exception()
 
 #display(bronze_df)
 
@@ -135,7 +133,7 @@ except Exception:
 
 try:
     # Apply data quality checks based on given column mappings
-    dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
+    dq_checker = data_quality_utils.DataQualityChecker(bronze_df)
     mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
     for mapping in mappings:
         if mapping.target_data_type != "string":
@@ -151,7 +149,7 @@ try:
     #display(bronze_dq_df)
 
 except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    common_utils.exit_with_last_exception()
 
 # COMMAND ----------
 
@@ -163,14 +161,13 @@ dq_results_column = common_utils.ColumnMapping(
 mappings.append(dq_results_column)
 
 # Apply column mappings and retrieve list of unmapped columns
-transformed_df, unmapped_columns = transform_utils.apply_column_mappings(dbutils=dbutils, df=bronze_dq_df, mappings=mappings)
+transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bronze_dq_df, mappings=mappings)
 
 #display(transformed_df)
 
 # COMMAND ----------
 
 dedup_df = transform_utils.deduplicate_records(
-    dbutils=dbutils,
     df=transformed_df,
     key_columns=key_columns,
     watermark_column="SOURCE_COMMIT_TS",
@@ -178,12 +175,11 @@ dedup_df = transform_utils.deduplicate_records(
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=dedup_df)
+audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 # COMMAND ----------
 
 location = lakehouse_utils.generate_silver_table_location(
-    dbutils=dbutils,
     lakehouse_silver_root=lakehouse_silver_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -195,7 +191,6 @@ print(f"location: {location}")
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
-    spark=spark,
     df=audit_df,
     location=location,
     database_name=target_hive_database,
@@ -226,4 +221,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)
