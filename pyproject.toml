@@ -20,6 +20,7 @@ pytest = "7.1.2"
 pytest-mockito = "0.0.4"
 openpyxl = "3.0.10"
 pandas = "1.2.4"
+great_expectations = "0.15.12"
 
 [build-system]
 requires = ["poetry-core==1.0.0"]
