@@ -1,11 +1,10 @@
 from enum import Enum, unique
-from typing import Any, Optional
+from typing import Optional
 
 import pyspark.pandas as ps
 from pyspark.sql import DataFrame, SparkSession
 
 from . import common_utils, transform_utils
-from .common_utils import with_exception_handling
 
 
 @unique
@@ -30,7 +29,7 @@ class RawFileFormat(str, Enum):
     """XML format."""
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def read_raw_dataframe(
     file_format: RawFileFormat,
     location: str,
@@ -135,7 +134,7 @@ def read_raw_dataframe(
     return df
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def read_raw_streaming_dataframe(
     file_format: RawFileFormat,
     location: str,

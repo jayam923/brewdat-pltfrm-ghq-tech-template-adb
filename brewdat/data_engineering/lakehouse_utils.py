@@ -1,11 +1,9 @@
 import re
-from typing import Any
 
 from . import common_utils
-from .common_utils import with_exception_handling
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def generate_bronze_table_location(
     lakehouse_bronze_root: str,
     target_zone: str,
@@ -49,7 +47,7 @@ def generate_bronze_table_location(
     return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def generate_silver_table_location(
     lakehouse_silver_root: str,
     target_zone: str,
@@ -93,7 +91,7 @@ def generate_silver_table_location(
     return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def generate_gold_table_location(
     lakehouse_gold_root: str,
     target_zone: str,

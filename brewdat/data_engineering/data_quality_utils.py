@@ -4,7 +4,6 @@ import pyspark.sql.functions as F
 from pyspark.sql import Column, DataFrame, Window
 
 from . import common_utils
-from .common_utils import with_exception_handling
 
 
 DQ_RESULTS_COLUMN = "__data_quality_issues"
@@ -38,7 +37,7 @@ class DataQualityChecker():
         """
         return self.df
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_narrow_condition(
         self,
         expected_condition: Union[str, Column],
@@ -97,7 +96,7 @@ class DataQualityChecker():
 
         return self
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_is_not_null(
         self,
         column_name: str,
@@ -135,7 +134,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_type_cast(
         self,
         column_name: str,
@@ -202,7 +201,7 @@ class DataQualityChecker():
         self.df = self.df.drop("__value_after_cast")
         return self
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_max_length(
         self,
         column_name: str,
@@ -250,7 +249,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_min_length(
         self,
         column_name: str,
@@ -299,7 +298,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_length_between(
         self,
         column_name: str,
@@ -356,7 +355,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_max_value(
         self,
         column_name: str,
@@ -401,7 +400,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_min_value(
         self,
         column_name: str,
@@ -447,7 +446,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_value_between(
         self,
         column_name: str,
@@ -495,7 +494,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_value_is_in(
         self,
         column_name: str,
@@ -543,7 +542,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_value_is_not_in(
         self,
         column_name: str,
@@ -591,7 +590,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_matches_regular_expression(
         self,
         column_name: str,
@@ -639,7 +638,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_does_not_match_regular_expression(
         self,
         column_name: str,
@@ -687,7 +686,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_is_numeric(
         self,
         column_name: str,
@@ -730,7 +729,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_column_is_alphanumeric(
         self,
         column_name: str,
@@ -773,7 +772,7 @@ class DataQualityChecker():
             filter_condition=filter_condition,
         )
 
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_composite_column_value_is_unique(
         self,
         column_names: List[str],
@@ -830,7 +829,7 @@ class DataQualityChecker():
         return self
 
     @classmethod
-    @with_exception_handling
+    @common_utils.with_exception_handling
     def check_columns_exist(
         cls,
         df: DataFrame,

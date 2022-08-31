@@ -307,7 +307,7 @@ def write_stream_delta_table(
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = False,
     reset_checkpoint: bool = False,
-    dbutils: Any = None, 
+    dbutils: Any = None,
 ) -> ReturnObject:
     """Write the stream DataFrame as a delta table.
 
@@ -401,7 +401,7 @@ def write_stream_delta_table(
         # This is required because checkpoint folder will be there already
         spark = SparkSession.getActiveSession()
         spark.conf.set("spark.databricks.delta.formatCheck.enabled", False)
- 
+
         checkpoint_location = location.rstrip("/") + "/_checkpoint"
         if reset_checkpoint:
             dbutils.fs.rm(checkpoint_location, recurse=True)
@@ -415,7 +415,7 @@ def write_stream_delta_table(
             .start()
             .awaitTermination()
         )
-        
+
         if enable_vacuum:
             # TODO: also vacuum the error table
             _vacuum_delta_table(
@@ -557,7 +557,7 @@ def _write_to_error_table(
     database_name: str,
     table_name: str,
     enable_vacuum: bool = True,
-    time_travel_retention_days: int,
+    time_travel_retention_days: int = 30,
 ) -> int:
     """Write bad record DataFrame to standard error table.
 

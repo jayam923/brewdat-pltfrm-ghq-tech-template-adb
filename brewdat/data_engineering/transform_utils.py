@@ -1,14 +1,14 @@
 import re
 from datetime import datetime
 from enum import Enum, unique
-from typing import Any, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, Window
 from pyspark.sql.types import DataType
 
 from . import common_utils
-from .common_utils import ColumnMapping, with_exception_handling
+from .common_utils import ColumnMapping
 
 
 @unique
@@ -23,7 +23,7 @@ class UnmappedColumnBehavior(str, Enum):
     the column mappings."""
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def clean_column_names(df: DataFrame, except_for: List[str] = []) -> DataFrame:
     """Normalize the name of all the columns in a given DataFrame.
 
@@ -57,7 +57,7 @@ def clean_column_names(df: DataFrame, except_for: List[str] = []) -> DataFrame:
     return df
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def create_or_replace_business_key_column(
     df: DataFrame,
     business_key_column_name: str,
@@ -101,7 +101,7 @@ def create_or_replace_business_key_column(
     return df
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
     """Create or replace BrewDat audit columns in the given DataFrame.
 
@@ -131,7 +131,7 @@ def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
     return df
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def deduplicate_records(
     df: DataFrame,
     key_columns: List[str] = [],
@@ -179,7 +179,7 @@ def deduplicate_records(
     )
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def cast_all_columns_to_string(df: DataFrame) -> DataFrame:
     """Recursively cast all DataFrame columns to string type, while
     preserving the nested structure of array, map, and struct columns.
@@ -205,7 +205,7 @@ def cast_all_columns_to_string(df: DataFrame) -> DataFrame:
     return df.selectExpr(*expressions)
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def flatten_dataframe(
     df: DataFrame,
     except_for: List[str] = [],
@@ -282,7 +282,7 @@ def flatten_dataframe(
     return df
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def apply_column_mappings(
     df: DataFrame,
     mappings: List[ColumnMapping],
@@ -328,7 +328,7 @@ def apply_column_mappings(
     return df, unmapped_columns
 
 
-@with_exception_handling
+@common_utils.with_exception_handling
 def handle_rescued_data(df: DataFrame, rescue_column_name: str) -> DataFrame:
     """Bring back values stored in the rescue_data column and drop that column.
 
