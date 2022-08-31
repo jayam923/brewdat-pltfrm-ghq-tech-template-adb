@@ -177,8 +177,11 @@ def configure_spn_access_for_adls(
     dbutils : Any, default=None
         A Databricks utils object. Fetched from globals() when not provided.
     """
-    spark = SparkSession.getActiveSession()
     dbutils = dbutils or globals().get("dbutils")
+    if not dbutils:
+        raise ValueError("Could not locate dbutils object to fetch required secrets")
+
+    spark = SparkSession.getActiveSession()
     for storage_account_name in storage_account_names:
         storage_account_suffix = f"{storage_account_name}.dfs.core.windows.net"
         try:

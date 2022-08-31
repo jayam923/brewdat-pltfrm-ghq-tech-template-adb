@@ -213,7 +213,8 @@ def flatten_dataframe(
     recursive: bool = True,
     column_name_separator: str = "__",
 ) -> DataFrame:
-    """Flatten all struct/map columns from a PySpark DataFrame, optionally exploding array columns.
+    """Flatten all struct/map columns from a PySpark DataFrame, optionally
+    exploding array columns.
 
     Parameters
     ----------
@@ -223,12 +224,16 @@ def flatten_dataframe(
         List of columns to be ignored by flattening process.
     explode_arrays : bool, default=True
         When true, all array columns will be exploded.
-        Be careful when processing DataFrames with multiple array columns as it may result in Out-of-Memory (OOM) error.
+        Be careful when processing DataFrames with multiple array columns
+        as it may result in Out-of-Memory (OOM) error.
     recursive : bool, default=True
-        When true, struct/map/array columns nested inside other struct/map/array columns will also be flattened.
-        Otherwise, only top-level complex columns will be flattened and inner columns will keep their original types.
+        When true, struct/map/array columns nested inside other
+        struct/map/array columns will also be flattened. Otherwise, only
+        top-level complex columns will be flattened and inner columns
+        will keep their original types.
     column_name_separator: str, default="__"
-        A string for separating parent and nested column names in the new flattened columns.
+        A string for separating parent and nested column names in the
+        new flattened columns.
 
     Returns
     -------
@@ -256,7 +261,8 @@ def flatten_dataframe(
             if column.name in except_for:
                 expressions.append(column.name)
             elif column.dataType.typeName() == "struct":
-                nested_cols = [F.col(f"`{column.name}`.`{nc}`").alias(f"{column.name}{column_name_separator}{nc}")
+                nested_cols = [F.col(f"`{column.name}`.`{nc}`")
+                               .alias(f"{column.name}{column_name_separator}{nc}")
                                for nc in df.select(f"`{column.name}`.*").columns]
                 expressions.extend(nested_cols)
             elif column.dataType.typeName() == "map":
@@ -266,7 +272,8 @@ def flatten_dataframe(
                     .select(F.collect_set("__map_key"))
                     .first()[0]
                 )
-                nested_cols = [F.col(f"`{column.name}`.`{nc}`").alias(f"{column.name}{column_name_separator}{nc}")
+                nested_cols = [F.col(f"`{column.name}`.`{nc}`")
+                               .alias(f"{column.name}{column_name_separator}{nc}")
                                for nc in map_keys]
                 expressions.extend(nested_cols)
             elif column.dataType.typeName() == "array" and explode_arrays:
@@ -312,7 +319,7 @@ def apply_column_mappings(
     """
     # Use case insensitive comparison like Spark does
     all_columns = common_utils.list_non_metadata_columns(df)
-    mapped_columns = [m.source_column_name.lower() for m in mappings]
+    mapped_columns = [m.source_column_name.lower() for m in mappings if m.source_column_name]
     unmapped_columns = [col for col in all_columns if col.lower() not in mapped_columns]
     if unmapped_columns and unmapped_behavior == UnmappedColumnBehavior.FAIL_ON_UNMAPPED_COLUMNS:
         formatted_columns = ", ".join([f"`{col}`" for col in unmapped_columns])
