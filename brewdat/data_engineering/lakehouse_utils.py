@@ -34,7 +34,8 @@ def generate_bronze_table_location(
         Standard location for the delta table.
     """
     # Check that no parameter is None or empty string
-    params_list = [lakehouse_bronze_root, target_zone, target_business_domain, source_system, table_name]
+    params_list = [lakehouse_bronze_root, target_zone, target_business_domain,
+                   source_system, table_name]
     if any(x is None or len(x) == 0 for x in params_list):
         raise ValueError("Location would contain null or empty values.")
 
@@ -44,7 +45,8 @@ def generate_bronze_table_location(
     assert_valid_folder_name(source_system)
     assert_valid_folder_name(table_name)
 
-    return f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
+    return (f"{lakehouse_bronze_root}/data/{target_zone}/{target_business_domain}/" +
+            f"{source_system}/{table_name}").lower()
 
 
 @common_utils.with_exception_handling
@@ -78,7 +80,8 @@ def generate_silver_table_location(
         Standard location for the delta table.
     """
     # Check that no parameter is None or empty string
-    params_list = [lakehouse_silver_root, target_zone, target_business_domain, source_system, table_name]
+    params_list = [lakehouse_silver_root, target_zone, target_business_domain,
+                   source_system, table_name]
     if any(x is None or len(x) == 0 for x in params_list):
         raise ValueError("Location would contain null or empty values.")
 
@@ -88,7 +91,8 @@ def generate_silver_table_location(
     assert_valid_folder_name(source_system)
     assert_valid_folder_name(table_name)
 
-    return f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/{source_system}/{table_name}".lower()
+    return (f"{lakehouse_silver_root}/data/{target_zone}/{target_business_domain}/" +
+            f"{source_system}/{table_name}").lower()
 
 
 @common_utils.with_exception_handling
@@ -125,7 +129,8 @@ def generate_gold_table_location(
         Standard location for the delta table.
     """
     # Check that no parameter is None or empty string
-    params_list = [lakehouse_gold_root, target_zone, target_business_domain, data_product, database_name, table_name]
+    params_list = [lakehouse_gold_root, target_zone, target_business_domain,
+                   data_product, database_name, table_name]
     if any(x is None or len(x) == 0 for x in params_list):
         raise ValueError("Location would contain null or empty values.")
 
@@ -136,7 +141,8 @@ def generate_gold_table_location(
     assert_valid_folder_name(database_name)
     assert_valid_folder_name(table_name)
 
-    return f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}/{data_product}/{database_name}/{table_name}".lower()
+    return (f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}" +
+            f"/{data_product}/{database_name}/{table_name}").lower()
 
 
 def assert_valid_zone(zone):
@@ -160,14 +166,16 @@ def assert_valid_zone(zone):
 def assert_valid_business_domain(business_domain):
     """Assert that given business domain is valid.
 
-    Valid business domains include: compliance, finance, marketing, people, sales, supply, tech.
+    Valid business domains include: compliance, finance,
+    marketing, people, sales, supply, tech.
 
     Parameters
     ----------
     business_domain : str
         Business domain of the target dataset.
     """
-    valid_domains = ["compliance", "finance", "marketing", "people", "sales", "supply", "tech"]
+    valid_domains = ["compliance", "finance", "marketing", "people",
+                     "sales", "supply", "tech"]
     if business_domain not in valid_domains:
         raise ValueError(
             f"Invalid value for business domain: {business_domain}."

@@ -950,6 +950,7 @@ def _write_table_using_append_new(
     if not key_columns:
         raise ValueError("No key column was given")
 
+    spark = SparkSession.getActiveSession()
     if not DeltaTable.isDeltaTable(spark, location):
         print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         return _write_table_using_append_all(
@@ -1013,6 +1014,7 @@ def _write_table_using_upsert(
     if not key_columns:
         raise ValueError("No key column was given")
 
+    spark = SparkSession.getActiveSession()
     if not DeltaTable.isDeltaTable(spark, location):
         print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         return _write_table_using_append_all(
@@ -1078,6 +1080,7 @@ def _write_table_using_type_2_scd(
 
     df = _generate_type_2_scd_metadata_columns(df)
 
+    spark = SparkSession.getActiveSession()
     if not DeltaTable.isDeltaTable(spark, location):
         print("Delta table does not exist yet. Setting load_type to APPEND_ALL for this run.")
         return _write_table_using_append_all(
@@ -1088,7 +1091,6 @@ def _write_table_using_type_2_scd(
         )
 
     # Prepare DataFrame for merge operation
-    spark = SparkSession.getActiveSession()
     table_df = spark.read.format("delta").load(location)
     merge_df = _merge_dataframe_for_type_2_scd(source_df=df, target_df=table_df, key_columns=key_columns)
     merge_df = _prepare_df_for_merge_operation(
