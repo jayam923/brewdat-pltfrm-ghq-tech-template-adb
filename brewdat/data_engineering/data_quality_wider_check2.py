@@ -58,33 +58,6 @@ class DataQualityCheck:
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-
-    # TODO remove this function
-    def __get_delta_tables_history_dataframe(self,
-        target_location: str, 
-        older_version : int,
-        latest_version : int )-> DataFrame:
-        """ Create function to get the hitory and latest version of given table location
-        Parameters
-        ----------
-        latest_version:int
-            deltalake latest version number
-        older_version : int
-            deltalake older version number
-        Returns
-        -------
-        DataFrame
-            Dataframe with older version of data of given target location
-            Dataframe with latest version of data of given target location
-        """
-        try:
-            latest_df = self.spark.read.format("delta").option("versionAsOf", latest_version).load(target_location)
-            history_df = self.spark.read.format("delta").option("versionAsOf", older_version).load(target_location)
-            return latest_df, history_df
-
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
     def __append_results(
             self,
             validation_rule: str,
@@ -334,6 +307,7 @@ class DataQualityCheck:
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
+    #TODO: change it to percentage
     def check_count_variation_from_previous_version(
             self,
             min_variation: int,
@@ -367,7 +341,7 @@ class DataQualityCheck:
                     .count()
             )
             current_count = self.df.count()
-            count_diff = previous_count - current_count
+            count_diff = current_count / previous_count
 
             passed = True
             comment = None

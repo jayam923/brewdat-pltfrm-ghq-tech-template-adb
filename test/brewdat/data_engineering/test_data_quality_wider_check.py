@@ -151,8 +151,8 @@ def test_check_count_variation_from_previous_version(tmpdir):
     result_df = (
         dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
             .check_count_variation_from_previous_version(
-                min_value=0,
-                max_value=1,
+                min_variation=0,
+                max_variation=1,
                 previous_version=0
             )
             .build()
@@ -176,7 +176,7 @@ def test_check_null_percentage_variation_from_previous_version(tmpdir):
         {"id": "1", "qtd": "1"},
         {"id": None, "qtd": "1"},
     ])
-    location = f"{tmpdir}/test_check_count_variation_from_previous_version"
+    location = f"{tmpdir}/test_check_null_percentage_variation_from_previous_version"
     df1.write.format("delta").mode("append").save(location)
     df2.write.format("delta").mode("append").save(location)
 
