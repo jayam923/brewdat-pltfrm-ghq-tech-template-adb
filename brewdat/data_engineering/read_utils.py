@@ -203,7 +203,7 @@ def read_raw_streaming_dataframe(
         )
     else:
         # Disable inclusion of filename in the rescue data column
-        spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", False)
+        spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", "false")
 
         # Read using Auto Loader
         df_reader = (

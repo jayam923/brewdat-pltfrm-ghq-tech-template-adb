@@ -1,7 +1,7 @@
 import os
 import traceback
 from enum import Enum, unique
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -153,11 +153,11 @@ def write_delta_table(
 
         # Use optimized writes to reduce number of small files
         spark = SparkSession.getActiveSession()
-        spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", True)
-        spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", True)
+        spark.conf.set("spark.databricks.delta.optimizeWrite.enabled", "true")
+        spark.conf.set("spark.databricks.delta.autoOptimize.autoCompact", "true")
 
         # Set maximum size in bytes for a table to be broadcast to all worker nodes when performing a join
-        spark.conf.set("spark.sql.autoBroadcastJoinThreshold", auto_broadcast_join_threshold)
+        spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(auto_broadcast_join_threshold))
 
         # Cache the DataFrame and count source records
         if enable_caching:
@@ -400,7 +400,7 @@ def write_stream_delta_table(
         # Allow creation of delta table in a folder which is not empty
         # This is required because checkpoint folder will be there already
         spark = SparkSession.getActiveSession()
-        spark.conf.set("spark.databricks.delta.formatCheck.enabled", False)
+        spark.conf.set("spark.databricks.delta.formatCheck.enabled", "false")
 
         checkpoint_location = location.rstrip("/") + "/_checkpoint"
         if reset_checkpoint:
@@ -436,7 +436,7 @@ def write_stream_delta_table(
         return results
 
 
-def _get_current_delta_version_details(location: str) -> dict:
+def _get_current_delta_version_details(location: str) -> Optional[dict]:
     """Get information about the current version of a delta table given its location.
 
     Resulting dictionary follows history schema for delta tables.
@@ -451,7 +451,7 @@ def _get_current_delta_version_details(location: str) -> dict:
 
     Returns
     -------
-    dict
+    Optional[dict]
         Dictionary with information about current delta table version.
     """
     spark = SparkSession.getActiveSession()
@@ -463,7 +463,7 @@ def _get_current_delta_version_details(location: str) -> dict:
     return history_df.first().asDict(recursive=True)
 
 
-def _get_current_delta_version_number(location: str) -> int:
+def _get_current_delta_version_number(location: str) -> Optional[int]:
     """Get the current version number of a delta table given its location.
 
     Returns None if given location is not a delta table.
@@ -475,7 +475,7 @@ def _get_current_delta_version_number(location: str) -> int:
 
     Returns
     -------
-    int
+    Optional[int]
         Current delta table version number.
     """
     current_version_details = _get_current_delta_version_details(location)
@@ -691,7 +691,7 @@ def _prepare_df_for_merge_operation(
         pass
     elif schema_evolution_mode == SchemaEvolutionMode.ADD_NEW_COLUMNS:
         spark = SparkSession.getActiveSession()
-        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", True)
+        spark.conf.set("spark.databricks.delta.schema.autoMerge.enabled", "true")
     elif schema_evolution_mode == SchemaEvolutionMode.IGNORE_NEW_COLUMNS:
         df = _drop_new_columns(df, location)
     elif schema_evolution_mode == SchemaEvolutionMode.OVERWRITE_SCHEMA:
@@ -790,7 +790,7 @@ def _get_latest_output_row_count(location: str) -> int:
             num_output_rows -= int(operation_metrics["numTargetRowsCopied"])
         return num_output_rows
     except Exception:
-        return None
+        return 0
 
 
 def _write_table_using_overwrite_table(
@@ -1290,5 +1290,5 @@ def _vacuum_delta_table(
             'delta.logRetentionDuration' = 'interval {time_travel_retention_days} days'
         );
     """)
-    spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", True)
+    spark.conf.set("spark.databricks.delta.vacuum.parallelDelete.enabled", "true")
     spark.sql(f"VACUUM `{database_name}`.`{table_name}`;")
