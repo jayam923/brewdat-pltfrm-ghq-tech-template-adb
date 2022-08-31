@@ -1,4 +1,4 @@
-from typing import Any, List, Union
+from typing import Any, List, Optional, Union
 
 import pyspark.sql.functions as F
 from pyspark.sql import Column, DataFrame, Window
@@ -43,7 +43,7 @@ class DataQualityChecker():
         self,
         expected_condition: Union[str, Column],
         failure_message: Union[str, Column],
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Run a data quality check against every row in the DataFrame.
 
@@ -61,7 +61,7 @@ class DataQualityChecker():
         failure_message : Union[str, Column]
             String or PySpark Column expression that generates a message which
             is appended to validation results when expected condition is False.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -101,7 +101,7 @@ class DataQualityChecker():
     def check_column_is_not_null(
         self,
         column_name: str,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is not null.
 
@@ -114,7 +114,7 @@ class DataQualityChecker():
         ----------
         column_name : str
             Name of the column to be validated.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -140,8 +140,8 @@ class DataQualityChecker():
         self,
         column_name: str,
         data_type: str,
-        date_format: str = None,
-        filter_condition: Union[str, Column] = None,
+        date_format: Optional[str] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate whether a column's value can be safely cast
         to the given data type without generating a null value.
@@ -161,10 +161,10 @@ class DataQualityChecker():
             Name of the column to be validated.
         data_type : str
             Spark data type used in cast function.
-        date_format : str, default=None
+        date_format : Optional[str], default=None
             Optional format string used with to_date() and to_timestamp()
             functions when data_type is date or timestamp, respectively.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -207,7 +207,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         maximum_length: int,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's length does not exceed a maximum length.
 
@@ -222,7 +222,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         maximum_length : int
             Maximum length for column values.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -255,7 +255,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         minimum_length: int,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's length is greater than
         or equal to a minimum length.
@@ -271,7 +271,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         minimum_length : int
             Minimum length for column values.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -305,7 +305,7 @@ class DataQualityChecker():
         column_name: str,
         minimum_length: int,
         maximum_length: int,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's length is within a given range.
 
@@ -322,7 +322,7 @@ class DataQualityChecker():
             Minimum length for column values.
         maximum_length : int
             Maximum length for column values.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -361,7 +361,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         maximum_value: Any,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is does not exceed a maximum value.
 
@@ -376,7 +376,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         maximum_value : Any
             Maximum value for the column.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -406,7 +406,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         minimum_value: Any,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is greater than
         or equal to a minimum value.
@@ -422,7 +422,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         minimum_value : Any
             Minimum value for the column.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -453,7 +453,7 @@ class DataQualityChecker():
         column_name: str,
         minimum_value: Any,
         maximum_value: Any,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is within a given range.
 
@@ -470,7 +470,7 @@ class DataQualityChecker():
             Minimum value for the column.
         maximum_value : Any
             Maximum value for the column.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -500,7 +500,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         valid_values: List[Any],
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is in a list of valid values.
 
@@ -515,7 +515,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         valid_values : List[Any]
             List of valid values.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -548,7 +548,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         invalid_values: List[Any],
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is not in a list of invalid values.
 
@@ -563,7 +563,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         invalid_values : List[Any]
             List of invalid values.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -596,7 +596,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         regular_expression: str,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value matches the given regular expression.
 
@@ -611,7 +611,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         regular_expression : str
             Regular expression that column values should match.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -644,7 +644,7 @@ class DataQualityChecker():
         self,
         column_name: str,
         regular_expression: str,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value does not match the given regular expression.
 
@@ -659,7 +659,7 @@ class DataQualityChecker():
             Name of the column to be validated.
         regular_expression : str
             Regular expression that column values should NOT match.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -691,7 +691,7 @@ class DataQualityChecker():
     def check_column_is_numeric(
         self,
         column_name: str,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is numeric, that is, it matches
         the regular expression '^[0-9]*\\.?[0-9]*([Ee][+-]?[0-9]+)?$'.
@@ -705,7 +705,7 @@ class DataQualityChecker():
         ----------
         column_name : str
             Name of the column to be validated.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -734,7 +734,7 @@ class DataQualityChecker():
     def check_column_is_alphanumeric(
         self,
         column_name: str,
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a column's value is alphanumeric, that is, it matches
         the regular expression '^[A-Za-z0-9]*$'.
@@ -748,7 +748,7 @@ class DataQualityChecker():
         ----------
         column_name : str
             Name of the column to be validated.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -777,7 +777,7 @@ class DataQualityChecker():
     def check_composite_column_value_is_unique(
         self,
         column_names: List[str],
-        filter_condition: Union[str, Column] = None,
+        filter_condition: Union[str, Column, None] = None,
     ) -> "DataQualityChecker":
         """Validate that a set of columns has unique values across the entire DataFrame.
 
@@ -792,7 +792,7 @@ class DataQualityChecker():
         ----------
         column_names : List[str]
             List of columns whose composite values should be unique in the DataFrame.
-        filter_condition : Union[str, Column], default=None
+        filter_condition : Union[str, Column, None], default=None
             PySpark Column expression for filtering the rows that this check
             applies to. If this expression evaluates to False, the record
             is not checked.
@@ -837,7 +837,7 @@ class DataQualityChecker():
         column_names: List[str],
         raise_exception: bool = True,
     ) -> List[str]:
-        """Validate that a column exists in the given DataFrame.
+        """Validate that one or more columns exist in the given DataFrame.
 
         Optionally raise an exception in case of missing columns.
 

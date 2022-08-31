@@ -1,7 +1,7 @@
 import re
 from datetime import datetime
 from enum import Enum, unique
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import pyspark.sql.functions as F
 from pyspark.sql import DataFrame, Window
@@ -24,10 +24,7 @@ class UnmappedColumnBehavior(str, Enum):
 
 
 @with_exception_handling
-def clean_column_names(
-    df: DataFrame,
-    except_for: List[str] = [],
-) -> DataFrame:
+def clean_column_names(df: DataFrame, except_for: List[str] = []) -> DataFrame:
     """Normalize the name of all the columns in a given DataFrame.
 
     Replaces non-alphanumeric characters with underscore and
@@ -137,8 +134,8 @@ def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
 @with_exception_handling
 def deduplicate_records(
     df: DataFrame,
-    key_columns: List[str] = None,
-    watermark_column: str = None,
+    key_columns: List[str] = [],
+    watermark_column: Optional[str] = None,
 ) -> DataFrame:
     """Deduplicate rows from a DataFrame using optional key and watermark columns.
 
@@ -150,9 +147,9 @@ def deduplicate_records(
     ----------
     df : DataFrame
         The PySpark DataFrame to modify.
-    key_columns : List[str], default=None
+    key_columns : List[str], default=[]
         The names of the columns used to uniquely identify each record the table.
-    watermark_column : str, default=None
+    watermark_column : Optional[str], default=None
         The name of a datetime column used to select the newest records.
 
     Returns
@@ -165,29 +162,25 @@ def deduplicate_records(
     pyspark.sql.DataFrame.distinct : Equivalent to SQL's SELECT DISTINCT.
     pyspark.sql.DataFrame.dropDuplicates : Distinct with optional subset parameter.
     """
-    if key_columns is None:
+    if not key_columns:
         return df.dropDuplicates()
 
-    if watermark_column is None:
+    if not watermark_column:
         return df.dropDuplicates(key_columns)
 
-    if not key_columns:
-        raise ValueError("No key column was given. If this is intentional, use None instead.")
-
+    ROW_NUMBER_COLUMN = "__dedup_row_number"
     return (
         df
-        .withColumn("__dedup_row_number", F.row_number().over(
+        .withColumn(ROW_NUMBER_COLUMN, F.row_number().over(
             Window.partitionBy(*key_columns).orderBy(F.col(watermark_column).desc())
         ))
-        .filter("__dedup_row_number = 1")
-        .drop("__dedup_row_number")
+        .filter(f"`{ROW_NUMBER_COLUMN}` = 1")
+        .drop(ROW_NUMBER_COLUMN)
     )
 
 
 @with_exception_handling
-def cast_all_columns_to_string(
-    df: DataFrame,
-) -> DataFrame:
+def cast_all_columns_to_string(df: DataFrame) -> DataFrame:
     """Recursively cast all DataFrame columns to string type, while
     preserving the nested structure of array, map, and struct columns.
 
@@ -336,10 +329,7 @@ def apply_column_mappings(
 
 
 @with_exception_handling
-def handle_rescued_data(
-    df: DataFrame, 
-    rescue_column_name: str,
-) -> DataFrame:
+def handle_rescued_data(df: DataFrame, rescue_column_name: str) -> DataFrame:
     """Bring back values stored in the rescue_data column and drop that column.
 
     This is only possible if DataFrame columns are first cast to string.

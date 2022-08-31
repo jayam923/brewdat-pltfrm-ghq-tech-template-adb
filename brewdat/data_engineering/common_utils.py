@@ -3,7 +3,7 @@ import json
 import sys
 import traceback
 from enum import Enum, unique
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
 
 from py4j.protocol import Py4JError
 from pyspark.sql import DataFrame, SparkSession
@@ -38,13 +38,13 @@ class ReturnObject():
         Error message describing whichever error that occurred.
     error_details : str, default=""
         Detailed error message or stack trace for the above error.
-    old_version_number: int, default=None
+    old_version_number: Optional[int], default=None
         Version number of target object before write operation.
-    new_version_number: int, default=None
+    new_version_number: Optional[int], default=None
         Version number of target object after write operation.
-    effective_data_interval_start : str, default=""
+    effective_data_interval_start : Optional[str], default=None
         The effective watermark lower bound of the input DataFrame.
-    effective_data_interval_end : str, default=""
+    effective_data_interval_end : Optional[str], default=None
         The effective watermark upper bound of the input DataFrame.
     """
     def __init__(
@@ -56,10 +56,10 @@ class ReturnObject():
         num_records_errored_out: int = 0,
         error_message: str = "",
         error_details: str = "",
-        old_version_number: int = None,
-        new_version_number: int = None,
-        effective_data_interval_start: str = "",
-        effective_data_interval_end: str = "",
+        old_version_number: Optional[int] = None,
+        new_version_number: Optional[int] = None,
+        effective_data_interval_start: Optional[str] = None,
+        effective_data_interval_end: Optional[str] = None,
     ):
         self.status = status
         self.target_object = target_object
@@ -81,16 +81,19 @@ class ColumnMapping():
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
 
+    Provide either source_column_name or sql_expression, not both.
+
     Attributes
     ----------
-    source_column_name : str
+    source_column_name : Optional[str], default=None
         Column name in the source DataFrame.
-    target_data_type : str
-        The data type to which input column will be cast to.
-    sql_expression : str, default=None
+    sql_expression : Optional[str], default=None
         Spark SQL expression to create the target column.
         If None, simply cast and possibly rename the source column.
-    target_column_name : str, default=None
+    target_data_type : str, default="string"
+        The data type to which input column will be cast to.
+        If None, use string type by default.
+    target_column_name : Optional[str], default=None
         Column name in the target DataFrame.
         If None, use source_column_name as target_column_name.
     nullable : bool, default=True
@@ -99,12 +102,15 @@ class ColumnMapping():
     """
     def __init__(
         self,
-        source_column_name: str,
-        target_data_type: str,
-        sql_expression: str = None,
-        target_column_name: str = None,
+        source_column_name: Optional[str] = None,
+        sql_expression: Optional[str] = None,
+        target_data_type: str = "string",
+        target_column_name: Optional[str] = None,
         nullable: bool = True,
     ):
+        if source_column_name and sql_expression:
+            raise ValueError("Must provide either source_column_name or sql_expression, not both.")
+
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
         self.sql_expression = sql_expression
@@ -116,6 +122,22 @@ class ColumnMapping():
 
 
 def with_exception_handling(func: Callable) -> Callable:
+    """Decorator to wrap public functions with generic exception handling.
+
+    The function's code is wrapped in a try/except that exists the notebook
+    if there is any unhandled exception, returning information about the
+    error back to the caller.
+
+    Parameters
+    ----------
+    func : Callable
+        A Python function to wrap with generic exception handling.
+
+    Returns
+    -------
+    Callable
+        The wrapped function.
+    """
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         try:

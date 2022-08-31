@@ -1,5 +1,5 @@
 from enum import Enum, unique
-from typing import Any
+from typing import Any, Optional
 
 import pyspark.pandas as ps
 from pyspark.sql import DataFrame, SparkSession
@@ -38,7 +38,7 @@ def read_raw_dataframe(
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
     csv_escape_character: str = "\"",
-    excel_sheet_name: str = None,
+    excel_sheet_name: Optional[str] = None,
     excel_has_headers: bool = True,
     json_is_multiline: bool = True,
     xml_row_tag: str = "row",
@@ -62,7 +62,7 @@ def read_raw_dataframe(
         Delimiter string for CSV file format.
     csv_escape_character : str, default="\\""
         Escape character for CSV file format.
-    excel_sheet_name : str
+    excel_sheet_name : Optional[str], default=None
         Sheet name for EXCEL file format.
         Use None to get all sheets.
     excel_has_headers : bool, default=True
@@ -139,7 +139,7 @@ def read_raw_dataframe(
 def read_raw_streaming_dataframe(
     file_format: RawFileFormat,
     location: str,
-    schema_location: str = None,
+    schema_location: Optional[str] = None,
     handle_rescued_data: bool = True,
     cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
@@ -157,10 +157,10 @@ def read_raw_streaming_dataframe(
     location : str
         Absolute Data Lake path for the physical location of this dataset.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
-    schema_location : str, default=None
+    schema_location : Optional[str], default=None
         Absolute Data Lake path to store the inferred schema and subsequent changes.
-        If not informed, the following location is going to be used by default: {location}/_schema.
-        Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/schema/folder".
+        If None, the following location is used by default: {location}/_schema.
+        Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/folder".
     handle_rescued_data : bool, default=True
         Whether to bring back rescued data from columns that had schema mismatches during schema
         inference. This is only possible if the offending columns are first cast to string.

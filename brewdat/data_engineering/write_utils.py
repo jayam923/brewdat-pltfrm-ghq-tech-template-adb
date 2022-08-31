@@ -56,11 +56,6 @@ class SchemaEvolutionMode(str, Enum):
     OVERWRITE_SCHEMA = "OVERWRITE_SCHEMA"
     """Overwrite the table's schema with the DataFrame's schema.
     This is the same as using the option "overwriteSchema"."""
-    RESCUE_NEW_COLUMNS = "RESCUE_NEW_COLUMNS"
-    """Create a new struct-type column to collect data for new columns.
-    This is the same strategy used in AutoLoader's rescue mode.
-    For more information: https://docs.databricks.com/spark/latest/structured-streaming/auto-loader-schema.html#schema-evolution
-    *Attention*: This schema evolution mode is not implemented on this library yet!"""
 
 
 @unique
