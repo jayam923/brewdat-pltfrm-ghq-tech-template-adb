@@ -69,31 +69,27 @@ print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 
 # COMMAND ----------
 
-try:
-    base_df = (
-        spark.read
-        .format("delta")
-        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
-        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+base_df = (
+    read_utils.read_raw_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
+        cast_all_to_string=False,
     )
-
-except Exception:
-    common_utils.exit_with_last_exception()
+    .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+)
 
 #display(base_df)
 
 # COMMAND ----------
 
-try:
-    ct_df = (
-        spark.read
-        .format("delta")
-        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
-        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+ct_df = (
+    read_utils.read_raw_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
+        cast_all_to_string=False,
     )
-
-except Exception:
-    common_utils.exit_with_last_exception()
+    .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+)
 
 #display(ct_df)
 
@@ -150,20 +146,20 @@ union_df = transformed_base_df.unionByName(transformed_ct_df, allowMissingColumn
 
 # COMMAND ----------
 
-location = lakehouse_utils.generate_bronze_table_location(
+target_location = lakehouse_utils.generate_bronze_table_location(
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"location: {location}")
+print(f"target_location: {target_location}")
 
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
     df=union_df,
-    location=location,
+    location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,

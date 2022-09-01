@@ -58,27 +58,30 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-key_columns = ["SalesOrderID"]
+try:
+    key_columns = ["SalesOrderID"]
 
-df = spark.sql("""
-        SELECT 
-            SalesOrderID,
-            StatusDescription,
-            OnlineOrderFlag,
-            SalesOrderNumber,
-            order_header.CustomerID,
-            PurchaseOrderNumber,
-            order_header.__update_gmt_ts
-        FROM 
-            slv_ghq_tech_adventureworks.sales_order_header AS order_header 
-            LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer      
-                ON order_header.CustomerID = customer.CustomerID
-        WHERE
-            order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
-    """.format(
-        data_interval_start=data_interval_start,
-        data_interval_end=data_interval_end,
-    ))
+    df = spark.sql("""
+            SELECT 
+                SalesOrderID,
+                StatusDescription,
+                OnlineOrderFlag,
+                SalesOrderNumber,
+                order_header.CustomerID,
+                PurchaseOrderNumber,
+                order_header.__update_gmt_ts
+            FROM 
+                slv_ghq_tech_adventureworks.sales_order_header AS order_header 
+                LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer      
+                    ON order_header.CustomerID = customer.CustomerID
+            WHERE
+                order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
+        """.format(
+            data_interval_start=data_interval_start,
+            data_interval_end=data_interval_end,
+        ))
+except Exception:
+    common_utils.exit_with_last_exception()
 
 #display(df)
 
@@ -100,7 +103,7 @@ audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 # COMMAND ----------
 
-location = lakehouse_utils.generate_gold_table_location(
+target_location = lakehouse_utils.generate_gold_table_location(
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
@@ -108,14 +111,14 @@ location = lakehouse_utils.generate_gold_table_location(
     database_name=target_hive_database,
     table_name=target_hive_table,
 )
-print(f"location: {location}")
+print(f"target_location: {target_location}")
 
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
     df=audit_df,
     key_columns=key_columns,
-    location=location,
+    location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.UPSERT,

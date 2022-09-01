@@ -86,20 +86,20 @@ transformed_df = (
 
 # COMMAND ----------
 
-location = lakehouse_utils.generate_bronze_table_location(
+target_location = lakehouse_utils.generate_bronze_table_location(
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"location: {location}")
+print(f"target_location: {target_location}")
 
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
     df=transformed_df,
-    location=location,
+    location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
