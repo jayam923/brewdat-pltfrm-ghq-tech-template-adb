@@ -63,19 +63,18 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = source_system_to_sap_sid.get(source_system)
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/{source_table}"
+sap_sid = "attunity_test"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{sap_sid}/{source_table}"
 print(f"raw_location: {raw_location}")
 
 # COMMAND ----------
 
 base_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.PARQUET,
-        location=f"{raw_location}/*.parquet",
+        file_format=read_utils.RawFileFormat.CSV,
+        location=f"{raw_location}/*.csv*",
         schema_location=raw_location,
-        cast_all_to_string=True,
-        handle_rescued_data=True,
+        csv_delimiter="|~|",
         additional_options={
             "cloudFiles.useIncrementalListing": "false",
         },
@@ -91,11 +90,10 @@ base_df = (
 
 ct_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.PARQUET,
-        location=f"{raw_location}__ct/*/*.parquet",
+        file_format=read_utils.RawFileFormat.CSV,
+        location=f"{raw_location}__ct/*/*.csv*",
         schema_location=f"{raw_location}__ct",
-        cast_all_to_string=True,
-        handle_rescued_data=True,
+        csv_delimiter="|~|",
     )
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
