@@ -1,45 +1,49 @@
-from typing import Any
+from typing import Any, List
 
 import great_expectations as ge
 from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 from great_expectations.core import ExpectationValidationResult
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, BooleanType
+from pyspark.sql.types import ArrayType, BooleanType, StringType, StructField, StructType
 
 import pyspark.sql.functions as F
 
 from . import common_utils
 
 
-class DataQualityCheck:
-    """Helper class that provides data quality checks for given DataFrame.
+class DataQualityChecker:
+    """Helper class that provides data quality checks for data in given Delta Lake location.
     
-    Parameters
+    Attributes
     ----------
-    df : DataFrame
-        PySpark DataFrame to write.
-        
-    Returns
-    -------
-    SparkDFDataset
-        SparkDFDataset object for great expectation
+    location : str
+        A Delta Lake location.
+    spark: SparkSession, default = None
+        A Spark session.
+    dbutils : Any, default = None
+        A Databricks utils object.
     """
     def __init__(
             self,
             location: str,
-            spark: SparkSession = SparkSession.getActiveSession(),
+            spark: SparkSession = None,
             dbutils: Any = None,
     ):
         self.location = location
         self.result_list = []
         self.dbutils = dbutils or globals().get("dbutils")
-        self.spark = spark
+        self.spark = spark if spark else SparkSession.getActiveSession()
         self.df = spark.read.format("delta").load(location)
         self.validator = ge.dataset.SparkDFDataset(self.df)
         
     def build(self) -> DataFrame:
-        """Create function to return dq check results in dataframe
+        """Obtain the resulting DataFrame with data quality checks records.
+
+        Returns
+        -------
+        DataFrame
+            A PySpark DataFrame with data quality metrics.
         """
         try:
             result_schema = (
@@ -50,7 +54,7 @@ class DataQualityCheck:
                  )
 
             return (
-                self.spark.createDataFrame([*set(self.result_list)], result_schema)
+                self.spark.createDataFrame(set(self.result_list), result_schema)
                 .withColumn("__data_quality_check_ts", F.current_timestamp())
                 .withColumn("__data_quality_check_dt", F.to_date("__data_quality_check_ts"))
             )
@@ -65,6 +69,19 @@ class DataQualityCheck:
             passed: bool,
             comments: str,
     ):
+        """Appends data quality check results to results list.
+
+        Parameters
+        ----------
+        validation_rule: str
+            Validation rule name.
+        columns: List[str]
+            Lit of columns observed by validation rule.
+        passed: bool
+            Whether the validation passed or failed.
+        comments: str
+            Textual information about failed validation rule.
+        """
         self.result_list.append(
             (
                 validation_rule,
@@ -78,8 +95,9 @@ class DataQualityCheck:
             self,
             col_list: list,
             mostly: float,
-    ) -> "DataQualityCheck":
+    ) -> "DataQualityChecker":
         """Create function to Assert if column has unique values.
+
         Parameters
         ----------
         col_list : list
@@ -89,7 +107,7 @@ class DataQualityCheck:
             
         Returns
         -------
-        DataQualityCheck
+        DataQualityChecker
             DataQualityCheck object
         """
         try:
@@ -112,12 +130,10 @@ class DataQualityCheck:
                 comment = f"Check failed due to {result['result']['unexpected_percent']}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
-            col_names = ",".join(col_list)
-
             self.__append_results(
                 validation_rule="check_compound_column_uniqueness",
                 passed=result['success'],
-                columns=col_names,
+                columns=', '.join(col_list),
                 comments=comment
             )
             return self
@@ -128,7 +144,7 @@ class DataQualityCheck:
     def check_row_count(self,
                         min_value: int,
                         max_value: int,
-                        ) -> "DataQualityCheck":
+                        ) -> "DataQualityChecker":
         """Create function to Assert Assert row count.
         Parameters
         ----------
@@ -139,7 +155,7 @@ class DataQualityCheck:
             
         Returns
         -------
-        DataQualityCheck
+        DataQualityChecker
             ExpectationValidationResult object
         """
         try:
@@ -169,7 +185,7 @@ class DataQualityCheck:
             self,
             col_name: str,
             mostly: float,
-    ) -> "DataQualityCheck":
+    ) -> "DataQualityChecker":
         """Create function to check null percentage for given column
         Parameters
         ----------
@@ -217,7 +233,7 @@ class DataQualityCheck:
             col_name: str,
             min_value: float,
             max_value: float,
-    ) -> "DataQualityCheck":
+    ) -> "DataQualityChecker":
         """Create function to check sum of given numeric column
         Parameters
         ----------
@@ -265,7 +281,7 @@ class DataQualityCheck:
             self,
             col_name: str,
             mostly: int,
-    ) -> "DataQualityCheck":
+    ) -> "DataQualityChecker":
         """Create function to Assert if column has unique values.
         Parameters
         ----------
@@ -307,13 +323,12 @@ class DataQualityCheck:
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-    #TODO: change it to percentage
     def check_count_variation_from_previous_version(
             self,
             min_variation: int,
             max_variation: int,
             previous_version: int,
-    ) -> "DataQualityCheck":
+    ) -> "DataQualityChecker":
         """Create function to check count variation from older version
         Parameters
         ----------

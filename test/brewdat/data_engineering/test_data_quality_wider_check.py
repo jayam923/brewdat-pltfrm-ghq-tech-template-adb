@@ -16,7 +16,7 @@ def test_check_nulls(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_nulls(col_name="name", mostly=0.5)
             .build()
     )
@@ -42,7 +42,7 @@ def test_check_compound_column_uniqueness(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_compound_column_uniqueness(col_list=["id", "id2"], mostly=0.8)
             .build()
     )
@@ -68,7 +68,7 @@ def test_check_row_count(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_row_count(min_value=1, max_value=2)
             .build()
     )
@@ -94,7 +94,7 @@ def test_check_column_sum(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_column_sum(col_name="qtd", min_value=1, max_value=2)
             .build()
     )
@@ -120,7 +120,7 @@ def test_check_column_uniqueness(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_column_uniqueness(col_name="qtd", mostly=1)
             .build()
     )
@@ -149,7 +149,7 @@ def test_check_count_variation_from_previous_version(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_count_variation_from_previous_version(
                 min_variation=0,
                 max_variation=1,
@@ -182,7 +182,7 @@ def test_check_null_percentage_variation_from_previous_version(tmpdir):
 
     # ACT
     result_df = (
-        dq2.DataQualityCheck(location=location, dbutils=None, spark=spark)
+        dq2.DataQualityChecker(location=location, dbutils=None, spark=spark)
             .check_null_percentage_variation_from_previous_version(
                 col_name="id",
                 max_accepted_variation=0.1,
