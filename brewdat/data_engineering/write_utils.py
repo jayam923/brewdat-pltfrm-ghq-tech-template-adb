@@ -76,6 +76,7 @@ def write_delta_table(
     database_name: str,
     table_name: str,
     load_type: LoadType,
+    *,  # Force named parameters from this point on
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
@@ -298,6 +299,7 @@ def write_stream_delta_table(
     database_name: str,
     table_name: str,
     load_type: LoadType,
+    *,  # Force named parameters from this point on
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,

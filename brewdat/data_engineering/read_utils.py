@@ -33,6 +33,7 @@ class RawFileFormat(str, Enum):
 def read_raw_dataframe(
     file_format: RawFileFormat,
     location: str,
+    *,  # Force named parameters from this point on
     cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
@@ -138,6 +139,7 @@ def read_raw_dataframe(
 def read_raw_streaming_dataframe(
     file_format: RawFileFormat,
     location: str,
+    *,  # Force named parameters from this point on
     schema_location: Optional[str] = None,
     handle_rescued_data: bool = True,
     cast_all_to_string: bool = True,
