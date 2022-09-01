@@ -16,6 +16,7 @@ class RunStatus(str, Enum):
     FAILED = "FAILED"
     """Represents a failed run status."""
 
+    
 class ReturnObject():
     """Object that holds metadata from a data write operation.
 
@@ -72,6 +73,7 @@ class ReturnObject():
 
     def __str__(self):
         return str(vars(self))
+    
     
 class ColumnMapping():
     """Object the holds the source-to-target-mapping information
@@ -150,6 +152,7 @@ class ColumnMapping():
     def __str__(self):
         return str(vars(self))
     
+    
 class WiderColumnMapping():
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
@@ -197,6 +200,7 @@ class WiderColumnMapping():
     def __str__(self):
         return str(vars(self))
 
+    
 def list_non_metadata_columns(df: DataFrame) -> List[str]:
     """Obtain a list of DataFrame columns except for metadata columns.
 
@@ -213,6 +217,7 @@ def list_non_metadata_columns(df: DataFrame) -> List[str]:
         The list of DataFrame columns, except for metadata columns.
     """
     return [col for col in df.columns if not col.startswith("__")]
+
 
 def configure_spn_access_for_adls(
     spark: SparkSession,
@@ -273,6 +278,7 @@ def configure_spn_access_for_adls(
         exit_with_last_exception(dbutils)
 
 
+        
 def exit_with_object(dbutils: object, results: ReturnObject):
     """Finish execution returning an object to the notebook's caller.
 

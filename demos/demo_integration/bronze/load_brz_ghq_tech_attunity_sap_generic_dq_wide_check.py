@@ -63,6 +63,11 @@ dbutils.widgets.text("row_count_max_value", "200", "15 - row_count_max_value")
 row_count_max_value = int(dbutils.widgets.get("row_count_max_value"))
 print(f"row_count_max_value: {row_count_max_value}")
 
+dbutils.widgets.text("silver_mapping", "[]", "10 - silver_mapping")
+silver_mapping = dbutils.widgets.get("silver_mapping")
+silver_mapping = json.loads(silver_mapping)
+print(f"silver_mapping: {silver_mapping}")
+
 # COMMAND ----------
 
 import sys
@@ -71,7 +76,7 @@ sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wider_check
 
 # Print a module's help
-help(common_utils)
+help(data_quality_wider_check)
 
 # COMMAND ----------
 
@@ -93,7 +98,13 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
+new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__8_.csv')
+
+# COMMAND ----------
+
 from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
 
 transformed_df = (
     spark.read
@@ -101,12 +112,36 @@ transformed_df = (
     .filter(F.col("__ref_dt").between(
         F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
-    ))
+    )).limit(1)
     .withColumn("__src_file", F.input_file_name())
-).limit(10)
+)
 
 audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=transformed_df)
-display(audit_df)
+audit_df=audit_df.select('SalesOrderID','RevisionNumber',"__ref_dt").union(new_df.select('SalesOrderID','RevisionNumber',"__ref_dt")).select(F.col('SalesOrderID').cast(IntegerType()),'RevisionNumber',"__ref_dt")
+bronze_df=audit_df
+audit_df.count()
+
+# COMMAND ----------
+
+try:
+    # Apply data quality checks based on given column mappings
+    dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
+    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
+    for mapping in mappings:
+        if mapping.target_data_type != "string":
+            dq_checker = dq_checker.check_column_type_cast(
+                column_name=mapping.source_column_name,
+                data_type=mapping.target_data_type,
+            )
+        if mapping.nullable:
+            dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
+
+    bronze_dq_df = dq_checker.build_df()
+
+    #display(bronze_dq_df)
+
+except Exception:
+    common_utils.exit_with_last_exception(dbutils=dbutils)
 
 # COMMAND ----------
 
@@ -125,7 +160,7 @@ results = write_utils.write_delta_table(
     location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=write_utils.LoadType.APPEND_ALL,
+    load_type=write_utils.LoadType.OVERWRITE_TABLE,
     partition_columns=["__ref_dt"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
@@ -134,8 +169,10 @@ print(vars(results))
 
 # COMMAND ----------
 
-audit_df=spark.read.format('csv').option('header',True).load('/FileStore/DQData.csv')
+#audit_df=spark.read.format('csv').option('header',True).load('/FileStore/DQData.csv')
+audit_df=bronze_dq_df
 display(audit_df)
+
 
 # COMMAND ----------
 
@@ -185,9 +222,62 @@ except Exception:
 
 # COMMAND ----------
 
+#Bad record percentage
+
+data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
+print(data_quality_wider_modify.check_bad_records_percentage(mostly=0.2))
 final_result_df = data_quality_wider_modify.get_wider_dq_results()
 display(final_result_df)
 
 # COMMAND ----------
 
+#Numeric sum with previous
+data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
+data_quality_wider_modify.check_numeric_sum_varation_with_prev(
+                target_location = target_location,
+                col_name='SalesOrderID,
+                min_value=1,
+                max_value=2,
+                older_version=results.old_version_number,
+                latest_version=results.new_version_number)
+check_numeric_sum_varation_with_prev
+
+# COMMAND ----------
+
+data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
+print(data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(
+                target_location = target_location,
+                col_name = 'SalesOrderID',
+                mostly=0.5,
+                older_version=results.old_version_number,
+                latest_version=results.new_version_number
+            )
+     )
+#final_result_df = data_quality_wider_modify.get_wider_dq_results()
+#display(final_result_df)
+
+# COMMAND ----------
+
+latest_df = spark.read.format("delta").option("versionAsOf",602).load(target_location)
+history_df = spark.read.format("delta").option("versionAsOf", 508).load(target_location)
+print(latest_df.count())
+print(history_df.count())
+display(latest_df)
+display(history_df)
+
+# COMMAND ----------
+
+round(audit_df.where(F.col('__data_quality_issues').isNull()).count()/audit_df.count(),2)
+
+# COMMAND ----------
+
+data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
+print(data_quality_wider_modify.dq_validate_range_for_numeric_column_sum_values(col_name='SalesOrderID',min_value=None,max_value=None))
+#final_result_df = data_quality_wider_modify.get_wider_dq_results()
+#display(final_result_df)
+
+# COMMAND ----------
+
+from pyspark.sql.types import IntegerType
+print(audit_df.select(F.col('SalesOrderID').cast(IntegerType())).groupBy().sum().collect()[0][0])
 
