@@ -43,9 +43,7 @@ class DataQualityCheck():
                                     StructField('comments', StringType())]
                 
                  ))
-            if not self.result_list:
-                raise ValueError("There is no bad records, please check the data or input values")
-                
+            
             result_df = self.spark.createDataFrame(data=[*set(self.result_list)], schema=result_schema)
             return result_df
             
@@ -407,8 +405,6 @@ class DataQualityCheck():
             if mostly < 0.1 or mostly > 1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
 
-            dq_min_value = None
-            dq_min_value = None
             latest_df, history_df = self.__get_delta_tables_history_dataframe(
                 target_location=target_location,
                 older_version=older_version,
@@ -422,9 +418,9 @@ class DataQualityCheck():
             result_value = format( (current_result['result']['unexpected_percent'] - history_result['result']['unexpected_percent']), 'f')
             dq_function_name = "dq_validate_null_percentage_variation_values"
             dq_comments = f" '{col_name}' : null percentage in history :-> {format( (history_result['result']['unexpected_percent']),'f')} , null percentage in latest :-> {format((current_result['result']['unexpected_percent']),'f')}"
-            dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
+            dq_range = None
             result_percentage = current_result['result']['unexpected_percent'] - history_result['result']['unexpected_percent']
-            return history_result,current_result
+
             if mostly < result_percentage:
                 dq_result = 'False'
             else:
@@ -491,24 +487,23 @@ class DataQualityCheck():
         try:
             dq_function_name = 'check_numeric_sum_varation_with_prev'
             mostly = None
-            dq_range = f' range : [{dq_min_value}, {dq_min_value}]'
+            dq_range = None
+            dq_range = f' range : [{min_value}, {max_value}]'
             latest_df, history_df = self.__get_delta_tables_history_dataframe(
                 target_location=target_location,
                 older_version=older_version,
                 latest_version=latest_version
             )
-            history_validator = ge.dataset.SparkDFDataset(history_df)
-            latest_validator = ge.dataset.SparkDFDataset(latest_df)
-            history_result = history_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
-            current_result = latest_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
+            history_sum_validator = ge.dataset.SparkDFDataset(history_df)
+            latest_sum_validator = ge.dataset.SparkDFDataset(latest_df)
+            history_result = history_sum_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
+            current_result = latest_sum_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
             result_value = current_result['result']['observed_value'] - history_result['result']['observed_value']
-            
-            if result_value > min_value and result_value < max_value:
+            dq_comments = f" '{col_name}' : Sum value in history :-> {  history_result['result']['observed_value']} , Sum value in latest :-> { current_result['result']['observed_value']}"           
+            if (result_value > min_value) and (result_value < min_value):
                 dq_result = 'True'
-                dq_comments = f" '{col_name}' : Sum value in history :-> {  history_result['result']['observed_value']} , Sum value in latest :-> { current_result['result']['observed_value']}"
             else:
                 dq_result = 'False'
-            
             self.result_list.append(
                            (
                         dq_function_name,
@@ -519,5 +514,6 @@ class DataQualityCheck():
                         dq_comments
                            )
                     )
+
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)

@@ -100,6 +100,7 @@ common_utils.configure_spn_access_for_adls(
 
 new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__8_.csv')
 
+
 # COMMAND ----------
 
 from pyspark.sql import functions as F
@@ -160,7 +161,7 @@ results = write_utils.write_delta_table(
     location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=write_utils.LoadType.OVERWRITE_TABLE,
+    load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["__ref_dt"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
@@ -233,14 +234,15 @@ display(final_result_df)
 
 #Numeric sum with previous
 data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
-data_quality_wider_modify.check_numeric_sum_varation_with_prev(
+print(data_quality_wider_modify.check_numeric_sum_varation_with_prev(
                 target_location = target_location,
-                col_name='SalesOrderID,
+                col_name='SalesOrderID',
                 min_value=1,
                 max_value=2,
                 older_version=results.old_version_number,
-                latest_version=results.new_version_number)
-check_numeric_sum_varation_with_prev
+                latest_version=results.new_version_number))
+final_result_df = data_quality_wider_modify.get_wider_dq_results()
+display(final_result_df)
 
 # COMMAND ----------
 
@@ -253,17 +255,17 @@ print(data_quality_wider_modify.dq_validate_null_percentage_variation_from_previ
                 latest_version=results.new_version_number
             )
      )
-#final_result_df = data_quality_wider_modify.get_wider_dq_results()
-#display(final_result_df)
+final_result_df = data_quality_wider_modify.get_wider_dq_results()
+display(final_result_df)
 
 # COMMAND ----------
 
-latest_df = spark.read.format("delta").option("versionAsOf",602).load(target_location)
-history_df = spark.read.format("delta").option("versionAsOf", 508).load(target_location)
+latest_df = spark.read.format("delta").option("versionAsOf",47).load(target_location)
+history_df = spark.read.format("delta").option("versionAsOf", 43).load(target_location)
 print(latest_df.count())
 print(history_df.count())
-display(latest_df)
-display(history_df)
+#display(latest_df)
+#display(history_df)
 
 # COMMAND ----------
 
@@ -279,5 +281,9 @@ print(data_quality_wider_modify.dq_validate_range_for_numeric_column_sum_values(
 # COMMAND ----------
 
 from pyspark.sql.types import IntegerType
-print(audit_df.select(F.col('SalesOrderID').cast(IntegerType())).groupBy().sum().collect()[0][0])
+print(latest_df.select(F.col('SalesOrderID').cast(IntegerType())).groupBy().sum().collect()[0][0])
+print(history_df.select(F.col('SalesOrderID').cast(IntegerType())).groupBy().sum().collect()[0][0])
 
+# COMMAND ----------
+
+dbutils.fs.rm(target_location, True)
