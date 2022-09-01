@@ -133,7 +133,7 @@ results = write_utils.write_stream_delta_table(
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
-    reset_checkpoint=(reset_checkpoint.lower() == "true")
+    reset_checkpoint=(reset_checkpoint.lower() == "true"),
 )
 print(results)
 

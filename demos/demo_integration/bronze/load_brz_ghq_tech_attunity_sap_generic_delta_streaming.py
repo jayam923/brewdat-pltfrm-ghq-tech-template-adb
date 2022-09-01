@@ -27,6 +27,10 @@ dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"target_hive_table: {target_hive_table}")
 
+dbutils.widgets.text("reset_checkpoint", "false", "08 - reset_checkpoint")
+reset_checkpoint = dbutils.widgets.get("reset_checkpoint")
+print(f"reset_checkpoint: {reset_checkpoint}")
+
 # COMMAND ----------
 
 import sys
@@ -68,7 +72,7 @@ print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 base_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
-        location=raw_location,
+        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
         cast_all_to_string=False,
     )
     .withColumn("__src_file", F.input_file_name())
@@ -84,7 +88,7 @@ base_df = (
 ct_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{raw_location}__ct",
+        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
         cast_all_to_string=False,
     )
     # Ignore "Before Image" records from update operations
@@ -126,7 +130,7 @@ results = write_utils.write_stream_delta_table(
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
-    reset_checkpoint=(reset_checkpoint.lower() == "true")
+    reset_checkpoint=(reset_checkpoint.lower() == "true"),
 )
 print(results)
 
