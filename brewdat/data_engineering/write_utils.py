@@ -89,6 +89,7 @@ def write_delta_table(
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
     enable_caching: bool = True,
+    delete_condition: str = None,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -228,6 +229,7 @@ def write_delta_table(
                 key_columns=key_columns,
                 partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
+                delete_condition=delete_condition,
             )
         elif load_type == LoadType.TYPE_2_SCD:
             num_records_loaded = _write_table_using_type_2_scd(
@@ -896,6 +898,7 @@ def _write_table_using_upsert(
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    delete_condition: str = None
 ) -> int:
     """Write the DataFrame using UPSERT.
 
@@ -947,14 +950,18 @@ def _write_table_using_upsert(
 
     # Write to the delta table
     delta_table = DeltaTable.forPath(spark, location)
-    (
-        delta_table.alias("target")
-        .merge(df.alias("source"), merge_condition)
+    delta_table_marge = delta_table.alias("target").merge(df.alias("source"), merge_condition)
+    
+    if delete_condition: 
+        delta_table_marge=delta_table_marge.whenMatched(delete_condition).delete()
+
+    delta_table_merge=(
+        delta_table_marge
         .whenMatchedUpdateAll()
         .whenNotMatchedInsertAll()
         .execute()
     )
-
+    
     return _get_latest_output_row_count(spark=spark, location=location)
 
 
