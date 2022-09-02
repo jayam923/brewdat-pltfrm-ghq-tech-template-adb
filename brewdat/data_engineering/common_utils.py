@@ -215,8 +215,7 @@ def configure_spn_access_for_adls(
         except Py4JError:
             print("Could not configure ADLS access using Spark Context. " +
                   "Falling back to Spark Session configuration. " +
-                  "XML and Excel libraries will not be supported."
-            )
+                  "XML and Excel libraries will not be supported.")
 
             spark.conf.set(
                 f"fs.azure.account.auth.type.{storage_account_suffix}",
