@@ -182,7 +182,11 @@ def configure_spn_access_for_adls(
     """
     dbutils = dbutils or get_global_dbutils()
     if not dbutils:
-        raise ValueError("Could not locate dbutils object to fetch required secrets")
+        raise ValueError(
+            "Could not locate dbutils object to fetch required secrets. " +
+            "Either use common_utils.set_global_dbutils(dbutils) or " +
+            "provide it as a parameter."
+        )
 
     spark = SparkSession.getActiveSession()
     for storage_account_name in storage_account_names:
@@ -211,7 +215,8 @@ def configure_spn_access_for_adls(
         except Py4JError:
             print("Could not configure ADLS access using Spark Context. " +
                   "Falling back to Spark Session configuration. " +
-                  "XML and Excel libraries will not be supported.")
+                  "XML and Excel libraries will not be supported."
+             )
 
             spark.conf.set(
                 f"fs.azure.account.auth.type.{storage_account_suffix}",

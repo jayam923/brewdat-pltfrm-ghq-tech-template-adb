@@ -1,7 +1,7 @@
 import os
 import traceback
 from enum import Enum, unique
-from typing import Any, List, Optional, Tuple
+from typing import Any, Callable, List, Optional, Tuple
 
 import pyspark.sql.functions as F
 from delta.tables import DeltaTable
@@ -304,6 +304,7 @@ def write_stream_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
+    transform_microbatch: Callable[[DataFrame], DataFrame] = None,
     enable_vacuum: bool = True,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
@@ -338,6 +339,11 @@ def write_stream_delta_table(
     bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
         Specifies the way in which bad records should be handled.
         See documentation for BrewDatLibrary.BadRecordHandlingMode.
+    transform_microbatch : Callable[[DataFrame], DataFrame], default=None
+        Optional function to apply stateless transformations to the micro-batch
+        before writing it. This is required for deduplicating a DataFrame before
+        using APPEND_NEW, UPSERT, and TYPE_2_SCD load types. The function should
+        receive a DataFrame as an argument and return a modified DataFrame.
     enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
@@ -367,12 +373,14 @@ def write_stream_delta_table(
     )
 
     try:
-        dbutils = dbutils or common_utils.get_global_dbutils()
-
         # Get original version number
         results.old_version_number = _get_current_delta_version_number(location)
 
         def write_micro_batch(batch_df, batch_id):
+            if transform_microbatch:
+                batch_df = transform_microbatch(batch_df)
+                assert isinstance(batch_df, DataFrame)
+
             micro_batch_results = write_delta_table(
                 df=batch_df,
                 location=location,
@@ -406,6 +414,13 @@ def write_stream_delta_table(
 
         checkpoint_location = location.rstrip("/") + "/_checkpoint"
         if reset_checkpoint:
+            dbutils = dbutils or common_utils.get_global_dbutils()
+            if not dbutils:
+                raise ValueError(
+                    "Could not locate dbutils object to fetch required secrets. " +
+                    "Either use common_utils.set_global_dbutils(dbutils) or " +
+                    "provide it as a parameter."
+                )
             dbutils.fs.rm(checkpoint_location, recurse=True)
 
         (
