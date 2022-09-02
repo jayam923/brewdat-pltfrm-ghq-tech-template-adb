@@ -489,6 +489,7 @@ class DataQualityChecker:
             self,
             min_percentage: float,
             max_percentage: float,
+            current_version: int,
     )->"DataQualityChecker":
         """Create function to return the bad percentage from given dataframe.
         Parameters
@@ -497,6 +498,8 @@ class DataQualityChecker:
             maximum threshold value to validate the test cases.
         max_accepted_variation  : float
             minimum threshold value to validate the test cases.
+        current_version : int
+            Given target delta location of current version.
         
         Returns
         -------
@@ -506,9 +509,15 @@ class DataQualityChecker:
         try:
             if min_percentage > max_percentage:
                 raise ValueError("Minimum percentage must be less than or equal to Maximum percentage.")
-               
-            total_count=self.df.count()
-            bad_records_count=self.df.where(F.col('__data_quality_issues').isNotNull()).count()
+                
+            current_df = (
+                self.spark.read.format("delta")
+                    .option("versionAsOf", current_version)
+                    .load(self.location)
+            )
+            
+            total_count=current_df.count()
+            bad_records_count=current_df.where(F.col('__data_quality_issues').isNotNull()).count()
             bad_percentage=(bad_records_count/total_count)
             
             if (min_percentage < bad_percentage) and (bad_percentage < max_percentage):
@@ -525,6 +534,7 @@ class DataQualityChecker:
                 columns=None,
                 comments=comment
             )
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
