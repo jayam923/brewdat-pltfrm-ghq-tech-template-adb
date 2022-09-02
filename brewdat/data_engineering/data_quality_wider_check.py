@@ -38,8 +38,8 @@ class DataQualityCheck():
                  StructType(fields=[StructField('function_name', StringType()),
                                     StructField('result_value', StringType()),
                                     StructField('percentage', StringType()),
-                                    StructField('dq_rane', StringType()),
-                                    StructField('result', StringType()),
+                                    StructField('range', StringType()),
+                                    StructField('status', StringType()),
                                     StructField('comments', StringType())]
                 
                  ))
@@ -435,14 +435,14 @@ class DataQualityCheck():
                     dq_comments
                 )
             )
-
            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
             
     def check_bad_records_percentage(
         self,
-        mostly,  
+        min_percentage: float,
+        max_percentage: float,
     )->"DataQualityChecker":
         """Create function to return the bad percentage from given dataframe"""
         try:
@@ -451,13 +451,14 @@ class DataQualityCheck():
             dq_range=None
             mostly=mostly
             total_count=self.df.count()
-            bad_records_count=self.df.where(F.col('__data_quality_issues').isNull()).count()
+            bad_records_count=self.df.where(F.col('__data_quality_issues').isNotNull()).count()
             bad_percentage=round((bad_records_count/total_count),2)
-            if bad_percentage > mostly:
-                dq_result = 'False'
-                dq_comments = f" Failed due to bad percentage value :-> {bad_percentage} exceeds the given value :-> {mostly}"
-            else:
+            if (min_percentage < bad_percentage) and (bad_percentage < max_percentage):
                 dq_result = 'True'
+            else:
+                dq_result = 'False'
+                dq_comments = f" Failed, due to bad percentage value :-> {bad_percentage} exceeds the given value :-> {mostly}"
+
             
             dq_function_name='check_bad_records_percentage'
             result_value=bad_percentage
@@ -483,7 +484,7 @@ class DataQualityCheck():
                       older_version: int,
                       latest_version: int  
     )->"DataQualityChecker":
-        """Create function to return the bad percentage from given dataframe"""
+        """Create function to return sum variation from previous to latest dataframe for given column"""
         try:
             dq_function_name = 'check_numeric_sum_varation_with_prev'
             mostly = None
@@ -506,14 +507,33 @@ class DataQualityCheck():
                 dq_result = 'False'
             self.result_list.append(
                            (
-                        dq_function_name,
-                        result_value,
-                        mostly,
-                        dq_range,
-                        dq_result,
-                        dq_comments
-                           )
+                      dq_function_name,
+                      result_value,
+                      mostly,
+                      dq_range,
+                      dq_result,
+                      dq_comments,
+                      )
                     )
 
         except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
+            common_utils.exit_with_last_exception(self.dbutils)            
+                        
+    @classmethod
+    def check_foreign_key_column_exits(
+                     cls,
+                     dim_df: str,
+                     fact_df: str,
+                     primary_key: Any,
+                     foreign_key: Any,
+                     dbutils: object,
+    )->"DataQualityChecker":
+        """Create function to return the bad percentage from given dataframe"""
+        try:
+            dim_df = dim_df.select(primary_key)
+            fact_df = fact_df.select(foreign_key)
+            result_df = fact_df.join(dim_df,fact_df[foreign_key]==dim_df[primary_key],how='left')
+            result_value = result_df.where(F.col(primary_key).isNull()).select(foreign_key).distinct().count()
+            return result_value
+        except Exception:
+            common_utils.exit_with_last_exception(dbutils)

@@ -73,10 +73,10 @@ print(f"silver_mapping: {silver_mapping}")
 import sys
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wider_check
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wider_check,data_quality_wider_check2
 
 # Print a module's help
-help(data_quality_wider_check)
+help(data_quality_wider_check2)
 
 # COMMAND ----------
 
@@ -98,14 +98,12 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__8_.csv')
+from pyspark.sql import functions as F
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__8_.csv').select(F.col('SalesOrderID').cast(IntegerType()),'RevisionNumber',"__ref_dt")
 
 
 # COMMAND ----------
-
-from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-
 
 transformed_df = (
     spark.read
@@ -113,7 +111,7 @@ transformed_df = (
     .filter(F.col("__ref_dt").between(
         F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
-    )).limit(1)
+    )).limit(5)
     .withColumn("__src_file", F.input_file_name())
 )
 
@@ -121,6 +119,7 @@ audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=t
 audit_df=audit_df.select('SalesOrderID','RevisionNumber',"__ref_dt").union(new_df.select('SalesOrderID','RevisionNumber',"__ref_dt")).select(F.col('SalesOrderID').cast(IntegerType()),'RevisionNumber',"__ref_dt")
 bronze_df=audit_df
 audit_df.count()
+display(audit_df)
 
 # COMMAND ----------
 
@@ -170,10 +169,26 @@ print(vars(results))
 
 # COMMAND ----------
 
-#audit_df=spark.read.format('csv').option('header',True).load('/FileStore/DQData.csv')
-audit_df=bronze_dq_df
-display(audit_df)
+#wider check 2
+data_quality_wider_modify=data_quality_wider_check2.DataQualityChecker(spark=spark,location=target_location)
 
+data_quality_wider_modify.check_row_count(min_value=100,max_value=200)
+data_quality_wider_modify.check_column_nulls(col_name='SalesOrderID',mostly=0.3)
+data_quality_wider_modify.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
+data_quality_wider_modify.check_compound_column_uniqueness(col_list=['SalesOrderID'],mostly=0.5)
+data_quality_wider_modify.check_column_uniqueness(col_name='SalesOrderID',mostly=0.3)
+data_quality_wider_modify.check_bad_records_percentage(min_percentage=0.01,max_percentage=0.1)
+data_quality_wider_modify.check_count_variation_from_previous_version(min_variation=0.01,max_variation=0.1,previous_version=results.old_version_number,current_version=results.new_version_number)
+data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=results.old_version_number,current_version=results.new_version_number)
+data_quality_wider_modify.check_numeric_sum_varation_from_previous_version(col_name='SalesOrderID',min_value=20000,max_value=30000,previous_version=results.old_version_number,current_version=results.new_version_number)
+result=data_quality_wider_modify.build()
+display(result)
+
+# COMMAND ----------
+
+from delta.tables import *
+deltaTable = DeltaTable.forPath(spark, target_location)
+display(deltaTable.history() )
 
 # COMMAND ----------
 
@@ -226,7 +241,7 @@ except Exception:
 #Bad record percentage
 
 data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
-print(data_quality_wider_modify.check_bad_records_percentage(mostly=0.2))
+print(data_quality_wider_modify.check_bad_records_percentage(min_percentage=0.2,max_percentage=0.4))
 final_result_df = data_quality_wider_modify.get_wider_dq_results()
 display(final_result_df)
 
@@ -246,6 +261,25 @@ display(final_result_df)
 
 # COMMAND ----------
 
+dim_df=spark.read.format('csv').option('header',True).load('/FileStore/dim.txt')
+fact_df=spark.read.format('csv').option('header',True).load('/FileStore/fact.txt')
+primary_key='pk'
+foreign_key='fk'
+
+# COMMAND ----------
+
+#Check Foriegn Key value
+print(data_quality_wider_check.DataQualityCheck.check_foreign_key_column_exits(
+    dim_df=dim_df,
+    fact_df=fact_df,
+    primary_key=primary_key,
+    foreign_key=foreign_key,
+    dbutils=dbutils)
+     )
+
+
+# COMMAND ----------
+
 data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
 print(data_quality_wider_modify.dq_validate_null_percentage_variation_from_previous_version_values(
                 target_location = target_location,
@@ -260,10 +294,13 @@ display(final_result_df)
 
 # COMMAND ----------
 
-latest_df = spark.read.format("delta").option("versionAsOf",47).load(target_location)
-history_df = spark.read.format("delta").option("versionAsOf", 43).load(target_location)
+latest_df = spark.read.format("delta").option("versionAsOf",99).load(target_location)
+history_df = spark.read.format("delta").option("versionAsOf", 95).load(target_location)
 print(latest_df.count())
 print(history_df.count())
+print(latest_df.where(F.col('SalesOrderID').isNull()).count())
+print(history_df.where(F.col('SalesOrderID').isNull()).count())
+
 #display(latest_df)
 #display(history_df)
 
@@ -287,3 +324,14 @@ print(history_df.select(F.col('SalesOrderID').cast(IntegerType())).groupBy().sum
 # COMMAND ----------
 
 dbutils.fs.rm(target_location, True)
+
+# COMMAND ----------
+
+data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
+
+data_quality_wider_modify.dq_validate_count_variation_from_previous_version_values( 
+            target_location = target_location,
+            min_value = count_variation_with_prev_min_value,
+            max_value = count_variation_with_prev_max_value,
+            older_version=results.old_version_number,
+            latest_version=results.new_version_number)
