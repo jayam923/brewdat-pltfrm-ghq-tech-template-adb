@@ -63,7 +63,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = "attunity_test"
+sap_sid = source_system_to_sap_sid.get(source_system)
 raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{sap_sid}/{source_table}"
 print(f"raw_location: {raw_location}")
 
