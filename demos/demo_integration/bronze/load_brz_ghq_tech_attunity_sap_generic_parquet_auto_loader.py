@@ -92,7 +92,7 @@ base_df = (
 ct_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.PARQUET,
-        location=f"{raw_location}__ct/*/*.parquet",
+        location=f"{raw_location}__ct/*.parquet",
         schema_location=f"{raw_location}__ct",
         cast_all_to_string=True,
         handle_rescued_data=True,

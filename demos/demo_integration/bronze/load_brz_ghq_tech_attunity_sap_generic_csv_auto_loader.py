@@ -91,7 +91,7 @@ base_df = (
 ct_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.CSV,
-        location=f"{raw_location}__ct/*/*.csv*",
+        location=f"{raw_location}__ct/*.csv*",
         schema_location=f"{raw_location}__ct",
         csv_delimiter="|~|",
     )
