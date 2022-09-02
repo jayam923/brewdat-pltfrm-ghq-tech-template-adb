@@ -1,4 +1,8 @@
 # Databricks notebook source
+# MAGIC %pip install pytest
+
+# COMMAND ----------
+
 import os
 
 from test_lakehouse_utils import *

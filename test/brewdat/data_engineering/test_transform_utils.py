@@ -20,7 +20,7 @@ def test_clean_column_names():
     ])
 
     # ACT
-    result_df = clean_column_names(dbutils=None, df=df)
+    result_df = clean_column_names(df)
 
     # ASSERT
     assert "phone_number" in result_df.columns
@@ -42,7 +42,7 @@ def test_clean_column_names_except_for():
     ])
 
     # ACT
-    result_df = clean_column_names(dbutils=None, df=df, except_for=["address 1"])
+    result_df = clean_column_names(df, except_for=["address 1"])
 
     # ASSERT
     assert "phone_number" in result_df.columns
@@ -87,7 +87,7 @@ def test_clean_column_names_struct():
     )
 
     # ACT
-    result_df = clean_column_names(dbutils=None, df=df)
+    result_df = clean_column_names(df)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -137,7 +137,7 @@ def test_clean_column_names_struct_nested_struct():
     )
 
     # ACT
-    result_df = clean_column_names(dbutils=None, df=df)
+    result_df = clean_column_names(df)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -184,7 +184,7 @@ def test_clean_column_names_array_of_struct():
     )
 
     # ACT
-    result_df = clean_column_names(dbutils=None, df=df)
+    result_df = clean_column_names(df)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -233,7 +233,7 @@ def test_clean_column_names_map_nested_struct():
     )
 
     # ACT
-    result_df = clean_column_names(dbutils=None, df=df)
+    result_df = clean_column_names(df)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -256,7 +256,7 @@ def test_flatten_dataframe_no_struct_columns():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df = flatten_dataframe(df)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -305,7 +305,7 @@ def test_flatten_dataframe():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df = flatten_dataframe(df)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -354,7 +354,7 @@ def test_flatten_dataframe_custom_separator():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, column_name_separator="___")
+    result_df = flatten_dataframe(df, column_name_separator="___")
 
     # ASSERT
     assert 1 == result_df.count()
@@ -405,7 +405,7 @@ def test_flatten_dataframe_except_for():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, except_for=["contact"])
+    result_df = flatten_dataframe(df, except_for=["contact"])
 
     # ASSERT
     assert 1 == result_df.count()
@@ -451,7 +451,7 @@ def test_flatten_dataframe_recursive():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
+    result_df = flatten_dataframe(df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -499,7 +499,7 @@ def test_flatten_dataframe_not_recursive():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, recursive=False)
+    result_df = flatten_dataframe(df, recursive=False)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -552,7 +552,7 @@ def test_flatten_dataframe_recursive_deeply_nested():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
+    result_df = flatten_dataframe(df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -600,7 +600,7 @@ def test_flatten_dataframe_recursive_except_for():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True, except_for=['address__country'])
+    result_df = flatten_dataframe(df, recursive=True, except_for=['address__country'])
 
     # ASSERT
     assert 1 == result_df.count()
@@ -656,7 +656,7 @@ def test_flatten_dataframe_preserve_columns_order():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, recursive=True)
+    result_df = flatten_dataframe(df, recursive=True)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -693,7 +693,7 @@ def test_flatten_dataframe_map_type():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df = flatten_dataframe(df)
     result_df.show()
 
     # ASSERT
@@ -730,7 +730,7 @@ def test_flatten_dataframe_array_explode_disabled():
         }], schema=original_schema)
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df, explode_arrays=False)
+    result_df = flatten_dataframe(df, explode_arrays=False)
 
     # ASSERT
     assert 1 == result_df.count()
@@ -762,7 +762,7 @@ def test_flatten_dataframe_array():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df = flatten_dataframe(df)
 
     # ASSERT
     assert 2 == result_df.count()
@@ -807,7 +807,7 @@ def test_flatten_dataframe_array_of_structs():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df = flatten_dataframe(df)
 
     # ASSERT
     assert 2 == result_df.count()
@@ -849,7 +849,7 @@ def test_flatten_dataframe_misc_data_types():
     )
 
     # ACT
-    result_df = flatten_dataframe(dbutils=None, df=df)
+    result_df = flatten_dataframe(df)
 
     # ASSERT
     assert 4 == result_df.filter("id = 1").count()
@@ -868,7 +868,7 @@ def test_create_or_replace_audit_columns():
         }
     ])
     # ACT
-    result_df = create_or_replace_audit_columns(dbutils=None, df=df, )
+    result_df = create_or_replace_audit_columns(df)
     # ASSERT
     assert "__insert_gmt_ts" in result_df.columns
     assert "__update_gmt_ts" in result_df.columns
@@ -895,7 +895,7 @@ def test_create_or_replace_audit_columns_already_exist():
         }
     ])
     # ACT
-    result_df = create_or_replace_audit_columns(dbutils=None, df=df, )
+    result_df = create_or_replace_audit_columns(df)
     # ASSERT
     assert "__insert_gmt_ts" in result_df.columns
     assert "__update_gmt_ts" in result_df.columns
@@ -915,7 +915,6 @@ def test_create_or_replace_business_key_column():
     
     # ACT
     result_df = create_or_replace_business_key_column(
-        dbutils=None,
         df=df,
         business_key_column_name='business_key_column_name',
         key_columns=["name", "last_name"],
@@ -940,7 +939,6 @@ def test_business_key_column_no_key_provided():
     # ACT
     with pytest.raises(Exception):
         result_df = create_or_replace_business_key_column(
-            dbutils=None,
             df=df,
             business_key_column_name='business_key_column_name',
             key_columns=[],
@@ -966,7 +964,6 @@ def test_business_key_column_keys_are_null():
     # ACT
     with pytest.raises(Exception):
         result_df = create_or_replace_business_key_column(
-            dbutils=None,
             df=df,
             business_key_column_name='business_key_column_name',
             key_columns=["name", "last_name"],
@@ -998,7 +995,7 @@ def test_deduplicate_records():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    result_df = deduplicate_records(df, key_columns=["name", "last name"], watermark_column="date")
     #result_df.show()
     # ASSERT
     assert 1 == result_df.count()
@@ -1029,7 +1026,7 @@ def test_deduplicate_records_same_date():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    result_df = deduplicate_records(df, key_columns=["name", "last name"], watermark_column="date")
     #result_df.show()
     # ASSERT
     assert 1 == result_df.count()
@@ -1059,7 +1056,7 @@ def test_deduplicate_records_null_date():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    result_df = deduplicate_records(df, key_columns=["name", "last name"], watermark_column="date")
     #result_df.show()
     # ASSERT
     assert 1 == result_df.count()
@@ -1088,7 +1085,7 @@ def test_deduplicate_records_null_key():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    result_df = deduplicate_records(df, key_columns=["name", "last name"], watermark_column="date")
     #result_df.show()
     # ASSERT
     assert 2 == result_df.count()
@@ -1117,7 +1114,7 @@ def test_deduplicate_records_different_keys():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"], watermark_column = "date")
+    result_df = deduplicate_records(df, key_columns=["name", "last name"], watermark_column="date")
     #result_df.show()
     # ASSERT
     assert 2 == result_df.count()
@@ -1146,7 +1143,7 @@ def test_deduplicate_records_without_watermark_column():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df,key_columns=["name","last name"])
+    result_df = deduplicate_records(df, key_columns=["name", "last name"])
     #result_df.show()
     # ASSERT
     assert 2 == result_df.count()
@@ -1175,12 +1172,6 @@ def test_deduplicate_records_without_key_columns():
         },
     ])
     # ACT
-    result_df = deduplicate_records(dbutils=None, df=df, watermark_column = "date")
+    result_df = deduplicate_records(df, watermark_column="date")
     # ASSERT
     assert 2 == result_df.count()
-
-
-
-    
-    
-   

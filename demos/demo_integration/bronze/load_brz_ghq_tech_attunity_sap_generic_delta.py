@@ -36,12 +36,13 @@ print(f"data_interval_start: {data_interval_start}")
 import sys
 from pyspark.sql import functions as F
 
-# Import BrewDat Library modules
+# Import BrewDat Library modules and share dbutils globally
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils
+common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-help(common_utils)
+#help(read_utils)
 
 # COMMAND ----------
 
@@ -51,8 +52,6 @@ help(common_utils)
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[
         adls_raw_bronze_storage_account_name,
         adls_brewdat_ghq_storage_account_name,
@@ -70,31 +69,27 @@ print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
 
 # COMMAND ----------
 
-try:
-    base_df = (
-        spark.read
-        .format("delta")
-        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}")
-        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+base_df = (
+    read_utils.read_raw_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
+        cast_all_to_string=False,
     )
-
-except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+)
 
 #display(base_df)
 
 # COMMAND ----------
 
-try:
-    ct_df = (
-        spark.read
-        .format("delta")
-        .load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
-        .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+ct_df = (
+    read_utils.read_raw_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
+        cast_all_to_string=False,
     )
-
-except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
+)
 
 #display(ct_df)
 
@@ -111,20 +106,23 @@ print(f"effective_data_interval_end: {effective_data_interval_end}")
 
 # COMMAND ----------
 
-filtered_base_df = (
+transformed_base_df = (
     base_df
     .filter(F.col("TARGET_APPLY_TS").between(
         F.to_timestamp(F.lit(data_interval_start)),
         F.to_timestamp(F.lit(effective_data_interval_end)),
     ))
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.cast_all_columns_to_string)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(filtered_base_df)
+#display(transformed_base_df)
 
 # COMMAND ----------
 
-filtered_ct_df = (
+transformed_ct_df = (
     ct_df
     .filter(F.col("TARGET_APPLY_TS").between(
         F.to_timestamp(F.lit(data_interval_start)),
@@ -133,24 +131,11 @@ filtered_ct_df = (
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
+    .transform(transform_utils.clean_column_names)
+    .transform(transform_utils.cast_all_columns_to_string)
+    .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(filtered_ct_df)
-
-# COMMAND ----------
-
-clean_base_df = transform_utils.clean_column_names(dbutils=dbutils, df=filtered_base_df)
-clean_ct_df = transform_utils.clean_column_names(dbutils=dbutils, df=filtered_ct_df)
-
-#display(clean_base_df)
-#display(clean_ct_df)
-
-# COMMAND ----------
-
-transformed_base_df = transform_utils.cast_all_columns_to_string(dbutils=dbutils, df=clean_base_df)
-transformed_ct_df = transform_utils.cast_all_columns_to_string(dbutils=dbutils, df=clean_ct_df)
-
-#display(transformed_base_df)
 #display(transformed_ct_df)
 
 # COMMAND ----------
@@ -161,28 +146,20 @@ union_df = transformed_base_df.unionByName(transformed_ct_df, allowMissingColumn
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(dbutils=dbutils, df=union_df)
-
-#display(audit_df)
-
-# COMMAND ----------
-
-location = lakehouse_utils.generate_bronze_table_location(
-    dbutils=dbutils,
+target_location = lakehouse_utils.generate_bronze_table_location(
     lakehouse_bronze_root=lakehouse_bronze_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"location: {location}")
+print(f"target_location: {target_location}")
 
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
-    spark=spark,
-    df=audit_df,
-    location=location,
+    df=union_df,
+    location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
@@ -196,4 +173,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)

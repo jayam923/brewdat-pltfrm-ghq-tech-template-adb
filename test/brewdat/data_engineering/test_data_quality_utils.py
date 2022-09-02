@@ -12,7 +12,7 @@ def test_check_column_is_not_null_new_dataframe():
 
     # ACT
     result_df = (
-        dq.DataQualityChecker(df=df, dbutils=None)
+        dq.DataQualityChecker(df)
         .check_column_is_not_null(column_name="name")
         .build_df()
     )
@@ -39,7 +39,7 @@ def test_check_column_is_not_null_dataframe_with_previous_check():
 
     # ACT
     result_df = (
-        dq.DataQualityChecker(df=df, dbutils=None)
+        dq.DataQualityChecker(df)
         .check_column_is_not_null(column_name="name")
         .build_df()
     )
@@ -67,7 +67,7 @@ def test_check_column_max_length_new_dataframe():
 
     # ACT
     result_df = (
-        dq.DataQualityChecker(df=df, dbutils=None)
+        dq.DataQualityChecker(df)
         .check_column_max_length(column_name="name", maximum_length=5)
         .build_df()
     )
