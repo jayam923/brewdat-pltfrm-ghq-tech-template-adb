@@ -3,7 +3,7 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"brewdat_library_version: {brewdat_library_version}")
 
-dbutils.widgets.text("source_zone", "ghq", "02 - source_zone")
+dbutils.widgets.text("source_zone", "afr", "02 - source_zone")
 source_zone = dbutils.widgets.get("source_zone")
 print(f"source_zone: {source_zone}")
 
@@ -19,7 +19,7 @@ dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"source_table: {source_table}")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_africa", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_afr_tech_sap_africa", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"target_hive_database: {target_hive_database}")
 
