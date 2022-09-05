@@ -1,27 +1,27 @@
 # Databricks notebook source
 dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_object", "gld_ghq_tech_demo_consumption.monthly_sales_order", "2 - source_object")
 source_object = dbutils.widgets.get("source_object")
-print(f"source_object: {source_object}")
+print(f"{source_object = }")
 
 dbutils.widgets.text("staging_object", "dbo.monthly_sales_order_stg", "3 - staging_object")
 staging_object = dbutils.widgets.get("staging_object")
-print(f"staging_object: {staging_object}")
+print(f"{staging_object = }")
 
 dbutils.widgets.text("target_object", "dbo.monthly_sales_order", "4 - target_object")
 target_object = dbutils.widgets.get("target_object")
-print(f"target_object: {target_object}")
+print(f"{target_object = }")
 
 dbutils.widgets.text("ingestion_procedure", "dbo.sp_ingest_monthly_sales_order_stg", "5 - ingestion_procedure")
 ingestion_procedure = dbutils.widgets.get("ingestion_procedure")
-print(f"ingestion_procedure: {ingestion_procedure}")
+print(f"{ingestion_procedure = }")
 
 dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "6 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
+print(f"{data_interval_start = }")
 
 # COMMAND ----------
 
@@ -66,7 +66,7 @@ try:
         .agg(F.max("__update_gmt_ts").cast("string"))
         .collect()[0][0]
     )
-    print(f"effective_data_interval_end: {effective_data_interval_end}")
+    print(f"{effective_data_interval_end = }")
 
     df = (
         spark.read

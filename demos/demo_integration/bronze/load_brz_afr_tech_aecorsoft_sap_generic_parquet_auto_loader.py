@@ -3,7 +3,7 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_zone", "ghq", "02 - source_zone")
+dbutils.widgets.text("source_zone", "afr", "02 - source_zone")
 source_zone = dbutils.widgets.get("source_zone")
 print(f"{source_zone = }")
 
@@ -11,7 +11,7 @@ dbutils.widgets.text("source_business_domain", "tech", "03 - source_business_dom
 source_business_domain = dbutils.widgets.get("source_business_domain")
 print(f"{source_business_domain = }")
 
-dbutils.widgets.text("source_system", "sap_europe", "04 - source_system")
+dbutils.widgets.text("source_system", "sap_africa", "04 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
@@ -19,7 +19,7 @@ dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_afr_tech_sap_africa", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"{target_hive_database = }")
 
@@ -64,17 +64,18 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 sap_sid = source_system_to_sap_sid.get(source_system)
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{sap_sid}/{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
 
-base_df = (
+raw_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.CSV,
-        location=f"{raw_location}/*.csv*",
+        file_format=read_utils.RawFileFormat.PARQUET,
+        location=f"{raw_location}/*.parquet",
         schema_location=raw_location,
-        csv_delimiter="|~|",
+        cast_all_to_string=True,
+        handle_rescued_data=True,
         additional_options={
             "cloudFiles.useIncrementalListing": "false",
         },
@@ -84,31 +85,7 @@ base_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(base_df)
-
-# COMMAND ----------
-
-ct_df = (
-    read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.CSV,
-        location=f"{raw_location}__ct/*.csv*",
-        schema_location=f"{raw_location}__ct",
-        csv_delimiter="|~|",
-    )
-    # Ignore "Before Image" records from update operations
-    .filter("header__change_oper != 'B'")
-    .withColumn("__src_file", F.input_file_name())
-    .transform(transform_utils.clean_column_names)
-    .transform(transform_utils.create_or_replace_audit_columns)
-)
-
-#display(ct_df)
-
-# COMMAND ----------
-
-union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
-
-#display(union_df)
+#display(raw_df)
 
 # COMMAND ----------
 
@@ -124,12 +101,12 @@ print(f"{target_location = }")
 # COMMAND ----------
 
 results = write_utils.write_stream_delta_table(
-    df=union_df,
+    df=raw_df,
     location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.APPEND_ALL,
-    partition_columns=["TARGET_APPLY_DT"],
+    partition_columns=["__process_date"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
