@@ -64,7 +64,7 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 sap_sid = source_system_to_sap_sid.get(source_system)
-raw_location = f"{lakehouse_raw_root}/data/afr/{source_business_domain}/sap_{sap_sid}/{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/{source_table}"
 print(f"raw_location: {raw_location}")
 
 # COMMAND ----------
@@ -74,7 +74,7 @@ raw_df = (
         file_format=read_utils.RawFileFormat.PARQUET,
         location=f"{raw_location}/*.parquet",
         schema_location=raw_location,
-        cast_all_to_string=False,
+        cast_all_to_string=True,
         handle_rescued_data=True,
         additional_options={
             "cloudFiles.useIncrementalListing": "false",
