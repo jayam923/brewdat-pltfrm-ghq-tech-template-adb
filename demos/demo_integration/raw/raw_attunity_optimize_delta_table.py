@@ -1,4 +1,5 @@
 # Databricks notebook source
+# DBTITLE 1,Define widgets
 dbutils.widgets.text("source_hive_database", "brz_ghq_tech_sap_europe", "1 - source_hive_database")
 source_hive_database = dbutils.widgets.get("source_hive_database")
 print(f"{source_hive_database = }")
@@ -11,10 +12,12 @@ dbutils.widgets.text("partition_column", "TARGET_APPLY_DT", "3 - partition_colum
 partition_column = dbutils.widgets.get("partition_column")
 print(f"{partition_column = }")
 
+full_table_name = f"`{source_hive_database}`.`{source_hive_table}`"
+print(f"{full_table_name = }")
+
 # COMMAND ----------
 
-# Enable autoOptimize and Change Data Feed options
-full_table_name = f"`{source_hive_database}`.`{source_hive_table}`"
+# DBTITLE 1,Enable autoOptimize and Change Data Feed
 spark.sql(f"""
     ALTER TABLE {full_table_name}
     SET TBLPROPERTIES (
@@ -24,30 +27,46 @@ spark.sql(f"""
     )
 """)
 
-# Show results
 spark.sql(f"DESCRIBE HISTORY {full_table_name}").display()
 
 # COMMAND ----------
 
-# Optimize delta table
-results = spark.sql(f"OPTIMIZE {full_table_name}")
-display(results)
+# DBTITLE 1,Optimize delta table
+spark.sql(f"OPTIMIZE {full_table_name}").display()
 
 # COMMAND ----------
 
-partitions_result = spark.sql(f"SHOW PARTITIONS {full_table_name}").collect()[0]
-partition_col_name = partitions_result.__fields__[0]
-print(partition_col_name)
+# DBTITLE 1,Rewrite delta table partitioned by selected column
+from pyspark.sql.utils import AnalysisException
 
-# COMMAND ----------
+try:
+    actual_partition_columns = spark.sql(f"SHOW PARTITIONS {full_table_name}").columns
+except AnalysisException:
+    actual_partition_columns = []
+print(f"{actual_partition_columns = }")
 
-temp_loc = "abfss://bronze@brewdatpltfrmrawbrzd.dfs.core.windows.net/data/ghq/tech/adventureworks/sales_order_header_testing"
-if partition_col_name != partition_column:
-    temp_rec = spark.read.format("delta").load(f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct")
-    temp_rec.write.format("delta")\
-          .mode("overwrite") \
-          .option("overwriteSchema", "true") \
-          .partitionBy("TARGET_APPLY_DT") \
-          .save(temp_loc)
+if actual_partition_columns != [partition_column]:
+    print("Repartitioning...")
+
+    # Find table's external location
+    table_location = (
+        spark.sql(f"DESCRIBE DETAIL {full_table_name}")
+        .select("location")
+        .collect()[0][0]
+    )
+    assert table_location
+
+    # Overwrite with requested partition column
+    (
+        spark.read
+        .format("delta")
+        .load(table_location)
+        .write
+        .format("delta")
+        .mode("overwrite")
+        .option("overwriteSchema", True)
+        .partitionBy(partition_column)
+        .save(table_location)
+    )
 else:
-    print("already partitioned by TARGET_APPLY_DT")
+    print("Repartitioning was not required")
