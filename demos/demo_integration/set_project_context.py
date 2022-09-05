@@ -56,30 +56,30 @@ elif environment == "prod":
         "database=poc_sqlpool;encrypt=true;trustServerCertificate=false;loginTimeout=30;" + \
         "hostNameInCertificate=*.sql.azuresynapse.net;Authentication=ActiveDirectoryIntegrated"
 
-print(f"adls_raw_bronze_storage_account_name: {adls_raw_bronze_storage_account_name}")
-print(f"adls_silver_gold_storage_account_name: {adls_silver_gold_storage_account_name}")
-print(f"adls_brewdat_ghq_storage_account_name: {adls_brewdat_ghq_storage_account_name}")
-print(f"key_vault_name: {key_vault_name}")
-print(f"spn_client_id: {spn_client_id}")
-print(f"spn_secret_name: {spn_secret_name}")
-print(f"source_system_to_sap_sid: {source_system_to_sap_sid}")
-print(f"synapse_blob_storage_account_name: {synapse_blob_storage_account_name}")
-print(f"synapse_connection_string: {synapse_connection_string}")
+print(f"{adls_raw_bronze_storage_account_name = }")
+print(f"{adls_silver_gold_storage_account_name = }")
+print(f"{adls_brewdat_ghq_storage_account_name = }")
+print(f"{key_vault_name = }")
+print(f"{spn_client_id = }")
+print(f"{spn_secret_name = }")
+print(f"{source_system_to_sap_sid = }")
+print(f"{synapse_blob_storage_account_name = }")
+print(f"{synapse_connection_string = }")
 
 # COMMAND ----------
 
 # Export additional helper variables
 synapse_blob_temp_root = f"abfss://temp-csa@{synapse_blob_storage_account_name}.dfs.core.windows.net"
-print(f"synapse_blob_temp_root: {synapse_blob_temp_root}")
+print(f"{synapse_blob_temp_root = }")
 
 lakehouse_raw_root = f"abfss://raw@{adls_raw_bronze_storage_account_name}.dfs.core.windows.net"
-print(f"lakehouse_raw_root: {lakehouse_raw_root}")
+print(f"{lakehouse_raw_root = }")
 
 lakehouse_bronze_root = f"abfss://bronze@{adls_raw_bronze_storage_account_name}.dfs.core.windows.net"
-print(f"lakehouse_bronze_root: {lakehouse_bronze_root}")
+print(f"{lakehouse_bronze_root = }")
 
 lakehouse_silver_root = f"abfss://silver@{adls_silver_gold_storage_account_name}.dfs.core.windows.net"
-print(f"lakehouse_silver_root: {lakehouse_silver_root}")
+print(f"{lakehouse_silver_root = }")
 
 brewdat_ghq_root = f"abfss://brewdat-ghq@{adls_brewdat_ghq_storage_account_name}.dfs.core.windows.net"
-print(f"brewdat_ghq_root: {brewdat_ghq_root}")
+print(f"{brewdat_ghq_root = }")

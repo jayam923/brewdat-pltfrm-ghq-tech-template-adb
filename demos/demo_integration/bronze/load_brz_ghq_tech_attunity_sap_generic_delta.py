@@ -1,35 +1,35 @@
 # Databricks notebook source
 dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
+print(f"{source_system = }")
 
 dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
 source_table = dbutils.widgets.get("source_table")
-print(f"source_table: {source_table}")
+print(f"{source_table = }")
 
 dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
-print(f"target_zone: {target_zone}")
+print(f"{target_zone = }")
 
 dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"target_business_domain: {target_business_domain}")
+print(f"{target_business_domain = }")
 
 dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"target_hive_database: {target_hive_database}")
+print(f"{target_hive_database = }")
 
 dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"target_hive_table: {target_hive_table}")
+print(f"{target_hive_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-08-05 00:00:00.000000", "08 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
+print(f"{data_interval_start = }")
 
 # COMMAND ----------
 
@@ -65,7 +65,7 @@ common_utils.configure_spn_access_for_adls(
 
 sap_sid = source_system_to_sap_sid.get(source_system)
 attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
-print(f"attunity_sap_prelz_root: {attunity_sap_prelz_root}")
+print(f"{attunity_sap_prelz_root = }")
 
 # COMMAND ----------
 
@@ -96,13 +96,13 @@ ct_df = (
 # COMMAND ----------
 
 max_base_watermark_value = base_df.select(F.max(F.col("TARGET_APPLY_TS")).cast("string")).collect()[0][0]
-print(f"max_base_watermark_value: {max_base_watermark_value}")
+print(f"{max_base_watermark_value = }")
 
 max_ct_watermark_value = ct_df.select(F.max(F.col("TARGET_APPLY_TS")).cast("string")).collect()[0][0]
-print(f"max_ct_watermark_value: {max_ct_watermark_value}")
+print(f"{max_ct_watermark_value = }")
 
 effective_data_interval_end = max_ct_watermark_value or max_base_watermark_value
-print(f"effective_data_interval_end: {effective_data_interval_end}")
+print(f"{effective_data_interval_end = }")
 
 # COMMAND ----------
 
@@ -153,7 +153,7 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"target_location: {target_location}")
+print(f"{target_location = }")
 
 # COMMAND ----------
 

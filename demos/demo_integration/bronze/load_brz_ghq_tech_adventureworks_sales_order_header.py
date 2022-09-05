@@ -1,35 +1,35 @@
 # Databricks notebook source
 dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_system", "adventureworks", "2 - source_system")
 source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
+print(f"{source_system = }")
 
 dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
-print(f"target_zone: {target_zone}")
+print(f"{target_zone = }")
 
 dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"target_business_domain: {target_business_domain}")
+print(f"{target_business_domain = }")
 
 dbutils.widgets.text("target_hive_database", "brz_ghq_tech_adventureworks", "5 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"target_hive_database: {target_hive_database}")
+print(f"{target_hive_database = }")
 
 dbutils.widgets.text("target_hive_table", "sales_order_header", "6 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"target_hive_table: {target_hive_table}")
+print(f"{target_hive_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "7 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
+print(f"{data_interval_start = }")
 
 dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_interval_end")
 data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
+print(f"{data_interval_end = }")
 
 # COMMAND ----------
 
@@ -93,7 +93,7 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"target_location: {target_location}")
+print(f"{target_location = }")
 
 # COMMAND ----------
 
