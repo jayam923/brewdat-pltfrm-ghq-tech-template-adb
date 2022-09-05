@@ -81,6 +81,9 @@ class ColumnMapping():
 
     Attributes
     ----------
+    nullable : bool, default=True
+        Whether the target column should allow null values.
+        Used for data quality checks.
     source_column_name : str
         Column name in the source DataFrame.
     target_data_type : str
@@ -91,9 +94,39 @@ class ColumnMapping():
     target_column_name : str, default=None
         Column name in the target DataFrame.
         If None, use source_column_name as target_column_name.
-    nullable : bool, default=True
-        Whether the target column should allow null values.
-        Used for data quality checks.
+    """
+    def __init__(
+        self,
+        source_column_name: str,
+        target_data_type: str,
+        sql_expression: str = None,
+        nullable: bool = True,
+                 
+    ):
+        self.source_column_name = source_column_name
+        self.target_data_type = target_data_type
+        self.sql_expression = sql_expression
+        self.target_column_name = target_column_name or source_column_name
+        self.nullable = nullable
+        self.check_max_length = check_max_length
+        self.check_min_length = check_min_length
+        self.check_max_value = check_max_value
+        self.check_min_value = check_min_value
+        self.check_valid_values = check_valid_values
+        self.check_invalid_values = check_invalid_values
+        self.check_matches_regex = check_matches_regex
+        self.check_not_matches_regex = check_not_matches_regex
+
+    def __str__(self):
+        return str(vars(self))
+    
+    
+class DataQualityColumnMapping():
+    """Object the holds the source-to-target-mapping information
+    for a single column in a DataFrame.
+
+    Attributes
+    ----------
     check_min_length : int, default=None
         To check target column minimum length
         Used for data quality checks.
@@ -118,47 +151,6 @@ class ColumnMapping():
     check_not_matches_regex : str, default=None
         To check target column not to have matching value
         Used for data quality checks.
-    """
-    def __init__(
-        self,
-        source_column_name: str,
-        target_data_type: str,
-        nullable: bool = True,
-        sql_expression: str = None,
-        target_column_name: str = None,
-        check_min_length: int = None,
-        check_max_length: int = None,
-        check_min_value: Any = None,
-        check_max_value: Any = None,
-        check_valid_values: List[Any] = [],
-        check_invalid_values: List[Any] = [],
-        check_matches_regex: str = None,
-        check_not_matches_regex: str = None,          
-    ):
-        self.source_column_name = source_column_name
-        self.target_data_type = target_data_type
-        self.sql_expression = sql_expression
-        self.target_column_name = target_column_name or source_column_name
-        self.nullable = nullable
-        self.check_max_length = check_max_length
-        self.check_min_length = check_min_length
-        self.check_max_value = check_max_value
-        self.check_min_value = check_min_value
-        self.check_valid_values = check_valid_values
-        self.check_invalid_values = check_invalid_values
-        self.check_matches_regex = check_matches_regex
-        self.check_not_matches_regex = check_not_matches_regex
-
-    def __str__(self):
-        return str(vars(self))
-    
-    
-class WiderColumnMapping():
-    """Object the holds the source-to-target-mapping information
-    for a single column in a DataFrame.
-
-    Attributes
-    ----------
     source_column_name : str
         Column name in the source DataFrame.
     target_data_type : str
@@ -183,11 +175,20 @@ class WiderColumnMapping():
         self,
         source_column_name: str,
         target_data_type: str,
+        target_column_name: str = None,
+        check_min_length: int = None,
+        check_max_length: int = None,
+        check_min_value: Any = None,
+        check_max_value: Any = None,
+        check_matches_regex: str = None,
+        check_not_matches_regex: str = None, 
         unique_percentage_col: int = None ,
         null_percentage_for_col: int = None,
         null_percentage_variation_with_prev: int = None ,
         sum_max_value: int = None,
-        sum_min_value: int= None,  
+        sum_min_value: int= None,
+        check_valid_values: List[Any] = [],
+        check_invalid_values: List[Any] = [],
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type

@@ -36,7 +36,11 @@ print(f"data_interval_end: {data_interval_end}")
 dbutils.widgets.text("json_dq_wide_mapping", "[]", "9 - json_dq_wide_mapping")
 json_dq_wide_mapping = dbutils.widgets.get("json_dq_wide_mapping")
 json_dq_wide_mapping = json.loads(json_dq_wide_mapping)
+table_level_mapping = json_dq_wide_mapping[0]['table_level_schema']
+column_level_mapping =  json_dq_wide_mapping[0]['colum_level_schema']
 print(f"json_dq_wide_mapping: {json_dq_wide_mapping}")
+print(f"table_level_mapping: {table_level_mapping}")
+print(f"column_level_mapping: {column_level_mapping}")
 
 dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "10 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
@@ -65,8 +69,8 @@ print(f"row_count_max_value: {row_count_max_value}")
 
 dbutils.widgets.text("silver_mapping", "[]", "10 - silver_mapping")
 silver_mapping = dbutils.widgets.get("silver_mapping")
-silver_mapping = json.loads(silver_mapping)
 print(f"silver_mapping: {silver_mapping}")
+
 
 # COMMAND ----------
 
@@ -171,16 +175,16 @@ print(vars(results))
 
 #wider check 2
 data_quality_wider_modify=data_quality_wider_check2.DataQualityChecker(spark=spark,location=target_location)
-
-data_quality_wider_modify.check_row_count(min_value=100,max_value=200)
-data_quality_wider_modify.check_column_nulls(col_name='SalesOrderID',mostly=0.3)
-data_quality_wider_modify.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
-data_quality_wider_modify.check_compound_column_uniqueness(col_list=['SalesOrderID'],mostly=0.5)
-data_quality_wider_modify.check_column_uniqueness(col_name='SalesOrderID',mostly=0.3)
-data_quality_wider_modify.check_bad_records_percentage(min_percentage=0.01,max_percentage=0.1)
-data_quality_wider_modify.check_count_variation_from_previous_version(min_variation=0.01,max_variation=0.1,previous_version=results.old_version_number,current_version=results.new_version_number)
-data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=results.old_version_number,current_version=results.new_version_number)
-data_quality_wider_modify.check_numeric_sum_varation_from_previous_version(col_name='SalesOrderID',min_value=20000,max_value=30000,previous_version=results.old_version_number,current_version=results.new_version_number)
+#
+#data_quality_wider_modify.check_row_count(min_value=100,max_value=200)
+#data_quality_wider_modify.check_column_nulls(col_name='SalesOrderID',mostly=0.3)
+#data_quality_wider_modify.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
+#data_quality_wider_modify.check_compound_column_uniqueness(col_list=['SalesOrderID'],mostly=0.5)
+#data_quality_wider_modify.check_column_uniqueness(col_name='SalesOrderID',mostly=0.3)
+data_quality_wider_modify.check_bad_records_percentage(min_percentage=0.01,max_percentage=0.1,current_version=results.new_version_number)
+#data_quality_wider_modify.check_count_variation_from_previous_version(min_variation=0.01,max_variation=0.1,previous_version=results.old_version_number,current_version=results.new_version_number)
+#data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=results.old_version_number,current_version=results.new_version_number)
+#data_quality_wider_modify.check_numeric_sum_varation_from_previous_version(col_name='SalesOrderID',min_value=20000,max_value=30000,previous_version=results.old_version_number,current_version=results.new_version_number)
 result=data_quality_wider_modify.build()
 display(result)
 
@@ -294,14 +298,14 @@ display(final_result_df)
 
 # COMMAND ----------
 
-latest_df = spark.read.format("delta").option("versionAsOf",99).load(target_location)
+latest_df = spark.read.format("delta").option("versionAsOf",171).load(target_location)
 history_df = spark.read.format("delta").option("versionAsOf", 95).load(target_location)
 print(latest_df.count())
 print(history_df.count())
 print(latest_df.where(F.col('SalesOrderID').isNull()).count())
 print(history_df.where(F.col('SalesOrderID').isNull()).count())
 
-#display(latest_df)
+display(latest_df)
 #display(history_df)
 
 # COMMAND ----------
@@ -335,3 +339,46 @@ data_quality_wider_modify.dq_validate_count_variation_from_previous_version_valu
             max_value = count_variation_with_prev_max_value,
             older_version=results.old_version_number,
             latest_version=results.new_version_number)
+
+# COMMAND ----------
+
+pip install pyCrypto
+
+# COMMAND ----------
+
+df = spark.sql("select '000' as age")
+df.show(5)
+
+from cryptography.fernet import Fernet
+key = Fernet.generate_key()
+print(key)
+
+def encrypt_val(columnval):
+    key = Fernet.generate_key()
+    f = Fernet(key)
+    columnval_b=bytes(str(columnval), 'utf-8')
+    columnval_encrypted = f.encrypt(columnval_b)
+    columnval_encrypted = str(columnval_encrypted.decode('ascii'))
+    return columnval_encrypted
+from pyspark.sql.functions import udf, lit, md5, pandas_udf
+from pyspark.sql.types import StringType
+import pandas as pd
+# Register UDF's
+encrypt = pandas_udf(encrypt_val, StringType())
+#decrypt = pandas_udf(decrypt_val, StringType())
+#ttt = pandas_udf(tempo, StringType())
+from pyspark.sql.functions import col
+encryptionkey=key
+#df3 = df.withColumn("age",encrypt_val(col("age"),key))
+     # .withColumn('Sex',encrypt("Sex",lit(encryptionkey)))
+type(df)
+df=df.toPandas()
+#df.select(encrypt('age')).show()
+
+print(df)
+df['as'] = df.apply(lambda row : encrypt_val(row['age'],axis = 1))
+print(df)
+b=encrypt_val(str('000'),key)
+
+print(b)
+

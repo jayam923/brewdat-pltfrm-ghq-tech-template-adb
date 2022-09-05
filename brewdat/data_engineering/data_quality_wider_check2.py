@@ -352,17 +352,17 @@ class DataQualityChecker:
 
     def check_count_variation_from_previous_version(
             self,
-            min_variation: int,
-            max_variation: int,
+            min_value: int,
+            max_value: int,
             previous_version: int,
             current_version: int,
     ) -> "DataQualityChecker":
         """Create function to check count variation from older version
         Parameters
         ----------
-        min_variation : int
+        min_value : int
             minimum threshold value to validate the test cases.
-        max_variation : int
+        max_value: int
             maximum threshold value to validate the test cases.
         previous_version : int
             Given target delta location of previos version.
@@ -375,7 +375,7 @@ class DataQualityChecker:
             ExpectationValidationResult object.
         """
         try:
-            if min_variation > max_variation:
+            if min_value > max_value:
                 raise ValueError("Minimum variation must be less than or equal to Maximum variation.")
                 
             previous_count = (
@@ -394,14 +394,14 @@ class DataQualityChecker:
             count_diff = (current_count - previous_count)
             count_variation = count_diff / previous_count
 
-            if (min_variation < count_variation) and (count_variation < max_variation):
+            if (min_value < count_diff) and (count_diff < max_value):
                 passed = True
                 comment = f"Check is 'passed' due to record count difference from previous version is {count_diff} and count variation is {round(float(format(count_variation,'f')),2)}%, which is " \
-                        f"expected range of {min_variation}% to {max_variation}%."
+                        f"expected range of {min_value} to {max_value}."
             else:
                 passed = False
                 comment = f"Check is 'failed' due to record count difference from previous version is {count_diff} and count variation is {round(float(format(count_variation,'f')),2)}%, which is outside of" \
-                        f" expected range of {min_variation}% to {max_variation}%."
+                        f" expected range of {min_value} to {max_value}."
                 
 
             self.__append_results(
