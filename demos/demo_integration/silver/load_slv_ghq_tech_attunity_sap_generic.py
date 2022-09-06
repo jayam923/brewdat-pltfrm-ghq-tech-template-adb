@@ -196,7 +196,7 @@ mappings.append(dq_results_column)
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(dbutils=dbutils, df=bronze_dq_df, mappings=mappings)
 
-display(transformed_df)
+#display(transformed_df)
 
 # COMMAND ----------
 
