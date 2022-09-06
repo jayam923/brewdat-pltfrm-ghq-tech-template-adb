@@ -99,8 +99,10 @@ class ColumnMapping():
         self,
         source_column_name: str,
         target_data_type: str,
+        target_column_name: str = None,
         sql_expression: str = None,
         nullable: bool = True,
+        
                  
     ):
         self.source_column_name = source_column_name
@@ -108,14 +110,6 @@ class ColumnMapping():
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
         self.nullable = nullable
-        self.check_max_length = check_max_length
-        self.check_min_length = check_min_length
-        self.check_max_value = check_max_value
-        self.check_min_value = check_min_value
-        self.check_valid_values = check_valid_values
-        self.check_invalid_values = check_invalid_values
-        self.check_matches_regex = check_matches_regex
-        self.check_not_matches_regex = check_not_matches_regex
 
     def __str__(self):
         return str(vars(self))
@@ -173,30 +167,49 @@ class DataQualityColumnMapping():
     """
     def __init__(
         self,
-        source_column_name: str,
-        target_data_type: str,
-        target_column_name: str = None,
+        source_column_name: str = None,
+        target_data_type: str = None,
+        nullable: str = None,
         check_min_length: int = None,
         check_max_length: int = None,
         check_min_value: Any = None,
         check_max_value: Any = None,
         check_matches_regex: str = None,
-        check_not_matches_regex: str = None, 
-        unique_percentage_col: int = None ,
-        null_percentage_for_col: int = None,
-        null_percentage_variation_with_prev: int = None ,
-        sum_max_value: int = None,
-        sum_min_value: int= None,
         check_valid_values: List[Any] = [],
         check_invalid_values: List[Any] = [],
+        check_not_matches_regex: str = None, 
+        compound_columns: List[str] = [],
+        check_count_variation_from_previous_version: List[int] = [],
+        check_null_percentage_variation_from_previous_version: float = None,
+        check_bad_records_percentage: float = None,
+        check_compound_column_uniqueness_variation: float = None,
+        check_row_count: List[int] = [],
+        check_columns_null_variation: float = None,
+        check_column_sum_values: List[int] = [],
+        check_column_uniqueness_variation: float = None,
+        check_numeric_sum_varation_from_previous_version: List[int] = [],
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
-        self.unique_percentage_col = unique_percentage_col
-        self.null_percentage_for_col = null_percentage_for_col
-        self.null_percentage_variation_with_prev = null_percentage_variation_with_prev
-        self.sum_max_value = sum_max_value
-        self.sum_min_value = sum_min_value
+        self.nullable = nullable
+        self.check_min_length = check_min_length
+        self.check_max_length = check_max_length
+        self.check_min_value = check_min_value
+        self.check_max_value = check_max_value
+        self.check_matches_regex = check_matches_regex
+        self.check_valid_values = check_valid_values
+        self.check_invalid_values = check_invalid_values
+        self.check_not_matches_regex = check_not_matches_regex
+        self.compound_columns = compound_columns
+        self.check_count_variation_from_previous_version = check_count_variation_from_previous_version
+        self.check_null_percentage_variation_from_previous_version = check_null_percentage_variation_from_previous_version
+        self.check_bad_records_percentage = check_bad_records_percentage
+        self.check_compound_column_uniqueness_variation = check_compound_column_uniqueness_variation
+        self.check_row_count = check_row_count
+        self.check_columns_null_variation = check_columns_null_variation
+        self.check_column_sum_values = check_column_sum_values
+        self.check_column_uniqueness_variation = check_column_uniqueness_variation
+        self.check_numeric_sum_varation_from_previous_version = check_numeric_sum_varation_from_previous_version
 
     def __str__(self):
         return str(vars(self))

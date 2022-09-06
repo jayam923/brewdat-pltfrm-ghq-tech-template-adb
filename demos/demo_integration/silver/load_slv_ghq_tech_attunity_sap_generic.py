@@ -52,13 +52,30 @@ partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"partition_columns: {partition_columns}")
 
+dbutils.widgets.text("dq_narrow_check", "true", "13 - dq_narrow_check")
+dq_narrow_check = dbutils.widgets.get("dq_narrow_check")
+print(f"dq_narrow_check: {dq_narrow_check}")
+
+dbutils.widgets.text("dq_wider_check", "true", "14 - dq_wider_check")
+dq_wider_check = dbutils.widgets.get("dq_wider_check")
+print(f"dq_wider_check: {dq_wider_check}")
+
+dbutils.widgets.text("dq_chcek_mapping", "[]", "15 - dq_chcek_mapping")
+dq_chcek_mapping = dbutils.widgets.get("dq_chcek_mapping")
+dq_chcek_mapping = json.loads(dq_chcek_mapping)
+table_level_mapping = dq_chcek_mapping[0]['table_level_schema']
+column_level_mapping =  dq_chcek_mapping[0]['colum_level_schema']
+print(f"json_dq_wide_mapping: {dq_chcek_mapping}")
+print(f"table_level_mapping: {table_level_mapping}")
+print(f"column_level_mapping: {column_level_mapping}")
+
 # COMMAND ----------
 
 import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils, data_quality_wider_check2, helper_utils
 
 # Print a module's help
 help(transform_utils)
@@ -133,10 +150,14 @@ except Exception:
 
 # COMMAND ----------
 
+display(bronze_df)
+
+# COMMAND ----------
+
 try:
     # Apply data quality checks based on given column mappings
     dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
-    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
+    mappings = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
     for mapping in mappings:
         if mapping.target_data_type != "string":
             dq_checker = dq_checker.check_column_type_cast(
@@ -155,17 +176,27 @@ except Exception:
 
 # COMMAND ----------
 
+if dq_narrow_check:
+    helper_utils.data_quality_narrow_check(
+        column_level_mapping=column_level_mapping,
+        dq_checker=dq_checker,
+        dbutils=dbutils
+    )
+    bronze_dq_df = dq_checker.build_df()
+
+# COMMAND ----------
+
 # Preserve data quality results
 dq_results_column = common_utils.ColumnMapping(
     source_column_name=data_quality_utils.DQ_RESULTS_COLUMN,
     target_data_type="array<string>",
 )
+mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
 mappings.append(dq_results_column)
-
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(dbutils=dbutils, df=bronze_dq_df, mappings=mappings)
 
-#display(transformed_df)
+display(transformed_df)
 
 # COMMAND ----------
 
@@ -223,6 +254,20 @@ if unmapped_columns:
     results.error_details += unmapped_warning
 
 print(results)
+
+# COMMAND ----------
+
+if dq_wider_check:
+    dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=target_location)
+    helper_utils.data_quality_wider_check(
+        table_level_mapping=table_level_mapping,
+        column_level_mapping=column_level_mapping,
+        dq_checker=dq_checker,
+        previous_version=results.old_version_number,
+        current_version=results.new_version_number,
+        dbutils=dbutils)
+    wider_dq_df = dq_checker.build()
+    display(wider_dq_df)
 
 # COMMAND ----------
 

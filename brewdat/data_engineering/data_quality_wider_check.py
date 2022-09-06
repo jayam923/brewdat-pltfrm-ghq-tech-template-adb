@@ -1,539 +1,640 @@
+from typing import Any, List
+
 import great_expectations as ge
+from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 from great_expectations.core import ExpectationValidationResult
+
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.types import ArrayType, BooleanType, StringType, StructField, StructType
+
 import pyspark.sql.functions as F
-from typing import Any
 
-from .import common_utils
+from . import common_utils
 
 
-class DataQualityCheck():
-    """Helper class that provides data quality checks for given DataFrame.
-
-    Parameters
+class DataQualityChecker:
+    """Helper class that provides data quality checks for data in given Delta Lake location.
+    
+    Attributes
     ----------
-    df : DataFrame
-        PySpark DataFrame to write.
-
-    Returns
-    -------
-    SparkDFDataset
-        SparkDFDataset object for great expectation.
+    location : str
+        A Delta Lake location.
+    spark: SparkSession, default = None
+        A Spark session.
+    dbutils : Any, default = None
+        A Databricks utils object.
     """
-
-    def __init__(self, df: DataFrame, dbutils: object, spark: SparkSession):
-        self.df=df
-        self.validator = ge.dataset.SparkDFDataset(df)
+    def __init__(
+            self,
+            location: str,
+            spark: SparkSession = None,
+            dbutils: Any = None,
+    ):
+        self.location = location
         self.result_list = []
-        self.dbutils = dbutils
-        self.spark = spark
+        self.dbutils = dbutils or globals().get("dbutils")
+        self.spark = spark if spark else SparkSession.getActiveSession()
+        self.df = spark.read.format("delta").load(location)
+        self.validator = ge.dataset.SparkDFDataset(self.df)
+        
+    def build(self) -> DataFrame:
+        """Obtain the resulting DataFrame with data quality checks records.
 
-    def get_wider_dq_results(self,
-                             ) -> DataFrame:
-        """Create function to return dq check results in dataframe
-        """
-        try:
-            result_schema = (
-                 StructType(fields=[StructField('function_name', StringType()),
-                                    StructField('result_value', StringType()),
-                                    StructField('percentage', StringType()),
-                                    StructField('range', StringType()),
-                                    StructField('status', StringType()),
-                                    StructField('comments', StringType())]
-                
-                 ))
-            
-            result_df = self.spark.createDataFrame(data=[*set(self.result_list)], schema=result_schema)
-            return result_df
-            
-
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
-    def __get_delta_tables_history_dataframe(self,
-                                             target_location: str,
-                                             older_version: int,
-                                             latest_version: int) -> DataFrame:
-        """ Create function to get the hitory and latest version of given table location.
-        Parameters
-        ----------
-        latest_version:int
-            deltalake latest version number.
-        older_version : int
-            deltalake older version number.
         Returns
         -------
         DataFrame
-            Dataframe with older version of data of given target location.
-            Dataframe with latest version of data of given target location.
+            A PySpark DataFrame with data quality metrics.
         """
         try:
-            latest_df = self.spark.read.format("delta").option("versionAsOf", latest_version).load(target_location)
-            history_df = self.spark.read.format("delta").option("versionAsOf", older_version).load(target_location)
-            return latest_df, history_df
+            result_schema = (
+                StructType(fields=[StructField('validation_rule', StringType()),
+                                    StructField('columns', StringType()),
+                                    StructField('passed', BooleanType()),
+                                    StructField('comments', StringType())])
+                )
+
+            return (
+                self.spark.createDataFrame(set(self.result_list), result_schema)
+                .withColumn("__data_quality_check_ts", F.current_timestamp())
+                .withColumn("__data_quality_check_dt", F.to_date("__data_quality_check_ts"))
+            )
 
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-    def __get_result_list(
+    def __append_results(
             self,
-            result: ExpectationValidationResult,
-            dq_result=None,
-            result_value=None,
-            dq_function_name=None,
-            dq_column_name=None,
-            dq_mostly=None,
-            dq_range=None,
-            dq_comments=None,
-        ) -> list:
-        """ Create a list for the results from the DQ checks.
+            validation_rule: str,
+            columns: str,
+            passed: bool,
+            comments: str,
+    ):
+        """Appends data quality check results to results list.
 
         Parameters
         ----------
-        result : object
-            A ExpectationValidationResult object.
-        dq_name : DataFrame
-            Name of the DQ check.
-        dq_result : BaseDataContext
-            Result from the DQ check.
-        dq_row_count : DataFrame
-            count of records from the DQ check.
-
-        Returns
-        -------
-        List
-            It appends Data quality check results into list
-
+        validation_rule: str
+            Validation rule name.
+        columns: List[str]
+            Lit of columns observed by validation rule.
+        passed: bool
+            Whether the validation passed or failed.
+        comments: str
+            Textual information about failed validation rule.
         """
-        dq_result = str(result['success'])
-        if dq_function_name == "dq_count_of_records_in_table" or dq_function_name == "dq_column_sum_value":
-            result_value = str(result['result']['observed_value'])
-            dq_range = f" range : [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-            dq_comments = f" '{dq_column_name} ' : records_count :-> {result['result']['observed_value']}, and range value :-> [{result['expectation_config']['kwargs']['min_value']}, {result['expectation_config']['kwargs']['max_value']}]"
-
-        else:
-            dq_mostly = result['expectation_config']['kwargs']['mostly']
-            if dq_function_name == "dq_count_for_unique_values_in_compond_columns" or dq_function_name == 'dq_count_for_unique_values_in_columns':
-                result_value = str(
-                    result['result']['element_count'] - result['result']['unexpected_count'] - result['result'][
-                        'missing_count'])
-                dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']} , null_record_count :-> {result['result']['missing_count']}"
-                if float(str(int(result_value) / result['result']['element_count'])[:4]) >= dq_mostly:
-                    dq_result = 'True'
-
-                else:
-                    dq_result = 'False'
-
-            else:
-                result_value = str(result['result']['element_count'] - result['result']['unexpected_count'])
-                dq_comments = f" '{dq_column_name} ': total_records_count :-> {result['result']['element_count']} , unexpected_record_count :-> {result['result']['unexpected_count']}"
-
         self.result_list.append(
             (
-                dq_function_name,
-                result_value,
-                dq_mostly,
-                dq_range,
-                dq_result,
-                dq_comments
+                validation_rule,
+                columns,
+                passed,
+                comments,
             )
         )
-
-    def dq_validate_compond_column_unique_values(
-               self,
-               col_list: list,
-               mostly: float,
-        ) -> ExpectationValidationResult:
+        
+    def check_compound_column_uniqueness(
+            self,
+            col_list: list,
+            mostly: float,
+    ) -> "DataQualityChecker":
         """Create function to Assert if column has unique values.
+
         Parameters
         ----------
         col_list : list
             hold list of result for result list function.
         mostly   : float
             must be a float between 0 and 1. evaluates it as a percentage to fail or pass the validation.
-
+            
         Returns
         -------
-        result
-            ExpectationValidationResult object.
+        DataQualityChecker
+            DataQualityCheck object
         """
         try:
-            if mostly < 0.1 or mostly > 1:
-                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
+            if mostly < 0 or mostly > 1:
+                raise ValueError("Invalid expected percentage value , Enter values between the range of 0.1 to 1")
 
             if not col_list:
                 raise ValueError("Given list is empty, Please enter valid values")
-
-            col_names = ","
+                
             result = self.validator.expect_compound_columns_to_be_unique(
-                col_list,
-                mostly,
+                column_list=col_list,
+                mostly=mostly,
                 result_format="SUMMARY"
             )
-            col_names = col_names.join(col_list)
-            self.__get_result_list(
-                result=result,
-                dq_column_name=col_names,
-                dq_function_name="dq_count_for_unique_values_in_compond_columns",
-                dq_mostly=mostly
-            )
+            
+            unique_values = result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count']
+            unexpected_percent = unique_values / result['result']['element_count']
 
+            if unexpected_percent < mostly:
+                passed = False
+                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent,'f')),2)}% of the records not being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+                        
+            else:
+                passed = True
+                comment = f"Check is 'success' due to {round(float(format(unexpected_percent,'f')),2)}% of the records being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+            
+
+            self.__append_results(
+                validation_rule="check_compound_column_uniqueness",
+                passed=passed,
+                columns=', '.join(col_list),
+                comments=comment
+            )
+            #return self
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-    def dq_validate_row_count(
-                self,
-                min_value: int,
-                max_value: int,
-        ) -> ExpectationValidationResult:
+    def check_row_count(
+             self,
+             min_value: int,
+             max_value: int,
+                        ) -> "DataQualityChecker":
         """Create function to Assert Assert row count.
         Parameters
         ----------
         min_value : int
-            count of the row in the table.
+            minimum threshold value to validate the test cases.
         max_value : int
-            count of the row in the table.
-
+            maximum threshold value to validate the test cases.
+            
         Returns
         -------
-        result
+        DataQualityChecker
             ExpectationValidationResult object.
         """
         try:
-            result = self.validator.expect_table_row_count_to_be_between(
-                min_value,
-                max_value,
-                result_format="SUMMARY")
-            self.__get_result_list(
-                result=result,
-                dq_function_name="dq_count_of_records_in_table"
-            )
+            if min_value > max_value:
+                raise ValueError("Minimum value must be less than or equal to Maximum value.")
 
+            result = self.validator.expect_table_row_count_to_be_between(
+                min_value=min_value,
+                max_value=max_value,
+                result_format="SUMMARY")
+
+            if result['success']:
+                passed = True
+                comment = f"Expected row count to be between {min_value} and {max_value}. " \
+                        f"Observed count was {result['result']['observed_value']}."
+            else:
+                passed = False
+                comment = f"Expected row count to be between {min_value} and {max_value}. " \
+                        f"Observed count was {result['result']['observed_value']}."
+                
+
+            self.__append_results(
+                validation_rule="check_row_count",
+                passed=passed,
+                columns=None,
+                comments=comment
+            )
+            return self
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-    def dq_validate_column_values_to_not_be_null(self,
-                                                 col_name: str,
-                                                 mostly: float,
-                                                 ) -> ExpectationValidationResult:
-        """Create function to check null percentage for given column
+    def check_column_nulls(
+            self,
+            col_name: str,
+            mostly: float,
+    ) -> "DataQualityChecker":
+        """Create function to check null percentage for given column.
         Parameters
         ----------
         col_name : str
             Name of the column on which.
         mostly :float
-            thrashold value to validate the test cases.
-
+            threshold value to validate the test cases.
+            
         Returns
         -------
-        result
+        DataQualityChecker
             ExpectationValidationResult object.
         """
         try:
             if mostly < 0.1 or mostly > 1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
-
+                
             result = self.validator.expect_column_values_to_not_be_null(
-                col_name,
-                mostly,
+                column=col_name,
+                mostly=mostly,
                 result_format="SUMMARY"
             )
-            self.__get_result_list(
-                result=result,
-                dq_column_name=col_name,
-                dq_function_name="dq_not_null_records_percentage_for_column"
+
+            passed = result['success']
+
+            if not passed:
+                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records not being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+            else:
+                comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+
+            self.__append_results(
+                validation_rule="check_nulls",
+                passed=passed,
+                columns=col_name,
+                comments=comment
             )
 
+            return self
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
 
-    def dq_validate_range_for_numeric_column_sum_values(
-                self,
-                col_name: str,
-                min_value: int,
-                max_value: int,
-        ) -> ExpectationValidationResult:
-        """Create function to check sum of given numeric column
+    def check_column_sum(
+            self,
+            col_name: str,
+            min_value: float,
+            max_value: float,
+    ) -> "DataQualityChecker":
+        """Create function to check sum of given numeric column.
         Parameters
         ----------
         col_name : str
             Name of the column on which.
         min_value : int
-            minumium sum of the column.
+            minimum threshold value to validate the test cases.
         max_value : int
-            maximum sum of the column.
+            maximum threshold value to validate the test cases.
 
         Returns
         -------
-        result
-            ExpectationValidationResult object
+        DataQualityChecker
+            ExpectationValidationResult object.
         """
         try:
+            if min_value > max_value:
+                raise ValueError("Minimum value must be less than or equal to Maximum value.")
+                
             result = self.validator.expect_column_sum_to_be_between(
-                col_name,
-                min_value,
-                max_value,
+                column=col_name,
+                min_value=min_value,
+                max_value=max_value,
                 result_format="SUMMARY"
             )
-            return result
-            self.__get_result_list(
-                result=result,
-                dq_column_name=col_name,
-                dq_function_name="dq_column_sum_value"
+
+            passed = result['success']
+
+            comment = None
+            if not passed:
+                comment = f"Check is 'failed' due to Expected row sum to be between {min_value} and {max_value}. " \
+                        f"Observed sum was {result['result']['observed_value']}."
+            else:
+                comment = f"Check is 'success' due to Expected row sum to be between {min_value} and {max_value}. " \
+                        f"Observed sum was {result['result']['observed_value']}."
+
+            self.__append_results(
+                validation_rule="check_column_sum",
+                passed=passed,
+                columns=col_name,
+                comments=comment
             )
 
+            return self
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
-
-    def dq_validate_column_unique_values(
-                self,
-                col_name: str,
-                mostly: int,
-        ) -> ExpectationValidationResult:
+            
+    def check_column_uniqueness(
+            self,
+            col_name: str,
+            mostly: int,
+    ) -> "DataQualityChecker":
         """Create function to Assert if column has unique values.
         Parameters
         ----------
         col_name : str
             Name of the column on which.
         mostly :int
-            thrashold value to validate the test cases.
-
-        Returns
-        -------
-        result
-            ExpectationValidationResult object
-        """
-        try:
-            if mostly < 0.1 or mostly > 1:
-                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
-
-            result = self.validator.expect_column_values_to_be_unique(
-                col_name,
-                mostly,
-                result_format="SUMMARY"
-            )
-            self.__get_result_list(
-                result=result,
-                dq_column_name=col_name,
-                dq_function_name="dq_count_for_unique_values_in_columns"
-            )
-
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
-    def dq_validate_count_variation_from_previous_version_values(
-                     self,
-                     target_location: str,
-                     older_version: int,
-                     latest_version: int
-      ) -> ExpectationValidationResult:
-        """Create function to check count variation from older version.
-        Parameters
-        ----------
-        min_value : int
-            count of the row in the table.
-        max_value : int
-            count of the row in the table.
-        target_location : str
-            Absolute Delta Lake path for the physical location of this delta table.
-        older_version : int
-            Given target delta location of older version.
-        latest_version : int
-            Given target delta location of latest version.
-
-        Returns
-        -------
-        result
-            ExpectationValidationResult object
-        """
-        try:
-            dq_range = None
-            dq_mostly = None
-            current_df, history_df = self.__get_delta_tables_history_dataframe(
-                target_location=target_location,
-                older_version=older_version,
-                latest_version=latest_version
-            )
-            history_load_count = history_df.count()
-            Latest_load_count = current_df.count()
-            dq_result = str(result['success'])
-            dq_function_name = "dq_validate_count_variation_from_previous_version_values"
-            result_value = Latest_load_count - history_load_count
-            dq_comments = f" total_record_count_in_history :-> {history_load_count} , total_record_count_in_Latest :-> {Latest_load_count}"
-  
-            self.result_list.append(
-                (
-                    dq_function_name,
-                    result_value,
-                    dq_mostly,
-                    dq_range,
-                    dq_result,
-                    dq_comments)
-            )
-
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)
-
-    def dq_validate_null_percentage_variation_from_previous_version_values(
-                      self,
-                      target_location: str,
-                      col_name: str,
-                      mostly: float,
-                      older_version: int,
-                      latest_version: int
-     ) -> ExpectationValidationResult:
-
-        """Create function to check null percentage variation with older version file for given column name
-        Parameters
-        ----------
-        target_location : str
-            Absolute Delta Lake path for the physical location of this delta table.
-        results: object
-            A DeltaTable object.
-        col_name : str
-            Name of the column on which.
-        mostly  : float
             threshold value to validate the test cases.
 
         Returns
         -------
-        result
+        DataQualityChecker
             ExpectationValidationResult object.
         """
         try:
             if mostly < 0.1 or mostly > 1:
                 raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
 
-            latest_df, history_df = self.__get_delta_tables_history_dataframe(
-                target_location=target_location,
-                older_version=older_version,
-                latest_version=latest_version
+            result = self.validator.expect_column_values_to_be_unique(
+                column=col_name,
+                mostly=mostly,
+                result_format="SUMMARY"
             )
-            history_validator = ge.dataset.SparkDFDataset(history_df)
-            latest_validator = ge.dataset.SparkDFDataset(latest_df)
-            history_result = history_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
-            current_result = latest_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
-            dq_result = str(current_result['success'])
-            result_value = format( (current_result['result']['unexpected_percent'] - history_result['result']['unexpected_percent']), 'f')
-            dq_function_name = "dq_validate_null_percentage_variation_values"
-            dq_comments = f" '{col_name}' : null percentage in history :-> {format( (history_result['result']['unexpected_percent']),'f')} , null percentage in latest :-> {format((current_result['result']['unexpected_percent']),'f')}"
-            dq_range = None
-            result_percentage = current_result['result']['unexpected_percent'] - history_result['result']['unexpected_percent']
+            unique_values = result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count']
+            unexpected_percent = unique_values / result['result']['element_count']
 
-            if mostly < result_percentage:
-                dq_result = 'False'
+            if unexpected_percent < mostly:
+                passed = False
+                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent,'f')),2)}% of the records not being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
-                dq_result = 'True'
-            self.result_list.append(
-                (
-                    dq_function_name,
-                    result_value,
-                    mostly,
-                    dq_range,
-                    dq_result,
-                    dq_comments
-                )
+                passed = True
+                comment = f"Check is 'success' due to {round(float(format(unexpected_percent,'f')),2)}% of the records not being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+
+            self.__append_results(
+                validation_rule="check_column_uniqueness",
+                passed=passed,
+                columns=col_name,
+                comments=comment
             )
-           
+
+            return self
+            
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_count_variation_from_previous_version(
+            self,
+            min_value: int,
+            max_value: int,
+            previous_version: int,
+            current_version: int,
+    ) -> "DataQualityChecker":
+        """Create function to check count variation from older version
+        Parameters
+        ----------
+        min_value : int
+            minimum threshold value to validate the test cases.
+        max_value: int
+            maximum threshold value to validate the test cases.
+        previous_version : int
+            Given target delta location of previos version.
+        current_version : int
+            Given target delta location of current version.
+
+        Returns
+        -------
+        DataQualityChecker
+            ExpectationValidationResult object.
+        """
+        try:
+            if min_value > max_value:
+                raise ValueError("Minimum variation must be less than or equal to Maximum variation.")
+                
+            previous_count = (
+                self.spark.read.format("delta")
+                    .option("versionAsOf", previous_version)
+                    .load(self.location)
+                    .count()
+            )
+            current_count = (
+                self.spark.read.format("delta")
+                    .option("versionAsOf", current_version)
+                    .load(self.location)
+                    .count()
+            )
+            
+            count_diff = (current_count - previous_count)
+            count_variation = count_diff / previous_count
+
+            if (min_value < count_diff) and (count_diff < max_value):
+                passed = True
+                comment = f"Check is 'passed' due to record count difference from previous version is {count_diff} and count variation is {round(float(format(count_variation,'f')),2)}%, which is " \
+                        f"expected range of {min_value} to {max_value}."
+            else:
+                passed = False
+                comment = f"Check is 'failed' due to record count difference from previous version is {count_diff} and count variation is {round(float(format(count_variation,'f')),2)}%, which is outside of" \
+                        f" expected range of {min_value}% to {max_value}%."
+                
+
+            self.__append_results(
+                validation_rule="check_count_variation_from_previous_version",
+                passed=passed,
+                columns=None,
+                comments=comment
+            )
+
+            return self
+            
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_null_percentage_variation_from_previous_version(
+            self,
+            col_name: str,
+            max_accepted_variation: float,
+            previous_version: int,
+            current_version: int,
+    ) -> ExpectationValidationResult:
+
+        """Create function to check null percentage variation with older version file for given column name.
+        Parameters
+        ----------
+        col_name : str
+            Name of the column on which.
+        max_accepted_variation  : float
+            maximum threshold value to validate the test cases.
+        previous_version : int
+            Given target delta location of previos version.
+        current_version : int
+            Given target delta location of current version.
+        Returns
+        -------
+        DataQualityChecker
+            ExpectationValidationResult object.
+        """
+        try:
+
+            previous_validator = ge.dataset.SparkDFDataset(
+                self.spark.read.format("delta")
+                    .option("versionAsOf", previous_version)
+                    .load(self.location)
+            )
+            current_validator = ge.dataset.SparkDFDataset(
+                self.spark.read.format("delta")
+                    .option("versionAsOf", current_version)
+                    .load(self.location)
+            )
+
+            current_result = current_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
+            previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
+            variation =  (current_result['result']['unexpected_percent']
+                        - previous_result['result']['unexpected_percent'])
+
+            if variation > max_accepted_variation:
+                passed = False
+                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
+                          f"(version {previous_version}) when compared with previous version of the table, which is" \
+                          f" higher than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
+                          f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
+                
+            else:
+                passed = True
+                comment = f"Check is 'passed' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
+                          f"(version {previous_version}) when compared with previous version of the table, which is" \
+                          f" expected percentage {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
+                          f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
+                
+
+            self.__append_results(
+                validation_rule="check_null_percentage_variation_from_previous_version",
+                passed=passed,
+                columns=col_name,
+                comments=comment
+            )
+
+            return self
+            
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
             
     def check_bad_records_percentage(
-        self,
-        min_percentage: float,
-        max_percentage: float,
+            self,
+            min_percentage: float,
+            max_percentage: float,
+            current_version: int,
     )->"DataQualityChecker":
-        """Create function to return the bad percentage from given dataframe"""
+        """Create function to return the bad percentage from given dataframe.
+        Parameters
+        ----------
+        max_accepted_variation  : float
+            maximum threshold value to validate the test cases.
+        max_accepted_variation  : float
+            minimum threshold value to validate the test cases.
+        current_version : int
+            Given target delta location of current version.
+        
+        Returns
+        -------
+        DataQualityChecker
+            ExpectationValidationResult object.
+        """
         try:
-            dq_result = None
-            dq_comments=None
-            dq_range=None
-            mostly=mostly
-            total_count=self.df.count()
-            bad_records_count=self.df.where(F.col('__data_quality_issues').isNotNull()).count()
-            bad_percentage=round((bad_records_count/total_count),2)
-            if (min_percentage < bad_percentage) and (bad_percentage < max_percentage):
-                dq_result = 'True'
-            else:
-                dq_result = 'False'
-                dq_comments = f" Failed, due to bad percentage value :-> {bad_percentage} exceeds the given value :-> {mostly}"
-
+            if min_percentage > max_percentage:
+                raise ValueError("Minimum percentage must be less than or equal to Maximum percentage.")
+                
+            current_df = (
+                self.spark.read.format("delta")
+                    .option("versionAsOf", current_version)
+                    .load(self.location)
+            )
             
-            dq_function_name='check_bad_records_percentage'
-            result_value=bad_percentage
-            self.result_list.append(
-                           (
-                        dq_function_name,
-                        result_value,
-                        mostly,
-                        dq_range,
-                        dq_result,
-                        dq_comments
-                           )
-                    )
+            total_count=current_df.count()
+            bad_records_count=current_df.where(F.col('__data_quality_issues').isNotNull()).count()
+            bad_percentage=(bad_records_count/total_count)
+            
+            if (min_percentage < bad_percentage) and (bad_percentage < max_percentage):
+                passed = True
+                comment = f" Check is 'passed' due to bad percentage value {round(float(format(bad_percentage,'f')),2)}%, which is between the expected range of {min_percentage}% to {max_percentage}%."
+
+            else:
+                passed = False
+                comment = f" Check is 'failed' due to bad percentage value {round(float(format(bad_percentage,'f')),2)}%, which is not in between the expected range of {min_percentage}% to {max_percentage}%"
+                
+            self.__append_results(
+                validation_rule="check_bad_records_percentage",
+                passed=passed,
+                columns=None,
+                comments=comment
+            )
+            
+        except Exception:
+            common_utils.exit_with_last_exception(self.dbutils)
+
+    def check_numeric_sum_varation_from_previous_version(
+            self,
+            col_name: str,
+            min_value: Any,
+            max_value: Any,
+            previous_version: int,
+            current_version: int  
+    )->"DataQualityChecker":
+        """Create function to return sum variation from previous to latest dataframe for given column.
+            Parameters
+            ----------
+            col_name : str
+                Name of the column on which.
+            max_accepted_variation  : float
+                maximum threshold value to validate the test cases.
+            max_accepted_variation  : float
+                minimum threshold value to validate the test cases.
+            previous_version : int
+                Given target delta location of previos version.
+            current_version : int
+                Given target delta location of current version.
+        
+            Returns
+            -------
+            DataQualityChecker
+                ExpectationValidationResult object.
+        """
+        try:
+            if min_value > max_value:
+                raise ValueError("Minimum length must be less than or equal to maximum length.")
+                
+            previous_validator = ge.dataset.SparkDFDataset(
+                self.spark.read.format("delta")
+                    .option("versionAsOf", previous_version)
+                    .load(self.location)
+            )
+            current_validator = ge.dataset.SparkDFDataset(
+                self.spark.read.format("delta")
+                    .option("versionAsOf", current_version)
+                    .load(self.location)
+            )
+            
+            history_result = previous_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
+            current_result = current_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
+            sum_diff = current_result['result']['observed_value'] - history_result['result']['observed_value']
+            
+            if ( min_value < sum_diff) and (sum_diff < max_value):
+                passed = True
+                comment =  f" Check is 'passed' due to sum diffrence value {sum_diff}, which is between than the given values {[min_value,max_value]}"
+            else:
+                passed = False
+                comment =  f" Check is 'failed' due to sum diffrence value {sum_diff}, which is not between than the given values {[min_value,max_value]}"
+                
+            self.__append_results(
+                validation_rule="check_numeric_sum_varation_from_previous_version",
+                passed=passed,
+                columns=None,
+                comments=comment
+            )
+
         except Exception:
             common_utils.exit_with_last_exception(self.dbutils)
             
-    def check_numeric_sum_varation_with_prev(
-                      self,
-                      target_location: str,
-                      col_name: str,
-                      min_value: Any,
-                      max_value: Any,
-                      older_version: int,
-                      latest_version: int  
-    )->"DataQualityChecker":
-        """Create function to return sum variation from previous to latest dataframe for given column"""
-        try:
-            dq_function_name = 'check_numeric_sum_varation_with_prev'
-            mostly = None
-            dq_range = None
-            dq_range = f' range : [{min_value}, {max_value}]'
-            latest_df, history_df = self.__get_delta_tables_history_dataframe(
-                target_location=target_location,
-                older_version=older_version,
-                latest_version=latest_version
-            )
-            history_sum_validator = ge.dataset.SparkDFDataset(history_df)
-            latest_sum_validator = ge.dataset.SparkDFDataset(latest_df)
-            history_result = history_sum_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
-            current_result = latest_sum_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
-            result_value = current_result['result']['observed_value'] - history_result['result']['observed_value']
-            dq_comments = f" '{col_name}' : Sum value in history :-> {  history_result['result']['observed_value']} , Sum value in latest :-> { current_result['result']['observed_value']}"           
-            if (result_value > min_value) and (result_value < min_value):
-                dq_result = 'True'
-            else:
-                dq_result = 'False'
-            self.result_list.append(
-                           (
-                      dq_function_name,
-                      result_value,
-                      mostly,
-                      dq_range,
-                      dq_result,
-                      dq_comments,
-                      )
-                    )
-
-        except Exception:
-            common_utils.exit_with_last_exception(self.dbutils)            
-                        
     @classmethod
     def check_foreign_key_column_exits(
-                     cls,
-                     dim_df: str,
-                     fact_df: str,
-                     primary_key: Any,
-                     foreign_key: Any,
-                     dbutils: object,
+                    cls,
+                    dim_df: DataFrame,
+                    fact_df: DataFrame,
+                    primary_key: str,
+                    foreign_key: str,
+                    dbutils: object,
     )->"DataQualityChecker":
-        """Create function to return the bad percentage from given dataframe"""
+        """Create function to return the bad percentage from given dataframe.
+          Parameters
+          ----------
+            dim_df : DataFrame
+                PySpark DataFrame to validate.
+            fact_df  : DataFrame
+                PySpark DataFrame to validate..
+            primary_key  : str
+                primery key of table.
+            foreign_key : str
+                Forgien key of table.
+            dbutils : int
+                A Databricks utils object.
+                
+          Returns
+            -------
+            DataQualityChecker
+                result value.
+        """
         try:
             dim_df = dim_df.select(primary_key)
             fact_df = fact_df.select(foreign_key)
             result_df = fact_df.join(dim_df,fact_df[foreign_key]==dim_df[primary_key],how='left')
             result_value = result_df.where(F.col(primary_key).isNull()).select(foreign_key).distinct().count()
             return result_value
+        
         except Exception:
             common_utils.exit_with_last_exception(dbutils)

@@ -33,12 +33,12 @@ dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_inte
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"data_interval_end: {data_interval_end}")
 
-dbutils.widgets.text("json_dq_wide_mapping", "[]", "9 - json_dq_wide_mapping")
-json_dq_wide_mapping = dbutils.widgets.get("json_dq_wide_mapping")
-json_dq_wide_mapping = json.loads(json_dq_wide_mapping)
-table_level_mapping = json_dq_wide_mapping[0]['table_level_schema']
-column_level_mapping =  json_dq_wide_mapping[0]['colum_level_schema']
-print(f"json_dq_wide_mapping: {json_dq_wide_mapping}")
+dbutils.widgets.text("dq_chcek_mapping", "[]", "9 - dq_chcek_mapping")
+dq_chcek_mapping = dbutils.widgets.get("dq_chcek_mapping")
+dq_chcek_mapping = json.loads(dq_chcek_mapping)
+table_level_mapping = dq_chcek_mapping[0]['table_level_schema']
+column_level_mapping =  dq_chcek_mapping[0]['colum_level_schema']
+print(f"json_dq_wide_mapping: {dq_chcek_mapping}")
 print(f"table_level_mapping: {table_level_mapping}")
 print(f"column_level_mapping: {column_level_mapping}")
 
@@ -77,10 +77,10 @@ print(f"silver_mapping: {silver_mapping}")
 import sys
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wider_check,data_quality_wider_check2
+from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, transform_utils, write_utils, data_quality_utils, data_quality_wider_check,helper_utils
 
 # Print a module's help
-help(data_quality_wider_check2)
+help(helper_utils)
 
 # COMMAND ----------
 
@@ -130,7 +130,7 @@ display(audit_df)
 try:
     # Apply data quality checks based on given column mappings
     dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
-    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
+    mappings = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
     for mapping in mappings:
         if mapping.target_data_type != "string":
             dq_checker = dq_checker.check_column_type_cast(
@@ -146,6 +146,15 @@ try:
 
 except Exception:
     common_utils.exit_with_last_exception(dbutils=dbutils)
+
+# COMMAND ----------
+
+helper_utils.data_quality_narrow_check(
+    column_level_mapping=column_level_mapping,
+    dq_checker=dq_checker,
+    dbutils=dbutils
+)
+bronze_dq_df = dq_checker.build_df()
 
 # COMMAND ----------
 
@@ -170,6 +179,31 @@ results = write_utils.write_delta_table(
 )
 
 print(vars(results))
+
+# COMMAND ----------
+
+dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=target_location)
+helper_utils.data_quality_wider_check(
+    table_level_mapping=table_level_mapping,
+    column_level_mapping=column_level_mapping,
+    dq_checker=dq_checker,
+    previous_version=results.old_version_number,
+    current_version=results.new_version_number,
+    dbutils=dbutils)
+wider_dq_df = dq_checker.build()
+display(wider_dq_df)
+
+# COMMAND ----------
+
+table_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
+for m in table_mapping:
+    print(m)
+     #print(m.check_column_sum_values)
+if m.check_compound_column_uniqueness_variation:
+    print(m)
+    #dq_checker.check_compound_column_uniqueness(col_list=m.compound_columns,mostly=m.check_compound_column_uniqueness_variation)
+wider_dq_df = dq_checker.build()
+display(wider_dq_df)
 
 # COMMAND ----------
 
@@ -346,8 +380,13 @@ pip install pyCrypto
 
 # COMMAND ----------
 
+from pyspark.sql.functions import udf, lit, md5, pandas_udf
+from pyspark.sql.types import StringType
+import pandas as pd
+
 df = spark.sql("select '000' as age")
 df.show(5)
+df=df.toPandas()
 
 from cryptography.fernet import Fernet
 key = Fernet.generate_key()
@@ -360,9 +399,7 @@ def encrypt_val(columnval):
     columnval_encrypted = f.encrypt(columnval_b)
     columnval_encrypted = str(columnval_encrypted.decode('ascii'))
     return columnval_encrypted
-from pyspark.sql.functions import udf, lit, md5, pandas_udf
-from pyspark.sql.types import StringType
-import pandas as pd
+
 # Register UDF's
 encrypt = pandas_udf(encrypt_val, StringType())
 #decrypt = pandas_udf(decrypt_val, StringType())
@@ -372,7 +409,6 @@ encryptionkey=key
 #df3 = df.withColumn("age",encrypt_val(col("age"),key))
      # .withColumn('Sex',encrypt("Sex",lit(encryptionkey)))
 type(df)
-df=df.toPandas()
 #df.select(encrypt('age')).show()
 
 print(df)
