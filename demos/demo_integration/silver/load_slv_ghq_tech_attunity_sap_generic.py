@@ -234,7 +234,7 @@ results = write_utils.write_delta_table(
     load_type=write_utils.LoadType.UPSERT,
     key_columns=key_columns,
     partition_columns=partition_columns,
-    schema_evolution_mode=write_utils.SchemaEvolutionMode.IGNORE_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
 )
 
@@ -258,7 +258,7 @@ print(results)
 # COMMAND ----------
 
 if dq_wider_check:
-    dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=location)
+    dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=location,dbutils=dbutils)
     helper_utils.data_quality_wider_check(
         table_level_mapping=table_level_mapping,
         column_level_mapping=column_level_mapping,

@@ -418,3 +418,8 @@ b=encrypt_val(str('000'),key)
 
 print(b)
 
+
+# COMMAND ----------
+
+df=spark.sql('select current_timestamp()')
+display(df)

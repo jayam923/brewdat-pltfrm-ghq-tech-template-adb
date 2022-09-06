@@ -55,8 +55,7 @@ class DataQualityChecker:
 
             return (
                 self.spark.createDataFrame(set(self.result_list), result_schema)
-                .withColumn("__data_quality_check_ts", F.current_timestamp())
-                .withColumn("__data_quality_check_dt", F.to_date("__data_quality_check_ts"))
+                .withColumn("__data_quality_check_ts",F.to_timestamp( F.current_timestamp(),"MM-dd-yyyy HH mm ss SSS"))
             )
 
         except Exception:
@@ -394,14 +393,14 @@ class DataQualityChecker:
             count_diff = (current_count - previous_count)
             count_variation = count_diff / previous_count
 
-            if (min_value < count_diff) and (count_diff < max_value):
+            if (min_value <= count_diff) and (count_diff <= max_value):
                 passed = True
                 comment = f"Check is 'passed' due to record count difference from previous version is {count_diff} and count variation is {round(float(format(count_variation,'f')),2)}%, which is " \
                         f"expected range of {min_value} to {max_value}."
             else:
                 passed = False
                 comment = f"Check is 'failed' due to record count difference from previous version is {count_diff} and count variation is {round(float(format(count_variation,'f')),2)}%, which is outside of" \
-                        f" expected range of {min_value}% to {max_value}%."
+                        f" expected range of {min_value} to {max_value}."
                 
 
             self.__append_results(
@@ -520,7 +519,7 @@ class DataQualityChecker:
             bad_records_count=current_df.where(F.col('__data_quality_issues').isNotNull()).count()
             bad_percentage=(bad_records_count/total_count)
             
-            if (min_percentage < bad_percentage) and (bad_percentage < max_percentage):
+            if (min_percentage <= bad_percentage) and (bad_percentage <= max_percentage):
                 passed = True
                 comment = f" Check is 'passed' due to bad percentage value {round(float(format(bad_percentage,'f')),2)}%, which is between the expected range of {min_percentage}% to {max_percentage}%."
 
@@ -584,7 +583,7 @@ class DataQualityChecker:
             current_result = current_validator.expect_column_sum_to_be_between(col_name, result_format="SUMMARY")
             sum_diff = current_result['result']['observed_value'] - history_result['result']['observed_value']
             
-            if ( min_value < sum_diff) and (sum_diff < max_value):
+            if ( min_value <= sum_diff) and (sum_diff <= max_value):
                 passed = True
                 comment =  f" Check is 'passed' due to sum diffrence value {sum_diff}, which is between than the given values {[min_value,max_value]}"
             else:
