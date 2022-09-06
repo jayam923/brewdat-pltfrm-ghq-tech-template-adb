@@ -3,21 +3,21 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
+dbutils.widgets.text("source_zone", "ghq", "02 - source_zone")
+source_zone = dbutils.widgets.get("source_zone")
+print(f"{source_zone = }")
+
+dbutils.widgets.text("source_business_domain", "tech", "03 - source_business_domain")
+source_business_domain = dbutils.widgets.get("source_business_domain")
+print(f"{source_business_domain = }")
+
+dbutils.widgets.text("source_system", "sap_europe", "04 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
+dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
-
-dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
-target_zone = dbutils.widgets.get("target_zone")
-print(f"{target_zone = }")
-
-dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_domain")
-target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"{target_business_domain = }")
 
 dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
@@ -42,7 +42,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(common_utils)
+#help(read_utils)
 
 # COMMAND ----------
 
@@ -64,20 +64,24 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 sap_sid = source_system_to_sap_sid.get(source_system)
-attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
-print(f"{attunity_sap_prelz_root = }")
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/{source_table}"
+print(f"{raw_location = }")
 
 # COMMAND ----------
 
 base_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
-        cast_all_to_string=False,
+        file_format=read_utils.RawFileFormat.PARQUET,
+        location=f"{raw_location}/*.parquet",
+        schema_location=raw_location,
+        cast_all_to_string=True,
+        handle_rescued_data=True,
+        additional_options={
+            "cloudFiles.useIncrementalListing": "false",
+        },
     )
     .withColumn("__src_file", F.input_file_name())
     .transform(transform_utils.clean_column_names)
-    .transform(transform_utils.cast_all_columns_to_string)
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
@@ -87,15 +91,16 @@ base_df = (
 
 ct_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
-        cast_all_to_string=False,
+        file_format=read_utils.RawFileFormat.PARQUET,
+        location=f"{raw_location}__ct/*.parquet",
+        schema_location=f"{raw_location}__ct",
+        cast_all_to_string=True,
+        handle_rescued_data=True,
     )
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
     .transform(transform_utils.clean_column_names)
-    .transform(transform_utils.cast_all_columns_to_string)
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
@@ -111,8 +116,8 @@ union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
 
 target_location = lakehouse_utils.generate_bronze_table_location(
     lakehouse_bronze_root=lakehouse_bronze_root,
-    target_zone=target_zone,
-    target_business_domain=target_business_domain,
+    target_zone=source_zone,
+    target_business_domain=source_business_domain,
     source_system=source_system,
     table_name=target_hive_table,
 )

@@ -24,7 +24,6 @@ def test_write_delta_table_append_all(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -51,7 +50,6 @@ def test_location_already_exists(tmpdir):
     table_name = "test_location_exists"
     
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -63,7 +61,6 @@ def test_location_already_exists(tmpdir):
     new_location = f"file://{tmpdir}/test_location_exists_new_location"
     
     result_1 = write_delta_table(
-        spark=spark,
         df=df,
         location=new_location,
         database_name=database_name,
@@ -98,7 +95,6 @@ def test_write_scd_type_2_first_write(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -148,7 +144,6 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -159,7 +154,6 @@ def test_write_scd_type_2_only_new_ids(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -210,7 +204,6 @@ def test_write_scd_type_2_only_updates(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -221,7 +214,6 @@ def test_write_scd_type_2_only_updates(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -279,7 +271,6 @@ def test_write_scd_type_2_same_id_same_data(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -290,7 +281,6 @@ def test_write_scd_type_2_same_id_same_data(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -356,7 +346,6 @@ def test_write_scd_type_2_updates_and_new_records(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -367,7 +356,6 @@ def test_write_scd_type_2_updates_and_new_records(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -439,7 +427,6 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -450,7 +437,6 @@ def test_write_scd_type_2_multiple_keys(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -514,7 +500,6 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -526,7 +511,6 @@ def test_write_scd_type_2_schema_evolution(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -575,7 +559,6 @@ def test_write_scd_type_2_partition(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -588,7 +571,6 @@ def test_write_scd_type_2_partition(tmpdir):
     print(vars(result))
     
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -655,7 +637,6 @@ def test_write_scd_type_2_struct_types(tmpdir):
 
     # ACT
     result = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -666,7 +647,6 @@ def test_write_scd_type_2_struct_types(tmpdir):
     print(vars(result))
 
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -731,7 +711,6 @@ def test_write_duplicated_data_for_upsert(tmpdir):
 
     # ACT
     result_1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -743,7 +722,6 @@ def test_write_duplicated_data_for_upsert(tmpdir):
     print(vars(result_1))
 
     result_2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -790,7 +768,6 @@ def test_write_delta_table_append_new(tmpdir):
     # ACT
     
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -799,7 +776,6 @@ def test_write_delta_table_append_new(tmpdir):
         key_columns=['phone_number'],
         )
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -838,7 +814,6 @@ def test_write_delta_table_overwrite_table(tmpdir):
     # ACT
     
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -846,7 +821,6 @@ def test_write_delta_table_overwrite_table(tmpdir):
         load_type=LoadType.OVERWRITE_TABLE,
         )
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -885,7 +859,6 @@ def test_write_delta_table_overwrite_partition(tmpdir):
     # ACT
     
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -894,7 +867,6 @@ def test_write_delta_table_overwrite_partition(tmpdir):
         partition_columns=['phone_number'],
         )
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -933,7 +905,6 @@ def test_write_delta_table_upsert(tmpdir):
     # ACT
     
     result = write_delta_table(
-        spark=spark,
         df=df,
         location=location,
         database_name=database_name,
@@ -942,7 +913,6 @@ def test_write_delta_table_upsert(tmpdir):
         key_columns=['phone_number'],
         )
     result = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -976,7 +946,6 @@ def test_append_upsert_load_count(tmpdir):
 
     print("############# ROUND 1")
     result1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -987,7 +956,6 @@ def test_append_upsert_load_count(tmpdir):
 
     print("############# ROUND 2")
     result2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -998,7 +966,6 @@ def test_append_upsert_load_count(tmpdir):
 
     print("############# ROUND 3")
     result3 = write_delta_table(
-        spark=spark,
         df=df3,
         location=location,
         database_name=database_name,
@@ -1032,7 +999,6 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
 
     print("############# ROUND 1")
     result1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -1043,7 +1009,6 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
 
     print("############# ROUND 2")
     result2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -1054,7 +1019,6 @@ def test_append_upsert_with_nulls_load_count(tmpdir):
 
     print("############# ROUND 3")
     result3 = write_delta_table(
-        spark=spark,
         df=df3,
         location=location,
         database_name=database_name,
@@ -1092,7 +1056,6 @@ def test_append_new_load_count(tmpdir):
 
     print("############# ROUND 1")
     result1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -1103,7 +1066,6 @@ def test_append_new_load_count(tmpdir):
 
     print("############# ROUND 2")
     result2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -1114,7 +1076,6 @@ def test_append_new_load_count(tmpdir):
 
     print("############# ROUND 3")
     result3 = write_delta_table(
-        spark=spark,
         df=df3,
         location=location,
         database_name=database_name,
@@ -1125,7 +1086,6 @@ def test_append_new_load_count(tmpdir):
 
     print("############# ROUND 4")
     result4 = write_delta_table(
-        spark=spark,
         df=df4,
         location=location,
         database_name=database_name,
@@ -1160,7 +1120,6 @@ def test_type2_scd_load_count(tmpdir):
 
     print("############# ROUND 1")
     result1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -1171,7 +1130,6 @@ def test_type2_scd_load_count(tmpdir):
 
     print("############# ROUND 2")
     result2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -1182,7 +1140,6 @@ def test_type2_scd_load_count(tmpdir):
 
     print("############# ROUND 3")
     result3 = write_delta_table(
-        spark=spark,
         df=df3,
         location=location,
         database_name=database_name,
@@ -1226,7 +1183,6 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
 
     # ACT
     result1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -1236,7 +1192,6 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     )
 
     result2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -1246,7 +1201,6 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     )
 
     result3 = write_delta_table(
-        spark=spark,
         df=df3,
         location=location,
         database_name=database_name,
@@ -1256,7 +1210,6 @@ def test_write_bad_records_write_to_error_location_mode(tmpdir):
     )
 
     result4 = write_delta_table(
-        spark=spark,
         df=df4,
         location=location,
         database_name=database_name,
@@ -1324,7 +1277,6 @@ def test_write_bad_records_ignore_mode(tmpdir):
 
     # ACT
     result1 = write_delta_table(
-        spark=spark,
         df=df1,
         location=location,
         database_name=database_name,
@@ -1334,7 +1286,6 @@ def test_write_bad_records_ignore_mode(tmpdir):
     )
 
     result2 = write_delta_table(
-        spark=spark,
         df=df2,
         location=location,
         database_name=database_name,
@@ -1344,7 +1295,6 @@ def test_write_bad_records_ignore_mode(tmpdir):
     )
 
     result3 = write_delta_table(
-        spark=spark,
         df=df3,
         location=location,
         database_name=database_name,
@@ -1354,7 +1304,6 @@ def test_write_bad_records_ignore_mode(tmpdir):
     )
 
     result4 = write_delta_table(
-        spark=spark,
         df=df4,
         location=location,
         database_name=database_name,
