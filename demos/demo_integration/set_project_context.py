@@ -36,6 +36,7 @@ elif environment == "qa":
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-q"
     source_system_to_sap_sid = {
         "sap_europe": "era",
+        "sap_africa": "bt1",
     }
     synapse_blob_storage_account_name = "brewdatpltfrmsynwkssaq"
     synapse_connection_string = "jdbc:sqlserver://brewdat-pltfrm-synwks-q.sql.azuresynapse.net:1433;" + \
@@ -50,6 +51,7 @@ elif environment == "prod":
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-p"
     source_system_to_sap_sid = {
         "sap_europe": "erp",
+        "sap_africa": "bt1",
     }
     synapse_blob_storage_account_name = "brewdatpltfrmsynwkssap"
     synapse_connection_string = "jdbc:sqlserver://brewdat-pltfrm-synwks-p.sql.azuresynapse.net:1433;" + \
