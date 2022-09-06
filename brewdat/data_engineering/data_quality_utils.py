@@ -22,6 +22,7 @@ class DataQualityChecker():
         self.df = df
         self._current_check = 0
 
+    @common_utils.with_exception_handling
     def build_df(self) -> DataFrame:
         """Obtain the resulting DataFrame with data quality checks applied.
 
@@ -33,7 +34,15 @@ class DataQualityChecker():
         temp_dq_cols = [c for c in self.df.columns if c.startswith(DQ_RESULTS_COLUMN + "_")]
         self.df = (
             self.df
-            .withColumn(DQ_RESULTS_COLUMN, F.filter(F.array(temp_dq_cols), lambda c: c.isNotNull()))
+            .withColumn(
+                DQ_RESULTS_COLUMN,
+                F.filter(F.array(temp_dq_cols), lambda c: c.isNotNull())
+            )
+            .withColumn(
+                DQ_RESULTS_COLUMN,
+                F.when(F.size(DQ_RESULTS_COLUMN) == 0, F.lit(None))
+                .otherwise(F.col(DQ_RESULTS_COLUMN))
+            )
             .drop(*temp_dq_cols)
         )
         return self.df
