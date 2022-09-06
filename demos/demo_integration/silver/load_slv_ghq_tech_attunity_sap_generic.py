@@ -75,7 +75,7 @@ import sys
 
 # Import BrewDat Library modules
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils, data_quality_wider_check2, helper_utils
+from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils, data_quality_wider_check, helper_utils
 
 # Print a module's help
 help(transform_utils)
@@ -234,7 +234,7 @@ results = write_utils.write_delta_table(
     load_type=write_utils.LoadType.UPSERT,
     key_columns=key_columns,
     partition_columns=partition_columns,
-    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.IGNORE_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
 )
 
@@ -258,7 +258,7 @@ print(results)
 # COMMAND ----------
 
 if dq_wider_check:
-    dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=target_location)
+    dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=location)
     helper_utils.data_quality_wider_check(
         table_level_mapping=table_level_mapping,
         column_level_mapping=column_level_mapping,

@@ -1,6 +1,17 @@
 from .import common_utils
 
 def data_quality_narrow_check(column_level_mapping: object, dq_checker: object, dbutils: object):
+    """Helper class that provides data quality narrow checks for given DataFrame.
+
+    Parameters
+    ----------
+    column_level_mapping : Object
+        DataQuality column mapping object.
+    dq_checker : Object
+        DataQuality uitls object
+    dbutils : object
+        A Databricks utils object.
+    """
     try:
         mappings = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
         # Apply data quality checks based on given column mappings
@@ -50,72 +61,85 @@ def data_quality_narrow_check(column_level_mapping: object, dq_checker: object, 
         common_utils.exit_with_last_exception(dbutils=dbutils)
         
 def data_quality_wider_check(table_level_mapping: object, column_level_mapping: object, dq_checker: object, previous_version: int,current_version: int, dbutils: object):
-    #try:
-    column_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
-    table_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in table_level_mapping]
+    """Helper class that provides data quality wide checks for given DataFrame.
 
-    for mapping in column_mapping:
-        if mapping.check_columns_null_variation:
-            dq_checker.check_column_nulls( 
+    Parameters
+    ----------
+    column_level_mapping : Object
+        DataQuality column mapping object.
+    column_level_mapping : Object
+        DataQuality column mapping object.
+    dq_checker : Object
+        DataQuality uitls object.
+    dbutils : object
+        A Databricks utils object.
+    """
+    try:
+        column_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
+        table_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in table_level_mapping]
+
+        for mapping in column_mapping:
+            if mapping.check_columns_null_variation:
+                dq_checker.check_column_nulls( 
+                    col_name = mapping.source_column_name,
+                    mostly =mapping.check_columns_null_variation
+                )
+
+            if mapping.check_column_sum_values:
+                dq_checker.check_column_sum( 
+                    col_name = mapping.source_column_name,
+                    min_value = mapping.check_column_sum_values[0],
+                    max_value = mapping.check_column_sum_values[1]
+                )
+
+            if mapping.check_column_uniqueness_variation:
+                dq_checker.check_column_uniqueness(
                 col_name = mapping.source_column_name,
-                mostly =mapping.check_columns_null_variation
-            )
+                    mostly = mapping.check_column_uniqueness_variation
+                )
 
-        if mapping.check_column_sum_values:
-            dq_checker.check_column_sum( 
-                col_name = mapping.source_column_name,
-                min_value = mapping.check_column_sum_values[0],
-                max_value = mapping.check_column_sum_values[1]
-            )
+            if mapping.check_null_percentage_variation_from_previous_version:
+                dq_checker.check_null_percentage_variation_from_previous_version(
+                    col_name = mapping.source_column_name,
+                    max_accepted_variation = mapping.check_null_percentage_variation_from_previous_version,
+                    previous_version=previous_version,
+                    current_version=current_version
+                )
 
-        if mapping.check_column_uniqueness_variation:
-            dq_checker.check_column_uniqueness(
-              col_name = mapping.source_column_name,
-                mostly = mapping.check_column_uniqueness_variation
-            )
+            if mapping.check_numeric_sum_varation_from_previous_version:
+                dq_checker.check_numeric_sum_varation_from_previous_version(
+                    col_name = mapping.source_column_name,
+                    min_value = mapping.check_numeric_sum_varation_from_previous_version[0],
+                    max_value = mapping.check_numeric_sum_varation_from_previous_version[1],
+                    previous_version = previous_version,
+                    current_version = current_version
+                )
 
-        if mapping.check_null_percentage_variation_from_previous_version:
-            dq_checker.check_null_percentage_variation_from_previous_version(
-                col_name = mapping.source_column_name,
-                max_accepted_variation = mapping.check_null_percentage_variation_from_previous_version,
-                previous_version=previous_version,
-                current_version=current_version
-            )
+        for mapping in table_mapping:
+            if mapping.check_compound_column_uniqueness_variation:
+                dq_checker.check_compound_column_uniqueness(
+                    col_list = mapping.compound_columns,
+                    mostly = mapping.check_compound_column_uniqueness_variation
+                )
+            if mapping.check_row_count:
+                dq_checker.check_row_count(
+                min_value = mapping.check_row_count[0],
+                max_value = mapping.check_row_count[1]
+                )
 
-        if mapping.check_numeric_sum_varation_from_previous_version:
-            dq_checker.check_numeric_sum_varation_from_previous_version(
-                col_name = mapping.source_column_name,
-                min_value = mapping.check_numeric_sum_varation_from_previous_version[0],
-                max_value = mapping.check_numeric_sum_varation_from_previous_version[1],
-                previous_version = previous_version,
-                current_version = current_version
-            )
+            if mapping.check_count_variation_from_previous_version:
+                dq_checker.check_count_variation_from_previous_version( 
+                    min_value = mapping.check_count_variation_from_previous_version[0],
+                    max_value = mapping.check_count_variation_from_previous_version[1],
+                    previous_version = previous_version,
+                    current_version = current_version)
 
-    for mapping in table_mapping:
-        if mapping.check_compound_column_uniqueness_variation:
-            dq_checker.check_compound_column_uniqueness(
-                col_list = mapping.compound_columns,
-                mostly = mapping.check_compound_column_uniqueness_variation
-            )
-        if mapping.check_row_count:
-            dq_checker.check_row_count(
-              min_value = mapping.check_row_count[0],
-              max_value = mapping.check_row_count[1]
-            )
+            if mapping.check_bad_records_percentage:
+                dq_checker.check_bad_records_percentage( 
+                    min_percentage = mapping.check_bad_records_percentage[0],
+                    max_percentage = mapping.check_bad_records_percentage[1],
+                    current_version = current_version
+                )
 
-        if mapping.check_count_variation_from_previous_version:
-            dq_checker.check_count_variation_from_previous_version( 
-                min_value = mapping.check_count_variation_from_previous_version[0],
-                max_value = mapping.check_count_variation_from_previous_version[1],
-                previous_version = previous_version,
-                current_version = current_version)
-
-        if mapping.check_bad_records_percentage:
-            dq_checker.check_bad_records_percentage( 
-                min_percentage = mapping.check_bad_records_percentage[0],
-                max_percentage = mapping.check_bad_records_percentage[1],
-                current_version = current_version
-            )
-
-    #except Exception:
-        #common_utils.exit_with_last_exception(dbutils=dbutils)
+    except Exception:
+        common_utils.exit_with_last_exception(dbutils=dbutils)

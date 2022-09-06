@@ -121,49 +121,68 @@ class DataQualityColumnMapping():
 
     Attributes
     ----------
+    source_column_name : str, default=None
+        Column name in the source DataFrame.
+    target_data_type : str, default=None
+        The data type to which input column will be cast to.
+    nullable : bool, default=True
+        Whether the target column should allow null values.
     check_min_length : int, default=None
-        To check target column minimum length
+        To check target column minimum length.
         Used for data quality checks.
     check_max_length : int, default=None
-        To check target column maximum length
+        To check target column maximum length.
         Used for data quality checks.
     check_min_value : int, default=None
-        To check target column minimum value
+        To check target column minimum value.
         Used for data quality checks.
     check_max_value : int, default=None
-        To check target column maximum value
+        To check target column maximum value.
         Used for data quality checks.
     check_valid_values : list, default=[]
-        To check target column contain these values
+        To check target column contain these values.
         Used for data quality checks.
-    check_invalid_values : int, default=[] 
-        To check target column not to contain these values
+    check_invalid_values : list, default=[] 
+        To check target column not to contain these values.
         Used for data quality checks.
     check_matches_regex : str, default=None
-        To check target column to have matching value
+        To check target column to have matching value.
         Used for data quality checks.
     check_not_matches_regex : str, default=None
-        To check target column not to have matching value
+        To check target column not to have matching value.
         Used for data quality checks.
-    source_column_name : str
-        Column name in the source DataFrame.
-    target_data_type : str
-        The data type to which input column will be cast to.
-    sql_expression : str, default=None
-        Spark SQL expression to create the target column.
-        If None, simply cast and possibly rename the source column.
-    unique_percentage_col : float
-        To check the column percentage for target column.
+    compound_columns : str, default=[]
+        Column names in the source DataFrame.
         Used for data quality checks.
-    null_percentage_for_col : float
-        To check the null percentage of target column.
+    check_count_variation_from_previous_version : float, default=None
+        To check the column percentage of previos version
         Used for data quality checks.
-    sum_max_value : int
-         To check column sum value maximum
+    check_null_percentage_variation_from_previous_version : float, default=None
+        To check the null percentage of previous version
+        Used for data quality checks.
+    check_bad_records_percentage : float, default=None
+         To check the bad percentage of current version
          Used for data quality checks.
-    sum_min_value : int
-        To check column sum value minimum
+    check_compound_column_uniqueness_variation : float, default=None
+        To check compound column uniqueness variation.
         Used for data quality checks.
+    check_row_count : int, default=[]
+        To check column row count.
+        Used for data quality checks.
+    check_columns_null_variation : float, default=None
+        To check column null variation.
+        Used for data quality checks.
+    check_column_sum_values : int, default=[]
+        To check numeric column sum values.
+        Used for data quality checks.
+    check_column_uniqueness_variation : float, default=None
+        To check column uniqueness variation.
+        Used for data quality checks.
+    check_numeric_sum_varation_from_previous_version : int, default=[]
+        To check numeric column sum varation from previous version.
+        Used for data quality checks.
+        
+        
     """
     def __init__(
         self,
@@ -174,9 +193,9 @@ class DataQualityColumnMapping():
         check_max_length: int = None,
         check_min_value: Any = None,
         check_max_value: Any = None,
-        check_matches_regex: str = None,
         check_valid_values: List[Any] = [],
         check_invalid_values: List[Any] = [],
+        check_matches_regex: str = None,
         check_not_matches_regex: str = None, 
         compound_columns: List[str] = [],
         check_count_variation_from_previous_version: List[int] = [],
@@ -213,7 +232,6 @@ class DataQualityColumnMapping():
 
     def __str__(self):
         return str(vars(self))
-
     
 def list_non_metadata_columns(df: DataFrame) -> List[str]:
     """Obtain a list of DataFrame columns except for metadata columns.
