@@ -1,5 +1,4 @@
 from typing import Any, List, Optional, Union
-import uuid
 
 import pyspark.sql.functions as F
 from pyspark.sql import Column, DataFrame, Window
