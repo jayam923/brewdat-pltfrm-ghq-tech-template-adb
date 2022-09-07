@@ -31,6 +31,38 @@ dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_inte
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"data_interval_end: {data_interval_end}")
 
+dbutils.widgets.text("partition_column", "__ref_dt", "9 - partition_column")
+partition_column = dbutils.widgets.get("partition_column")
+print(f"partition_column: {partition_column}")
+
+dbutils.widgets.text("raw_path", "data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/", "10 - raw_path")
+raw_path = dbutils.widgets.get("raw_path")
+print(f"raw_path: {raw_path}")
+
+dbutils.widgets.text("watermark_column", "__ref_dt", "11 - watermark_column")
+watermark_column = dbutils.widgets.get("watermark_column")
+print(f"watermark_column: {watermark_column}")
+
+dbutils.widgets.text("source_hive_database", "null", "12 - source_hive_database")
+source_hive_database = dbutils.widgets.get("source_hive_database")
+print(f"source_hive_database: {source_hive_database}")
+
+dbutils.widgets.text("source_hive_table", "null", "13 - source_hive_table")
+source_hive_table = dbutils.widgets.get("source_hive_table")
+print(f"source_hive_table: {source_hive_table}")
+
+dbutils.widgets.text("key_column", "null", "14 - key_column")
+key_columns = dbutils.widgets.get("key_column")
+print(f"key_column: {key_column}")
+
+dbutils.widgets.text("silver_column_mapping", "[]", "15 - silver_column_mapping")
+silver_column_mapping = dbutils.widgets.get("silver_column_mapping")
+print(f"silver_column_mapping: {silver_column_mapping}")
+
+dbutils.widgets.text("spark_sql_query", "null", "16 - spark_sql_query")
+spark_sql_query = dbutils.widgets.get("spark_sql_query")
+print(f"spark_sql_query: {spark_sql_query}")
+
 # COMMAND ----------
 
 import sys
@@ -61,12 +93,12 @@ common_utils.configure_spn_access_for_adls(
 from pyspark.sql import functions as F
 
 try:
-    key_columns = ["SalesOrderID"]
+    key_columns = [key_column]
 
     bronze_df = (
         spark.read
-        .table("brz_ghq_tech_adventureworks.sales_order_header")
-        .filter(F.col("__ref_dt").between(
+        .table(f"{source_hive_database}.{source_hive_table}")
+        .filter(F.col(watermark_column).between(
             F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
             F.date_format(F.lit(data_interval_end), "yyyyMMdd")
         ))
@@ -79,75 +111,38 @@ except Exception:
 
 # COMMAND ----------
 
-bronze_dq_df = (
-    data_quality_utils.DataQualityChecker(bronze_df)
-    .check_column_is_not_null(column_name="SalesOrderID")
-    .check_column_is_not_null(column_name="CustomerID")
-    .check_column_type_cast(column_name="SalesOrderID", data_type="int")
-    .check_column_type_cast(column_name="RevisionNumber", data_type="tinyint")
-    .check_column_type_cast(column_name="OrderDate", data_type="date")
-    .check_column_type_cast(column_name="DueDate", data_type="date")
-    .check_column_type_cast(column_name="ShipDate", data_type="date")
-    .check_column_type_cast(column_name="Status", data_type="tinyint")
-    .check_column_type_cast(column_name="OnlineOrderFlag", data_type="boolean")
-    .check_column_type_cast(column_name="CustomerID", data_type="int")
-    .check_column_type_cast(column_name="ShipToAddressID", data_type="int")
-    .check_column_type_cast(column_name="BillToAddressID", data_type="int")
-    .check_column_type_cast(column_name="SubTotal", data_type="decimal(19,4)")
-    .check_column_type_cast(column_name="TaxAmt", data_type="decimal(19,4)")
-    .check_column_type_cast(column_name="Freight", data_type="decimal(19,4)")
-    .check_column_type_cast(column_name="TotalDue", data_type="decimal(19,4)")
-    .check_column_type_cast(column_name="ModifiedDate", data_type="timestamp")
-    .check_column_value_is_in(column_name="Status", valid_values=[1, 2, 3, 4, 5, 6])
-    .check_column_max_length(column_name="SalesOrderNumber", maximum_length=30)
-    .check_column_max_length(column_name="PurchaseOrderNumber", maximum_length=30)
-    .check_column_max_length(column_name="ShipMethod", maximum_length=100)
-    .check_column_max_length(column_name="AccountNumber", maximum_length=15)
-    .check_column_matches_regular_expression(column_name="AccountNumber", regular_expression="^\d{2}-\d{4}-\d{6}$")
-    .build_df()
-)
+# Apply data quality checks based on given column mappings
+try:
+    dq_checker = data_quality_utils.DataQualityChecker(bronze_df)
+    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_column_mapping]
+    for mapping in mappings:
+        if mapping.target_data_type != "string":
+            dq_checker = dq_checker.check_column_type_cast(
+                column_name=mapping.source_column_name,
+                data_type=mapping.target_data_type,
+            )
+        if not mapping.nullable:
+            dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
 
-bronze_dq_df.createOrReplaceTempView("v_bronze_dq_df")
+    bronze_dq_df = dq_checker.build_df()
 
+    #display(bronze_dq_df)
+
+except Exception:
+    common_utils.exit_with_last_exception()
 #display(bronze_dq_df)
 
 # COMMAND ----------
 
-transformed_df = spark.sql("""
-    SELECT
-        CAST(SalesOrderID AS INT) AS SalesOrderID,
-        CAST(RevisionNumber AS TINYINT) AS RevisionNumber,
-        TO_DATE(OrderDate) AS OrderDate,
-        TO_DATE(DueDate) AS DueDate,
-        TO_DATE(ShipDate) AS ShipDate,
-        CAST(Status AS TINYINT) AS Status,
-        CASE
-            WHEN Status = 1 THEN 'In Process'
-            WHEN Status = 2 THEN 'Approved'
-            WHEN Status = 3 THEN 'Backordered'
-            WHEN Status = 4 THEN 'Rejected'
-            WHEN Status = 5 THEN 'Shipped'
-            WHEN Status = 6 THEN 'Canceled'
-            WHEN Status IS NULL THEN NULL
-            ELSE '--MAPPING ERROR--'
-        END AS StatusDescription,
-        CAST(OnlineOrderFlag AS BOOLEAN) AS OnlineOrderFlag,
-        SalesOrderNumber AS SalesOrderNumber,
-        PurchaseOrderNumber AS PurchaseOrderNumber,
-        AccountNumber AS AccountNumber,
-        CAST(CustomerID AS INT) AS CustomerID,
-        CAST(ShipToAddressID AS INT) AS ShipToAddressID,
-        CAST(BillToAddressID AS INT) AS BillToAddressID,
-        ShipMethod,
-        CAST(SubTotal AS DECIMAL(19,4)) AS SubTotal,
-        CAST(TaxAmt AS DECIMAL(19,4)) AS TaxAmt,
-        CAST(Freight AS DECIMAL(19,4)) AS Freight,
-        CAST(TotalDue AS DECIMAL(19,4)) AS TotalDue,
-        TO_TIMESTAMP(ModifiedDate) AS ModifiedDate,
-        __data_quality_issues
-    FROM
-        v_bronze_dq_df
-""")
+# Preserve data quality results
+dq_results_column = common_utils.ColumnMapping(
+    source_column_name=data_quality_utils.DQ_RESULTS_COLUMN,
+    target_data_type="array<string>",
+)
+mappings.append(dq_results_column)
+
+# Apply column mappings and retrieve list of unmapped columns
+transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bronze_dq_df, mappings=mappings)
 
 #display(transformed_df)
 
@@ -156,7 +151,7 @@ transformed_df = spark.sql("""
 dedup_df = transform_utils.deduplicate_records(
     df=transformed_df,
     key_columns=key_columns,
-    watermark_column="ModifiedDate",
+    watermark_column=watermark_column,
 )
 
 #display(dedup_df)
@@ -171,7 +166,7 @@ audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 silver_dq_df = (
     data_quality_utils.DataQualityChecker(audit_df)
-    .check_composite_column_value_is_unique(column_names=key_columns)
+    .check_composite_column_value_is_unique(column_names=key_column)
     .check_column_value_is_not_in(column_name="StatusDescription", invalid_values=["--MAPPING ERROR--"])
     .check_narrow_condition(
         expected_condition="TotalDue - SubTotal - TaxAmt - Freight < 0.01",
@@ -201,7 +196,7 @@ results = write_utils.write_delta_table(
     database_name=target_hive_database,
     table_name=target_hive_table,
     load_type=write_utils.LoadType.UPSERT,
-    key_columns=key_columns,
+    key_columns=key_column,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 print(results)
