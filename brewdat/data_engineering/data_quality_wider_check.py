@@ -225,15 +225,16 @@ class DataQualityChecker:
 
             passed = result['success']
 
-            if not passed:
-                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records not being " \
+            if passed:
+                 comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
-                comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
+                passed = 'false'
+                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
             self.__append_results(
-                validation_rule="check_nulls",
+                validation_rule="check_column_nulls",
                 passed=passed,
                 columns=col_name,
                 comments=comment
@@ -280,10 +281,10 @@ class DataQualityChecker:
 
             comment = None
             if not passed:
-                comment = f"Check is 'failed' due to Expected row sum to be between {min_value} and {max_value}. " \
+                comment = f"Check is 'failed' due to Expected column sum to be between {min_value} and {max_value}. " \
                         f"Observed sum was {result['result']['observed_value']}."
             else:
-                comment = f"Check is 'success' due to Expected row sum to be between {min_value} and {max_value}. " \
+                comment = f"Check is 'success' due to Expected column sum to be between {min_value} and {max_value}. " \
                         f"Observed sum was {result['result']['observed_value']}."
 
             self.__append_results(
@@ -330,11 +331,11 @@ class DataQualityChecker:
 
             if unexpected_percent < mostly:
                 passed = False
-                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent,'f')),2)}% of the records not being " \
+                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
                 passed = True
-                comment = f"Check is 'success' due to {round(float(format(unexpected_percent,'f')),2)}% of the records not being " \
+                comment = f"Check is 'success' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
             self.__append_results(
@@ -454,20 +455,19 @@ class DataQualityChecker:
 
             current_result = current_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
-            variation =  (current_result['result']['unexpected_percent']
-                        - previous_result['result']['unexpected_percent'])
+            variation =  ((current_result['result']['unexpected_percent']) - (previous_result['result']['unexpected_percent']))
 
-            if variation > max_accepted_variation:
+            if variation <= max_accepted_variation:
                 passed = False
-                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
-                          f"(version {previous_version}) when compared with previous version of the table, which is" \
+                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
+                          f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
                           f" higher than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
                           f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
                 
             else:
                 passed = True
-                comment = f"Check is 'passed' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
-                          f"(version {previous_version}) when compared with previous version of the table, which is" \
+                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
+                          f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
                           f" expected percentage {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
                           f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
                 
@@ -585,15 +585,15 @@ class DataQualityChecker:
             
             if ( min_value <= sum_diff) and (sum_diff <= max_value):
                 passed = True
-                comment =  f" Check is 'passed' due to sum diffrence value {sum_diff}, which is between than the given values {[min_value,max_value]}"
+                comment =  f" Check is 'passed' due to sum diffrence of '{col_name}' value is {sum_diff}, which is between than the given values {[min_value,max_value]}"
             else:
                 passed = False
-                comment =  f" Check is 'failed' due to sum diffrence value {sum_diff}, which is not between than the given values {[min_value,max_value]}"
+                comment =  f" Check is 'failed' due to sum diffrence of '{col_name}' value is {sum_diff}, which is not between than the given values {[min_value,max_value]}"
                 
             self.__append_results(
                 validation_rule="check_numeric_sum_varation_from_previous_version",
                 passed=passed,
-                columns=None,
+                columns=col_name,
                 comments=comment
             )
 

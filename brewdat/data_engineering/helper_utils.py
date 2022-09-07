@@ -77,7 +77,7 @@ def data_quality_wider_check(table_level_mapping: object, column_level_mapping: 
     try:
         column_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
         table_mapping = [common_utils.DataQualityColumnMapping(**mapping) for mapping in table_level_mapping]
-
+        # Apply data quality checks based on given column mappings
         for mapping in column_mapping:
             if mapping.check_columns_null_variation:
                 dq_checker.check_column_nulls( 
