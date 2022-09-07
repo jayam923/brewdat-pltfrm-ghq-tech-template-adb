@@ -52,7 +52,7 @@ source_hive_table = dbutils.widgets.get("source_hive_table")
 print(f"source_hive_table: {source_hive_table}")
 
 dbutils.widgets.text("key_column", "null", "14 - key_column")
-key_columns = dbutils.widgets.get("key_column")
+key_column = dbutils.widgets.get("key_column")
 print(f"key_column: {key_column}")
 
 dbutils.widgets.text("silver_column_mapping", "[]", "15 - silver_column_mapping")
