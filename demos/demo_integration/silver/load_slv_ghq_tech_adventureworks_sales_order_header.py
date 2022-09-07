@@ -57,6 +57,7 @@ print(f"key_column: {key_column}")
 
 dbutils.widgets.text("silver_column_mapping", "[]", "15 - silver_column_mapping")
 silver_column_mapping = dbutils.widgets.get("silver_column_mapping")
+silver_column_mapping = json.loads(silver_column_mapping)
 print(f"silver_column_mapping: {silver_column_mapping}")
 
 dbutils.widgets.text("spark_sql_query", "null", "16 - spark_sql_query")
