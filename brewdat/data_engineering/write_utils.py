@@ -321,7 +321,7 @@ def write_stream_delta_table(
     update_condition_for_upsert: str = "true",   # by default, always update
     enable_vacuum: bool = True,
     time_travel_retention_days: int = 30,
-    auto_broadcast_join_threshold: int = 52428800,
+    auto_broadcast_join_threshold: int = 52428800,  # 50MB
     enable_caching: bool = False,
     reset_checkpoint: bool = False,
     dbutils: Any = None,
