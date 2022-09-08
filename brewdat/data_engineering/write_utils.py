@@ -1087,7 +1087,7 @@ def _write_table_using_upsert(
     (
         delta_table.alias("target")
         .merge(df.alias("source"), merge_condition)
-        .whenMatched(condition=delete_condition).delete()
+        .whenMatchedDelete(condition=delete_condition)
         .whenMatchedUpdateAll(condition=update_condition)
         .whenNotMatchedInsertAll()
         .execute()
