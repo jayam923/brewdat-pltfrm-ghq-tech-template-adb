@@ -186,7 +186,7 @@ def write_delta_table(
         )
 
         # Write data with the selected load type
-        spark.SparkContext.setJobDescription(f"`{database_name}`.`{table_name}`")
+        spark.sparkContext.setJobDescription(f"`{database_name}`.`{table_name}`")
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
@@ -638,7 +638,7 @@ def _write_to_error_table(
     )
 
     spark = SparkSession.getActiveSession()
-    spark.SparkContext.setJobDescription(f"`{error_database_name}`.`{table_name}`")
+    spark.sparkContext.setJobDescription(f"`{error_database_name}`.`{table_name}`")
 
     loaded_count = _write_table_using_append_all(
         df=df,
