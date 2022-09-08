@@ -86,10 +86,11 @@ def write_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
+    delete_condition_for_upsert: str = "false",  # by default, never delete
+    update_condition_for_upsert: str = "true",   # by default, always update
     time_travel_retention_days: int = 30,
-    auto_broadcast_join_threshold: int = 52428800,
+    auto_broadcast_join_threshold: int = 52428800,  # 50MB
     enable_caching: bool = True,
-    delete_condition: str = None,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
 
@@ -120,6 +121,12 @@ def write_delta_table(
     bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
         Specifies the way in which bad records should be handled.
         See documentation for BrewDatLibrary.BadRecordHandlingMode.
+    delete_condition_for_upsert : str, default="false"
+        A custom condition to be checked before deleting records with UPSERT load type.
+        By default, never delete any matching record.
+    update_condition_for_upsert : str, default="true"
+        A custom condition to be checked before updating records with UPSERT load type.
+        By default, always update all matching records.
     time_travel_retention_days : int, default=30
         Number of days for retaining time travel data in the Delta table.
         Used to limit how many old snapshots are preserved during the VACUUM operation.
@@ -229,7 +236,8 @@ def write_delta_table(
                 key_columns=key_columns,
                 partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
-                delete_condition=delete_condition,
+                delete_condition=delete_condition_for_upsert,
+                update_condition=update_condition_for_upsert,
             )
         elif load_type == LoadType.TYPE_2_SCD:
             num_records_loaded = _write_table_using_type_2_scd(
@@ -898,7 +906,8 @@ def _write_table_using_upsert(
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
-    delete_condition: str = None
+    delete_condition: str = "false",
+    update_condition: str = "true",
 ) -> int:
     """Write the DataFrame using UPSERT.
 
@@ -918,6 +927,12 @@ def _write_table_using_upsert(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+    delete_condition : str, default="false"
+        A custom condition to be checked before deleting records with UPSERT load type.
+        By default, never delete any matching record.
+    update_condition : str, default="true"
+        A custom condition to be checked before updating records with UPSERT load type.
+        By default, always update all matching records.
 
     Returns
     -------
@@ -950,18 +965,15 @@ def _write_table_using_upsert(
 
     # Write to the delta table
     delta_table = DeltaTable.forPath(spark, location)
-    delta_table_marge = delta_table.alias("target").merge(df.alias("source"), merge_condition)
-    
-    if delete_condition: 
-        delta_table_marge=delta_table_marge.whenMatched(delete_condition).delete()
-
-    delta_table_merge=(
-        delta_table_marge
-        .whenMatchedUpdateAll()
+    (
+        delta_table.alias("target")
+        .merge(df.alias("source"), merge_condition)
+        .whenMatched(condition=delete_condition).delete()
+        .whenMatchedUpdateAll(condition=update_condition)
         .whenNotMatchedInsertAll()
         .execute()
     )
-    
+
     return _get_latest_output_row_count(spark=spark, location=location)
 
 
