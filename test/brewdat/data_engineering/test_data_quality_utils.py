@@ -72,8 +72,6 @@ def test_check_multiple_rules():
         .build_df()
     )
 
-    result_df.explain("extended")
-
     # ASSERT
     record1 = result_df.filter("id == 1").toPandas().to_dict('records')[0]
     assert record1['__data_quality_issues'] is None
