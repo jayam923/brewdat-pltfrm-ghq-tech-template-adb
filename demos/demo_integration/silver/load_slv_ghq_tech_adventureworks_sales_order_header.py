@@ -100,7 +100,6 @@ common_utils.configure_spn_access_for_adls(
 from pyspark.sql import functions as F
 
 try:
-    key_columns = [key_column]
 
     bronze_df = (
         spark.read

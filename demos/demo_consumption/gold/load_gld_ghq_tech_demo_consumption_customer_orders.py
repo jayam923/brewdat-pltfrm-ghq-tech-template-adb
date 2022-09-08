@@ -98,7 +98,6 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 try:
-    key_columns = [key_column]
 
     df = spark.sql(f"""
         SELECT
@@ -149,7 +148,7 @@ print(f"target_location: {target_location}")
 
 results = write_utils.write_delta_table(
     df=audit_df,
-    key_columns=key_columns,
+    key_columns=key_column,
     location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
