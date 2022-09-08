@@ -22,39 +22,10 @@ def test_check_column_is_not_null_new_dataframe():
     bad_record = result_df.filter("id == 2").toPandas().to_dict('records')[0]
     good_record = result_df.filter("id == 1").toPandas().to_dict('records')[0]
 
-    assert bad_record['__data_quality_issues']
+    assert bad_record['__data_quality_issues'] is not None
     assert "CHECK_NOT_NULL: Column `name` is null" == bad_record['__data_quality_issues'][0]
 
-    assert not good_record['__data_quality_issues']
-
-
-def test_check_column_is_not_null_dataframe_with_previous_check():
-    # ARRANGE
-    df = spark.createDataFrame([
-        {"id": "1", "name": "john", "__data_quality_issues": ["previous error"]},
-        {"id": "2", "name": None, "__data_quality_issues": []},
-        {"id": "3", "name": None, "__data_quality_issues": ["previous error"]},
-        {"id": "4", "name": "mary", "__data_quality_issues": []},
-    ])
-
-    # ACT
-    result_df = (
-        dq.DataQualityChecker(df)
-        .check_column_is_not_null(column_name="name")
-        .build_df()
-    )
-
-    # ASSERT
-    assert 3 == result_df.filter("size(__data_quality_issues) > 0").count()
-    bad_record_1 = result_df.filter("id == 1").toPandas().to_dict('records')[0]
-    bad_record_2 = result_df.filter("id == 2").toPandas().to_dict('records')[0]
-    bad_record_3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
-    good_record_4 = result_df.filter("id == 4").toPandas().to_dict('records')[0]
-
-    assert "previous error" == bad_record_1['__data_quality_issues'][0]
-    assert "CHECK_NOT_NULL: Column `name` is null" == bad_record_2['__data_quality_issues'][0]
-    assert ["previous error", "CHECK_NOT_NULL: Column `name` is null"] == bad_record_3['__data_quality_issues'].tolist()
-    assert not good_record_4['__data_quality_issues']
+    assert good_record['__data_quality_issues'] is None
 
 
 def test_check_column_max_length_new_dataframe():
@@ -74,11 +45,46 @@ def test_check_column_max_length_new_dataframe():
 
     # ASSERT
     record1 = result_df.filter("id == 1").toPandas().to_dict('records')[0]
-    assert not record1['__data_quality_issues']
+    assert record1['__data_quality_issues'] is None
 
     record2 = result_df.filter("id == 2").toPandas().to_dict('records')[0]
-    assert not record2['__data_quality_issues']
+    assert record2['__data_quality_issues'] is None
 
     record3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
-    assert record3['__data_quality_issues']
+    assert record3['__data_quality_issues'] is not None
     assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues'].tolist()
+
+
+def test_check_multiple_rules():
+    # ARRANGE
+    df = spark.createDataFrame([
+        {"id": "1", "name": "john", "email": "j@inbev.com"},
+        {"id": "2", "name": None,  "email": None},
+        {"id": "3", "name": "123456789", "email": "j@inbev.com"},
+        {"id": "4", "name": "123456789", "email": None},
+    ])
+
+    # ACT
+    result_df = (
+        dq.DataQualityChecker(df=df)
+        .check_column_max_length(column_name="name", maximum_length=5)
+        .check_column_is_not_null(column_name="email")
+        .build_df()
+    )
+
+    # ASSERT
+    record1 = result_df.filter("id == 1").toPandas().to_dict('records')[0]
+    assert record1['__data_quality_issues'] is None
+
+    record2 = result_df.filter("id == 2").toPandas().to_dict('records')[0]
+    assert record2['__data_quality_issues'] is not None
+    assert ["CHECK_NOT_NULL: Column `email` is null"] == record2['__data_quality_issues'].tolist()
+
+    record3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
+    assert record3['__data_quality_issues'] is not None
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues'].tolist()
+
+    record4 = result_df.filter("id == 4").toPandas().to_dict('records')[0]
+    assert record4['__data_quality_issues'] is not None
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5", "CHECK_NOT_NULL: Column `email` is null"] == record4['__data_quality_issues'].tolist()
+

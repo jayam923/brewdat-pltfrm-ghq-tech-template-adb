@@ -20,13 +20,9 @@ class DataQualityChecker():
     """
     def __init__(self, df: DataFrame):
         self.df = df
+        self._current_check = 0
 
-        if DQ_RESULTS_COLUMN not in self.df.columns:
-            self.df = self.df.withColumn(
-                DQ_RESULTS_COLUMN,
-                F.lit(None).cast("array<string>")
-            )
-
+    @common_utils.with_exception_handling
     def build_df(self) -> DataFrame:
         """Obtain the resulting DataFrame with data quality checks applied.
 
@@ -35,6 +31,20 @@ class DataQualityChecker():
         DataFrame
             The modified PySpark DataFrame with updated validation results.
         """
+        temp_dq_cols = [c for c in self.df.columns if c.startswith(DQ_RESULTS_COLUMN + "_")]
+        self.df = (
+            self.df
+            .withColumn(
+                DQ_RESULTS_COLUMN,
+                F.filter(F.array(temp_dq_cols), lambda c: c.isNotNull())
+            )
+            .withColumn(
+                DQ_RESULTS_COLUMN,
+                F.when(F.size(DQ_RESULTS_COLUMN) == 0, F.lit(None))
+                .otherwise(F.col(DQ_RESULTS_COLUMN))
+            )
+            .drop(*temp_dq_cols)
+        )
         return self.df
 
     @common_utils.with_exception_handling
@@ -81,16 +91,13 @@ class DataQualityChecker():
         elif isinstance(filter_condition, str):
             filter_condition = F.expr(filter_condition)
 
+        self._current_check += 1
         self.df = (
             self.df
             .withColumn(
-                DQ_RESULTS_COLUMN,
-                F.when(~filter_condition, F.col(DQ_RESULTS_COLUMN))
-                .when(
-                    ~expected_condition,
-                    F.concat(F.coalesce(DQ_RESULTS_COLUMN, F.array()), F.array(failure_message))
-                )
-                .otherwise(F.col(DQ_RESULTS_COLUMN))
+                f"{DQ_RESULTS_COLUMN}_{self._current_check}",
+                F.when(filter_condition & ~expected_condition, failure_message)
+                .otherwise(F.lit(None).cast("string"))
             )
         )
 
@@ -179,7 +186,10 @@ class DataQualityChecker():
         if not data_type:
             raise ValueError("Invalid data type")
 
-        if data_type == "date":
+        if data_type == "string":
+            # Any value can be safely cast to string
+            return self
+        elif data_type == "date":
             self.df = self.df.withColumn("__value_after_cast", F.to_date(column_name, date_format))
         elif data_type == "timestamp":
             self.df = self.df.withColumn("__value_after_cast", F.to_timestamp(column_name, date_format))
