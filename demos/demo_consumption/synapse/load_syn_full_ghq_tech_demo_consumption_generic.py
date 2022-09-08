@@ -1,30 +1,31 @@
 # Databricks notebook source
 dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_object", "gld_ghq_tech_demo_consumption.monthly_sales_order", "2 - source_object")
 source_object = dbutils.widgets.get("source_object")
-print(f"source_object: {source_object}")
+print(f"{source_object = }")
 
 dbutils.widgets.text("staging_object", "dbo.monthly_sales_order_stg", "3 - staging_object")
 staging_object = dbutils.widgets.get("staging_object")
-print(f"staging_object: {staging_object}")
+print(f"{staging_object = }")
 
 dbutils.widgets.text("target_object", "dbo.monthly_sales_order", "4 - target_object")
 target_object = dbutils.widgets.get("target_object")
-print(f"target_object: {target_object}")
+print(f"{target_object = }")
 
 # COMMAND ----------
 
 import sys
 
-# Import BrewDat Library modules
+# Import BrewDat Library modules and share dbutils globally
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
 from brewdat.data_engineering import common_utils
+common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-help(common_utils)
+#help(common_utils)
 
 # COMMAND ----------
 
@@ -34,8 +35,6 @@ help(common_utils)
 
 # Service Principal to authenticate Databricks to both ADLS and a temporary Blob Storage location
 common_utils.configure_spn_access_for_adls(
-    spark=spark,
-    dbutils=dbutils,
     storage_account_names=[adls_silver_gold_storage_account_name, synapse_blob_storage_account_name],
     key_vault_name=key_vault_name,
     spn_client_id=spn_client_id,
@@ -91,7 +90,7 @@ try:
     )
 
 except Exception:
-    common_utils.exit_with_last_exception(dbutils=dbutils)
+    common_utils.exit_with_last_exception()
 
 # COMMAND ----------
 
@@ -105,4 +104,4 @@ print(results)
 
 # COMMAND ----------
 
-common_utils.exit_with_object(dbutils=dbutils, results=results)
+common_utils.exit_with_object(results)

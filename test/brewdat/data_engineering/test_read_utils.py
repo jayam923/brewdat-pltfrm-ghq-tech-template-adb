@@ -17,8 +17,6 @@ def test_read_raw_dataframe_csv_simple(file_location = "./test/brewdat/data_engi
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.CSV,
         location=file_location,
     )
@@ -42,8 +40,6 @@ def test_read_raw_dataframe_parquet_simple(file_location = "./test/brewdat/data_
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
     )
@@ -67,8 +63,6 @@ def test_read_raw_dataframe_orc_simple(file_location = "./test/brewdat/data_engi
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.ORC,
         location=file_location,
     )
@@ -92,8 +86,6 @@ def test_read_raw_dataframe_delta_simple(file_location = "./test/brewdat/data_en
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.DELTA,
         location=file_location,
     )
@@ -115,8 +107,6 @@ def test_read_raw_dataframe_parquet_with_array(file_location = "./test/brewdat/d
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
     )
@@ -141,8 +131,6 @@ def test_read_raw_dataframe_parquet_with_struct(file_location = "./test/brewdat/
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
     )
@@ -174,8 +162,6 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct(file_location = ".
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
     )
@@ -201,8 +187,6 @@ def test_read_raw_dataframe_parquet_with_array_of_struct(file_location = "./test
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
     )
@@ -236,8 +220,6 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array(file_
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
     )
@@ -271,8 +253,6 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array_do_no
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.PARQUET,
         location=file_location,
         cast_all_to_string=False
@@ -296,8 +276,6 @@ def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engi
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.XML,
         location=file_location,
     )
@@ -320,8 +298,6 @@ def test_read_raw_dataframe_xml_simple_row_tag(file_location = "./test/brewdat/d
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.XML,
         location=file_location,
         xml_row_tag="client"
@@ -345,8 +321,6 @@ def test_read_raw_dataframe_csv_delimiter(file_location = "./test/brewdat/data_e
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.CSV,
         location=file_location,
         csv_delimiter=';'
@@ -370,8 +344,6 @@ def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.CSV,
         location=file_location,
         csv_delimiter=',',
@@ -394,8 +366,6 @@ def test_read_raw_dataframe_excel_simple(file_location="./test/brewdat/data_engi
 
     # ACT
     df = read_raw_dataframe(
-        spark=spark,
-        dbutils=None,
         file_format=RawFileFormat.EXCEL,
         location=file_location,
         excel_sheet_name="records"
@@ -417,8 +387,6 @@ def test_read_raw_dataframe_avro(file_location="./test/brewdat/data_engineering/
 
         # ACT
         df = read_raw_dataframe(
-            spark=spark,
-            dbutils=None,
             file_format=RawFileFormat.AVRO,
             location=file_location,
         )
