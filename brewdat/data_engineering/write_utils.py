@@ -169,6 +169,7 @@ def write_delta_table(
         spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(auto_broadcast_join_threshold))
 
         # Cache the DataFrame and count source records
+        # TODO: assume num read is loaded + errored out; only count if write fails
         if enable_caching:
             cached_df = df.cache()
         num_records_read = df.count()
@@ -185,6 +186,7 @@ def write_delta_table(
         )
 
         # Write data with the selected load type
+        spark.SparkContext.setJobDescription(f"`{database_name}`.`{table_name}`")
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
@@ -608,7 +610,7 @@ def _write_to_error_table(
         Used to determine proper error table location.
     database_name : str
         Name of the database/schema for the table in the metastore. Used to
-        determine proper error table name. Database is created if it does not exist.
+        determine proper error database name. Database is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
     enable_vacuum : bool, default=True
@@ -634,6 +636,9 @@ def _write_to_error_table(
         .withColumn("__data_quality_check_dt", F.current_date())
         .withColumn("__data_quality_check_ts", F.current_timestamp())
     )
+
+    spark = SparkSession.getActiveSession()
+    spark.SparkContext.setJobDescription(f"`{error_database_name}`.`{table_name}`")
 
     loaded_count = _write_table_using_append_all(
         df=df,
