@@ -27,7 +27,7 @@ class LoadType(str, Enum):
     The df must be filtered such that it contains a single partition."""
     APPEND_ALL = "APPEND_ALL"
     """Load type where all records in the DataFrame are written into an table.
-    *Attention*: use this load type only for Bronze tables, as it is bad for backfilling."""
+    *Attention*: use this load type for Bronze tables only, as it is bad for backfilling."""
     APPEND_NEW = "APPEND_NEW"
     """Load type where only new records in the DataFrame are written into an existing table.
     Records for which the key already exists in the table are ignored."""
@@ -315,6 +315,8 @@ def write_stream_delta_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
     transform_microbatch: Callable[[DataFrame], DataFrame] = None,
+    delete_condition_for_upsert: str = "false",  # by default, never delete
+    update_condition_for_upsert: str = "true",   # by default, always update
     enable_vacuum: bool = True,
     time_travel_retention_days: int = 30,
     auto_broadcast_join_threshold: int = 52428800,
@@ -354,6 +356,12 @@ def write_stream_delta_table(
         before writing it. This is required for deduplicating a DataFrame before
         using APPEND_NEW, UPSERT, and TYPE_2_SCD load types. The function should
         receive a DataFrame as an argument and return a modified DataFrame.
+    delete_condition_for_upsert : str, default="false"
+        A custom condition to be checked before deleting records with UPSERT load type.
+        By default, never delete any matching record.
+    update_condition_for_upsert : str, default="true"
+        A custom condition to be checked before updating records with UPSERT load type.
+        By default, always update all matching records.
     enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
@@ -401,6 +409,8 @@ def write_stream_delta_table(
                 partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
                 bad_record_handling_mode=bad_record_handling_mode,
+                delete_condition_for_upsert=delete_condition_for_upsert,
+                update_condition_for_upsert=update_condition_for_upsert,
                 enable_vacuum=False,  # run after all micro-batches
                 auto_broadcast_join_threshold=auto_broadcast_join_threshold,
                 enable_caching=enable_caching,

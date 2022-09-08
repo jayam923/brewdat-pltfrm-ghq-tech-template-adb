@@ -22,7 +22,7 @@ class RunStatus(str, Enum):
     """Represents a failed run status."""
 
 
-class ReturnObject():
+class ReturnObject:
     """Object that holds metadata from a data write operation.
 
     Attributes
@@ -80,7 +80,7 @@ class ReturnObject():
         return str(vars(self))
 
 
-class ColumnMapping():
+class ColumnMapping:
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
 
