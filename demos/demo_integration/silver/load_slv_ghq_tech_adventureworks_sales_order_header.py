@@ -37,6 +37,7 @@ print(f"data_interval_end: {data_interval_end}")
 
 dbutils.widgets.text("partition_column", "__ref_dt", "9 - partition_column")
 partition_column = dbutils.widgets.get("partition_column")
+partition_column = json.loads(partition_column)
 print(f"partition_column: {partition_column}")
 
 dbutils.widgets.text("raw_path", "data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/", "10 - raw_path")
@@ -45,6 +46,7 @@ print(f"raw_path: {raw_path}")
 
 dbutils.widgets.text("watermark_column", "__ref_dt", "11 - watermark_column")
 watermark_column = dbutils.widgets.get("watermark_column")
+watermark_column = json.loads(watermark_column)
 print(f"watermark_column: {watermark_column}")
 
 dbutils.widgets.text("source_hive_database", "null", "12 - source_hive_database")
@@ -57,6 +59,7 @@ print(f"source_hive_table: {source_hive_table}")
 
 dbutils.widgets.text("key_column", "null", "14 - key_column")
 key_column = dbutils.widgets.get("key_column")
+key_column = json.loads(key_column)
 print(f"key_column: {key_column}")
 
 dbutils.widgets.text("silver_column_mapping", "[]", "15 - silver_column_mapping")
