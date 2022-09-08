@@ -52,7 +52,7 @@ def test_check_column_max_length_new_dataframe():
 
     record3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
     assert record3['__data_quality_issues'] is not None
-    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues'].tolist()
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues']
 
 
 def test_check_multiple_rules():
@@ -72,7 +72,7 @@ def test_check_multiple_rules():
         .build_df()
     )
 
-    result_df.explain("extended")
+    # result_df.explain("extended")
 
     # ASSERT
     record1 = result_df.filter("id == 1").toPandas().to_dict('records')[0]
@@ -80,13 +80,13 @@ def test_check_multiple_rules():
 
     record2 = result_df.filter("id == 2").toPandas().to_dict('records')[0]
     assert record2['__data_quality_issues'] is not None
-    assert ["CHECK_NOT_NULL: Column `email` is null"] == record2['__data_quality_issues'].tolist()
+    assert ["CHECK_NOT_NULL: Column `email` is null"] == record2['__data_quality_issues']
 
     record3 = result_df.filter("id == 3").toPandas().to_dict('records')[0]
     assert record3['__data_quality_issues'] is not None
-    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues'].tolist()
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5"] == record3['__data_quality_issues']
 
     record4 = result_df.filter("id == 4").toPandas().to_dict('records')[0]
     assert record4['__data_quality_issues'] is not None
-    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5", "CHECK_NOT_NULL: Column `email` is null"] == record4['__data_quality_issues'].tolist()
+    assert ["CHECK_MAX_LENGTH: Column `name` has length 9, which is greater than 5", "CHECK_NOT_NULL: Column `email` is null"] == record4['__data_quality_issues']
 
