@@ -73,7 +73,6 @@ base_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
         location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
-        cast_all_to_string=False,
     )
     .withColumn("__src_file", F.input_file_name())
     .transform(transform_utils.clean_column_names)
@@ -89,7 +88,6 @@ ct_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
         location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
-        cast_all_to_string=False,
     )
     # Ignore "Before Image" records from update operations
     .filter("header__change_oper != 'B'")
