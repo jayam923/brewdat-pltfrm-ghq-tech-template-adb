@@ -156,7 +156,7 @@ transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bron
 
 dedup_df = transform_utils.deduplicate_records(
     df=transformed_df,
-    key_columns=key_columns,
+    key_columns=key_column,
     watermark_column=watermark_column,
 )
 
