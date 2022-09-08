@@ -46,7 +46,6 @@ print(f"raw_path: {raw_path}")
 
 dbutils.widgets.text("watermark_column", "__ref_dt", "11 - watermark_column")
 watermark_column = dbutils.widgets.get("watermark_column")
-watermark_column = json.loads(watermark_column)
 print(f"watermark_column: {watermark_column}")
 
 dbutils.widgets.text("source_hive_database", "null", "12 - source_hive_database")
