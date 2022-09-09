@@ -121,14 +121,13 @@ class DataQualityChecker:
             unique_values = result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count']
             unexpected_percent = unique_values / result['result']['element_count']
 
-            if unexpected_percent < mostly:
-                passed = False
-                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
-                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
-                        
-            else:
+            if unexpected_percent >= mostly:
                 passed = True
                 comment = f"Check is 'success' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+            else:
+                passed = False
+                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             
 
@@ -219,11 +218,11 @@ class DataQualityChecker:
             passed = result['success']
 
             if passed:
-                 comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)*100}% of the records being " \
+                 comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
                 passed = 'false'
-                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)*100}% of the records not being " \
+                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
             self.__append_results(
@@ -319,13 +318,13 @@ class DataQualityChecker:
             unique_values = result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count']
             unexpected_percent = unique_values / result['result']['element_count']
 
-            if unexpected_percent < mostly:
-                passed = False
-                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
-                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
-            else:
+            if unexpected_percent >= mostly:
                 passed = True
                 comment = f"Check is 'success' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
+                          f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
+            else:
+                passed = False
+                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
             self.__append_results(
@@ -446,20 +445,20 @@ class DataQualityChecker:
             current_result = current_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             variation =  ((current_result['result']['unexpected_percent']) - (previous_result['result']['unexpected_percent']))
-            return current_result,previous_result
-            if variation >= max_accepted_variation:
+
+            if variation <= max_accepted_variation:
+                passed = True
+                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
+                          f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
+                          f" lesser than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
+                          f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"  
+            else:
                 passed = False
                 comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
                           f" higher than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
                           f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
                 
-            else:
-                passed = True
-                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
-                          f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" lesser than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
-                          f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
                 
 
             self.__append_results(

@@ -105,7 +105,7 @@ common_utils.configure_spn_access_for_adls(
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__12_.csv')#.select(F.col('SalesOrderID').cast(IntegerType()),'RevisionNumber',"__ref_dt")
-print(new_df.where(F.col('SalesOrderID').isNull()).count())
+print(new_df.count())
 
 # COMMAND ----------
 
@@ -173,7 +173,7 @@ results = write_utils.write_delta_table(
     location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=write_utils.LoadType.OVERWRITE_TABLE,
+    load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["__ref_dt"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
@@ -347,7 +347,7 @@ display(final_result_df)
 # COMMAND ----------
 
 latest_df = spark.read.format("delta").option("versionAsOf",7).load(target_location)
-history_df = spark.read.format("delta").option("versionAsOf", 1).load(target_location)
+history_df = spark.read.format("delta").option("versionAsOf", 3).load(target_location)
 print(latest_df.count())
 print(history_df.count())
 print(latest_df.where(F.col('SalesOrderID').isNull()).count())
@@ -376,6 +376,19 @@ print(history_df.select(F.col('SalesOrderID').cast(IntegerType())).groupBy().sum
 # COMMAND ----------
 
 dbutils.fs.rm(target_location, True)
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC truncate table  brz_ghq_tech_adventureworks.sales_order_header
+
+# COMMAND ----------
+
+asd = spark.read.format('delta').load(target_location)
+print(asd.count())
+display(asd)
+
+
 
 # COMMAND ----------
 
