@@ -448,7 +448,8 @@ def write_stream_delta_table(
         (
             df
             .writeStream
-            .queryName(f"{database_name}.{table_name}")
+            .outputMode("update")
+            .queryName(f"`{database_name}`.`{table_name}`")
             .option("checkpointLocation", checkpoint_location)
             .foreachBatch(write_micro_batch)
             .trigger(availableNow=True)
