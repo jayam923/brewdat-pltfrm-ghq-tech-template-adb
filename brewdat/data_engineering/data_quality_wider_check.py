@@ -217,11 +217,12 @@ class DataQualityChecker:
 
             passed = result['success']
 
-            if passed:
-                 comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
+            if result['result']['unexpected_percent'] <= mostly:
+                passed = True
+                comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
-                passed = 'false'
+                passed = False
                 comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
@@ -457,9 +458,7 @@ class DataQualityChecker:
                 comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
                           f" higher than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
-                          f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
-                
-                
+                          f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"            
 
             self.__append_results(
                 validation_rule="check_null_percentage_variation_from_previous_version",
