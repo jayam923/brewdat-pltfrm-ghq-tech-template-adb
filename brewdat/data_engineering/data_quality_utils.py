@@ -3,7 +3,7 @@ from typing import Any, List, Union
 import pyspark.sql.functions as F
 from pyspark.sql import Column, DataFrame, Window
 
-from . import common_utils
+from .import common_utils
 
 
 DQ_RESULTS_COLUMN = "__data_quality_issues"

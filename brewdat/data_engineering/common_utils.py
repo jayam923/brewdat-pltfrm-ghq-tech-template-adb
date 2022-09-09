@@ -100,17 +100,14 @@ class ColumnMapping():
         source_column_name: str,
         target_data_type: str,
         target_column_name: str = None,
-        sql_expression: str = None,
-        nullable: bool = True,
-        
+        sql_expression: str = None,        
                  
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
-        self.nullable = nullable
-
+        
     def __str__(self):
         return str(vars(self))
     

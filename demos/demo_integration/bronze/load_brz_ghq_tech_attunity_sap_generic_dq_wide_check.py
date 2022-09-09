@@ -104,8 +104,8 @@ common_utils.configure_spn_access_for_adls(
 
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__8_.csv').select(F.col('SalesOrderID').cast(IntegerType()),'RevisionNumber',"__ref_dt")
-
+new_df=spark.read.format('csv').option('header',True).load('/FileStore/export__12_.csv')#.select(F.col('SalesOrderID').cast(IntegerType()),'RevisionNumber',"__ref_dt")
+print(new_df.where(F.col('SalesOrderID').isNull()).count())
 
 # COMMAND ----------
 
@@ -115,7 +115,7 @@ transformed_df = (
     .filter(F.col("__ref_dt").between(
         F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
         F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
-    )).limit(5)
+    )).limit(1)
     .withColumn("__src_file", F.input_file_name())
 )
 
@@ -169,16 +169,24 @@ target_location = lakehouse_utils.generate_bronze_table_location(
 
 results = write_utils.write_delta_table(
     spark=spark,
-    df= audit_df,
+    df= new_df,
     location=target_location,
     database_name=target_hive_database,
     table_name=target_hive_table,
-    load_type=write_utils.LoadType.APPEND_ALL,
+    load_type=write_utils.LoadType.OVERWRITE_TABLE,
     partition_columns=["__ref_dt"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 
 print(vars(results))
+
+# COMMAND ----------
+
+dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=target_location)
+#print(dq_checker.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=0,current_version=3))\
+dq_checker.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
+wider_dq_df = dq_checker.build()
+display(wider_dq_df)
 
 # COMMAND ----------
 
@@ -285,6 +293,12 @@ display(final_result_df)
 
 # COMMAND ----------
 
+data_quality_wider_modify=data_quality_wider_check.DataQualityChecker(spark=spark,dbutils=dbutils,location=target_location)
+print(data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.1,previous_version=7,current_version=11))
+
+
+# COMMAND ----------
+
 #Numeric sum with previous
 data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
 print(data_quality_wider_modify.check_numeric_sum_varation_with_prev(
@@ -332,8 +346,8 @@ display(final_result_df)
 
 # COMMAND ----------
 
-latest_df = spark.read.format("delta").option("versionAsOf",171).load(target_location)
-history_df = spark.read.format("delta").option("versionAsOf", 95).load(target_location)
+latest_df = spark.read.format("delta").option("versionAsOf",7).load(target_location)
+history_df = spark.read.format("delta").option("versionAsOf", 1).load(target_location)
 print(latest_df.count())
 print(history_df.count())
 print(latest_df.where(F.col('SalesOrderID').isNull()).count())
@@ -348,8 +362,8 @@ round(audit_df.where(F.col('__data_quality_issues').isNull()).count()/audit_df.c
 
 # COMMAND ----------
 
-data_quality_wider_modify=data_quality_wider_check.DataQualityCheck(df=audit_df,dbutils=dbutils,spark=spark)
-print(data_quality_wider_modify.dq_validate_range_for_numeric_column_sum_values(col_name='SalesOrderID',min_value=None,max_value=None))
+data_quality_wider_modify=data_quality_wider_check.DataQualityChecker(spark=spark,dbutils=dbutils,location=target_location)
+print(data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',min_value=0.1,max_value=0.2)
 #final_result_df = data_quality_wider_modify.get_wider_dq_results()
 #display(final_result_df)
 
@@ -423,3 +437,20 @@ print(b)
 
 df=spark.sql('select current_timestamp()')
 display(df)
+
+# COMMAND ----------
+
+display(dbutils.fs.mounts())
+
+# COMMAND ----------
+
+# MAGIC %fs /dbfs/mnt/brewdatpltfrmslvgldd/
+
+# COMMAND ----------
+
+dbutils.fs./dbfs/brewdatpltfrmslvgldd/
+
+# COMMAND ----------
+
+# MAGIC %sql
+# MAGIC select * from crypto.vw_encryt_table_pc_1

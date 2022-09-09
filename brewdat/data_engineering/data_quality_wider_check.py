@@ -14,7 +14,6 @@ from . import common_utils
 
 class DataQualityChecker:
     """Helper class that provides data quality checks for data in given Delta Lake location.
-    
     Attributes
     ----------
     location : str
@@ -110,9 +109,6 @@ class DataQualityChecker:
             DataQualityCheck object
         """
         try:
-            if mostly < 0 or mostly > 1:
-                raise ValueError("Invalid expected percentage value , Enter values between the range of 0.1 to 1")
-
             if not col_list:
                 raise ValueError("Given list is empty, Please enter valid values")
                 
@@ -127,12 +123,12 @@ class DataQualityChecker:
 
             if unexpected_percent < mostly:
                 passed = False
-                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent,'f')),2)}% of the records not being " \
+                comment = f"Check is 'failed' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
                         
             else:
                 passed = True
-                comment = f"Check is 'success' due to {round(float(format(unexpected_percent,'f')),2)}% of the records being " \
+                comment = f"Check is 'success' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             
 
@@ -213,10 +209,7 @@ class DataQualityChecker:
         DataQualityChecker
             ExpectationValidationResult object.
         """
-        try:
-            if mostly < 0.1 or mostly > 1:
-                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
-                
+        try:              
             result = self.validator.expect_column_values_to_not_be_null(
                 column=col_name,
                 mostly=mostly,
@@ -226,11 +219,11 @@ class DataQualityChecker:
             passed = result['success']
 
             if passed:
-                 comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records being " \
+                 comment = f"Check is 'success' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)*100}% of the records being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
                 passed = 'false'
-                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)}% of the records not being " \
+                comment = f"Check is 'failed' due to {round(float(format(result['result']['unexpected_percent'],'f')),2)*100}% of the records not being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
 
             self.__append_results(
@@ -318,9 +311,6 @@ class DataQualityChecker:
             ExpectationValidationResult object.
         """
         try:
-            if mostly < 0.1 or mostly > 1:
-                raise ValueError("Invalid expected percentage value , Enter value between the range of 0.1 to 1")
-
             result = self.validator.expect_column_values_to_be_unique(
                 column=col_name,
                 mostly=mostly,
@@ -456,8 +446,8 @@ class DataQualityChecker:
             current_result = current_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             variation =  ((current_result['result']['unexpected_percent']) - (previous_result['result']['unexpected_percent']))
-
-            if variation <= max_accepted_variation:
+            return current_result,previous_result
+            if variation >= max_accepted_variation:
                 passed = False
                 comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
@@ -468,7 +458,7 @@ class DataQualityChecker:
                 passed = True
                 comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" expected percentage {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
+                          f" lesser than the max allowed of {max_accepted_variation * 100}% , previous version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
                           f" current version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"
                 
 
@@ -521,11 +511,11 @@ class DataQualityChecker:
             
             if (min_percentage <= bad_percentage) and (bad_percentage <= max_percentage):
                 passed = True
-                comment = f" Check is 'passed' due to bad percentage value {round(float(format(bad_percentage,'f')),2)}%, which is between the expected range of {min_percentage}% to {max_percentage}%."
+                comment = f" Check is 'passed' due to bad percentage value {round(float(format(bad_percentage*100,'f')),2)}%, which is between the expected range of {min_percentage*100}% to {max_percentage*100}%."
 
             else:
                 passed = False
-                comment = f" Check is 'failed' due to bad percentage value {round(float(format(bad_percentage,'f')),2)}%, which is not in between the expected range of {min_percentage}% to {max_percentage}%"
+                comment = f" Check is 'failed' due to bad percentage value {round(float(format(bad_percentage*100,'f')),2)}%, which is not in between the expected range of {min_percentage*100}% to {max_percentage*100}%"
                 
             self.__append_results(
                 validation_rule="check_bad_records_percentage",
