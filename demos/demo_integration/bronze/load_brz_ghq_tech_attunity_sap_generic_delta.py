@@ -73,7 +73,6 @@ base_df = (
     read_utils.read_raw_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
         location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
-        cast_all_to_string=False,
     )
     .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
 )
@@ -86,7 +85,6 @@ ct_df = (
     read_utils.read_raw_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
         location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
-        cast_all_to_string=False,
     )
     .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
 )

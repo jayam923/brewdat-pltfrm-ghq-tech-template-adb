@@ -61,7 +61,6 @@ common_utils.configure_spn_access_for_adls(
 raw_df = read_utils.read_raw_dataframe(
     file_format=read_utils.RawFileFormat.ORC,
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
-    cast_all_to_string=False,
 )
 
 #display(raw_df)

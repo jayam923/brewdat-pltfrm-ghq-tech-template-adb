@@ -201,6 +201,7 @@ results = write_utils.write_delta_table(
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
+    update_condition_for_upsert="source.SOURCE_COMMIT_TS >= target.SOURCE_COMMIT_TS",
 )
 
 results.effective_data_interval_start = data_interval_start

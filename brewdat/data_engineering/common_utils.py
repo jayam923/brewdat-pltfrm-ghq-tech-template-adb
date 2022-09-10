@@ -22,7 +22,7 @@ class RunStatus(str, Enum):
     """Represents a failed run status."""
 
 
-class ReturnObject():
+class ReturnObject:
     """Object that holds metadata from a data write operation.
 
     Attributes
@@ -80,7 +80,7 @@ class ReturnObject():
         return str(vars(self))
 
 
-class ColumnMapping():
+class ColumnMapping:
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
 
@@ -187,6 +187,7 @@ def configure_spn_access_for_adls(
             "Either use common_utils.set_global_dbutils(dbutils) or " +
             "provide it as a parameter."
         )
+    spn_secret = dbutils.secrets.get(key_vault_name, spn_secret_name)
 
     spark = SparkSession.getActiveSession()
     for storage_account_name in storage_account_names:
@@ -206,7 +207,7 @@ def configure_spn_access_for_adls(
             )
             spark._jsc.hadoopConfiguration().set(
                 f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                dbutils.secrets.get(key_vault_name, spn_secret_name)
+                spn_secret
             )
             spark._jsc.hadoopConfiguration().set(
                 f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
@@ -231,7 +232,7 @@ def configure_spn_access_for_adls(
             )
             spark.conf.set(
                 f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                dbutils.secrets.get(key_vault_name, spn_secret_name)
+                spn_secret
             )
             spark.conf.set(
                 f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",

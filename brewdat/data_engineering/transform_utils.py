@@ -162,6 +162,12 @@ def deduplicate_records(
     pyspark.sql.DataFrame.distinct : Equivalent to SQL's SELECT DISTINCT.
     pyspark.sql.DataFrame.dropDuplicates : Distinct with optional subset parameter.
     """
+    if df.isStreaming:
+        raise ValueError(
+            "Stream deduplication is a stateful operation. Instead, " +
+            "use transform_microbatch parameter from write_stream_delta_table()."
+        )
+
     if not key_columns:
         return df.dropDuplicates()
 

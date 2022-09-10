@@ -27,7 +27,7 @@ class LoadType(str, Enum):
     The df must be filtered such that it contains a single partition."""
     APPEND_ALL = "APPEND_ALL"
     """Load type where all records in the DataFrame are written into an table.
-    *Attention*: use this load type only for Bronze tables, as it is bad for backfilling."""
+    *Attention*: use this load type for Bronze tables only, as it is bad for backfilling."""
     APPEND_NEW = "APPEND_NEW"
     """Load type where only new records in the DataFrame are written into an existing table.
     Records for which the key already exists in the table are ignored."""
@@ -81,9 +81,11 @@ def write_delta_table(
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
+    delete_condition_for_upsert: str = "false",  # by default, never delete
+    update_condition_for_upsert: str = "true",   # by default, always update
     enable_vacuum: bool = True,
     time_travel_retention_days: int = 30,
-    auto_broadcast_join_threshold: int = 52428800,
+    auto_broadcast_join_threshold: int = 52428800,  # 50MB
     enable_caching: bool = True,
 ) -> ReturnObject:
     """Write the DataFrame as a delta table.
@@ -113,6 +115,12 @@ def write_delta_table(
     bad_record_handling_mode : BrewDatLibrary.BadRecordHandlingMode, default=WARN
         Specifies the way in which bad records should be handled.
         See documentation for BrewDatLibrary.BadRecordHandlingMode.
+    delete_condition_for_upsert : str, default="false"
+        A custom condition to be checked before deleting records with UPSERT load type.
+        By default, never delete any matching record.
+    update_condition_for_upsert : str, default="true"
+        A custom condition to be checked before updating records with UPSERT load type.
+        By default, always update all matching records.
     enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
@@ -161,6 +169,7 @@ def write_delta_table(
         spark.conf.set("spark.sql.autoBroadcastJoinThreshold", str(auto_broadcast_join_threshold))
 
         # Cache the DataFrame and count source records
+        # TODO: assume num read is loaded + errored out; only count if write fails
         if enable_caching:
             cached_df = df.cache()
         num_records_read = df.count()
@@ -177,6 +186,7 @@ def write_delta_table(
         )
 
         # Write data with the selected load type
+        spark.sparkContext.setJobDescription(f"`{database_name}`.`{table_name}`")
         if load_type == LoadType.OVERWRITE_TABLE:
             if num_records_read == 0:
                 raise ValueError("Attempted to overwrite a table with an empty dataset. Operation aborted.")
@@ -219,6 +229,8 @@ def write_delta_table(
                 key_columns=key_columns,
                 partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
+                delete_condition=delete_condition_for_upsert,
+                update_condition=update_condition_for_upsert,
             )
         elif load_type == LoadType.TYPE_2_SCD:
             num_records_loaded = _write_table_using_type_2_scd(
@@ -305,9 +317,11 @@ def write_stream_delta_table(
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
     transform_microbatch: Callable[[DataFrame], DataFrame] = None,
+    delete_condition_for_upsert: str = "false",  # by default, never delete
+    update_condition_for_upsert: str = "true",   # by default, always update
     enable_vacuum: bool = True,
     time_travel_retention_days: int = 30,
-    auto_broadcast_join_threshold: int = 52428800,
+    auto_broadcast_join_threshold: int = 52428800,  # 50MB
     enable_caching: bool = False,
     reset_checkpoint: bool = False,
     dbutils: Any = None,
@@ -344,6 +358,12 @@ def write_stream_delta_table(
         before writing it. This is required for deduplicating a DataFrame before
         using APPEND_NEW, UPSERT, and TYPE_2_SCD load types. The function should
         receive a DataFrame as an argument and return a modified DataFrame.
+    delete_condition_for_upsert : str, default="false"
+        A custom condition to be checked before deleting records with UPSERT load type.
+        By default, never delete any matching record.
+    update_condition_for_upsert : str, default="true"
+        A custom condition to be checked before updating records with UPSERT load type.
+        By default, always update all matching records.
     enable_vacuum : bool, default=True
         Run VACUUM operation after writing data to delta location.
     time_travel_retention_days : int, default=30
@@ -391,6 +411,8 @@ def write_stream_delta_table(
                 partition_columns=partition_columns,
                 schema_evolution_mode=schema_evolution_mode,
                 bad_record_handling_mode=bad_record_handling_mode,
+                delete_condition_for_upsert=delete_condition_for_upsert,
+                update_condition_for_upsert=update_condition_for_upsert,
                 enable_vacuum=False,  # run after all micro-batches
                 auto_broadcast_join_threshold=auto_broadcast_join_threshold,
                 enable_caching=enable_caching,
@@ -426,7 +448,8 @@ def write_stream_delta_table(
         (
             df
             .writeStream
-            .queryName(f"{database_name}.{table_name}")
+            .outputMode("update")
+            .queryName(f"`{database_name}`.`{table_name}`")
             .option("checkpointLocation", checkpoint_location)
             .foreachBatch(write_micro_batch)
             .trigger(availableNow=True)
@@ -588,7 +611,7 @@ def _write_to_error_table(
         Used to determine proper error table location.
     database_name : str
         Name of the database/schema for the table in the metastore. Used to
-        determine proper error table name. Database is created if it does not exist.
+        determine proper error database name. Database is created if it does not exist.
     table_name : str
         Name of the table in the metastore.
     enable_vacuum : bool, default=True
@@ -614,6 +637,9 @@ def _write_to_error_table(
         .withColumn("__data_quality_check_dt", F.current_date())
         .withColumn("__data_quality_check_ts", F.current_timestamp())
     )
+
+    spark = SparkSession.getActiveSession()
+    spark.sparkContext.setJobDescription(f"`{error_database_name}`.`{table_name}`")
 
     loaded_count = _write_table_using_append_all(
         df=df,
@@ -1003,6 +1029,8 @@ def _write_table_using_upsert(
     key_columns: List[str] = [],
     partition_columns: List[str] = [],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
+    delete_condition: str = "false",
+    update_condition: str = "true",
 ) -> int:
     """Write the DataFrame using UPSERT.
 
@@ -1020,6 +1048,12 @@ def _write_table_using_upsert(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
+    delete_condition : str, default="false"
+        A custom condition to be checked before deleting records with UPSERT load type.
+        By default, never delete any matching record.
+    update_condition : str, default="true"
+        A custom condition to be checked before updating records with UPSERT load type.
+        By default, always update all matching records.
 
     Returns
     -------
@@ -1054,7 +1088,8 @@ def _write_table_using_upsert(
     (
         delta_table.alias("target")
         .merge(df.alias("source"), merge_condition)
-        .whenMatchedUpdateAll()
+        .whenMatchedDelete(condition=delete_condition)
+        .whenMatchedUpdateAll(condition=update_condition)
         .whenNotMatchedInsertAll()
         .execute()
     )

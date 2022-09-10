@@ -9,6 +9,20 @@ from test_transform_utils import *
 
 # COMMAND ----------
 
+from datetime import datetime
+current_ts = datetime.strftime(datetime.utcnow(),'%Y%m%d%H%M%S')
+
+tmpdir = f"/dbfs/tmp/test_transform/{current_ts}"
+dbutils.fs.rm("dbfs:/tmp/test_write/", recurse=True)
+spark.sql("DROP DATABASE IF EXISTS test_schema CASCADE")
+dbutils.fs.mkdirs(tmpdir)
+
+# COMMAND ----------
+
+test_deduplicate_records_stream_microbatch(tmpdir, f"file:{os.getcwd()}/support_files/read_raw_dataframe/delta_simple1")
+
+# COMMAND ----------
+
 test_clean_column_names()
 
 test_clean_column_names_except_for()

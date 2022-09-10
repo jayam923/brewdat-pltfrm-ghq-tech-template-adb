@@ -9,7 +9,7 @@ from . import common_utils
 DQ_RESULTS_COLUMN = "__data_quality_issues"
 
 
-class DataQualityChecker():
+class DataQualityChecker:
     """Helper class that provides data quality checks for
     a given DataFrame.
 
