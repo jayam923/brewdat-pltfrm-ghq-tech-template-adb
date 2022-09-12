@@ -445,17 +445,17 @@ class DataQualityChecker:
             previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             variation =  ((current_result['result']['unexpected_percent']) - (previous_result['result']['unexpected_percent']))
 
-            if variation <= max_accepted_variation*100:
+            if round(float(format(variation,'f')),2) <= max_accepted_variation:
                 passed = True
-                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
+                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" lesser than the max allowed of {max_accepted_variation * 100}% , current version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
+                          f" lesser/equal than the max allowed of {max_accepted_variation}% , current version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
                           f" previous version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"  
             else:
                 passed = False
-                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
+                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" higher than the max allowed of {max_accepted_variation * 100}% , current version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
+                          f" higher than the max allowed of {max_accepted_variation}% , current version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
                           f" previous version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"            
 
             self.__append_results(
