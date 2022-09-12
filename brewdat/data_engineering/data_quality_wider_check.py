@@ -317,9 +317,9 @@ class DataQualityChecker:
             unique_values = result['result']['element_count'] - result['result']['unexpected_count'] - result['result']['missing_count']
             unexpected_percent = unique_values / result['result']['element_count']
 
-            if unexpected_percent >= mostly*100:
+            if unexpected_percent >= mostly:
                 passed = True
-                comment = f"Check is 'success' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records not being " \
+                comment = f"Check is 'success' due to {round(float(format(unexpected_percent*100,'f')),2)}% of the records being " \
                           f"compliant to validation rule. Expected {mostly * 100}% of records to be compliant."
             else:
                 passed = False
@@ -340,8 +340,8 @@ class DataQualityChecker:
 
     def check_count_variation_from_previous_version(
             self,
-            min_variation: int,
-            max_variation: int,
+            min_value: int,
+            max_value: int,
             previous_version: int,
             current_version: int,
     ) -> "DataQualityChecker":
@@ -443,20 +443,22 @@ class DataQualityChecker:
 
             current_result = current_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
             previous_result = previous_validator.expect_column_values_to_not_be_null(col_name, result_format="SUMMARY")
-            variation =  ((current_result['result']['unexpected_percent']) - (previous_result['result']['unexpected_percent']))
+            previous_percentage = round(float(format(previous_result['result']['unexpected_percent'],'f')),2)
+            current_percentage = round(float(format(current_result['result']['unexpected_percent'],'f')),2)
+            variation =  current_percentage - previous_percentage
 
-            if round(float(format(variation,'f')),2) <= max_accepted_variation:
+            if variation <= max_accepted_variation:
                 passed = True
-                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' decreased by {round(float(format(variation,'f')),2)}% " \
+                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' variation is {variation}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" lesser/equal than the max allowed of {max_accepted_variation}% , current version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
-                          f" previous version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"  
+                          f" lesser/equal than the max allowed of {max_accepted_variation}% , current version : {current_percentage}%."\
+                          f" previous version : {previous_percentage}%"  
             else:
                 passed = False
-                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' increased by {round(float(format(variation,'f')),2)}% " \
+                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' variation is {variation}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" higher than the max allowed of {max_accepted_variation}% , current version : {round(float(format(current_result['result']['unexpected_percent'],'f')),2)}%."\
-                          f" previous version : {round(float(format(previous_result['result']['unexpected_percent'],'f')),2)}%"            
+                          f" higher than the max allowed of {max_accepted_variation}% , current version : {current_percentage}%."\
+                          f" previous version : {previous_percentage}%"            
 
             self.__append_results(
                 validation_rule="check_null_percentage_variation_from_previous_version",
@@ -589,6 +591,7 @@ class DataQualityChecker:
     @classmethod
     def check_foreign_key_column_exits(
                     cls,
+                    spark: SparkSession,
                     dim_df: DataFrame,
                     fact_df: DataFrame,
                     primary_key: str,
@@ -615,11 +618,28 @@ class DataQualityChecker:
                 result value.
         """
         try:
+            result=[]
+            result_schema = (
+                StructType(fields=[StructField('validation_rule', StringType()),
+                                    StructField('columns', StringType()),
+                                    StructField('passed', BooleanType()),
+                                    StructField('comments', StringType())])
+                )
+
             dim_df = dim_df.select(primary_key)
             fact_df = fact_df.select(foreign_key)
             result_df = fact_df.join(dim_df,fact_df[foreign_key]==dim_df[primary_key],how='left')
             result_value = result_df.where(F.col(primary_key).isNull()).select(foreign_key).distinct().count()
-            return result_value
+            result.append((
+                'check_foreign_key_column_exits',
+                None,
+                None,
+                f" Number of missing foreign keys : {result_value}")
+                
+            )
+            result_df = spark.createDataFrame(set(result), result_schema)\
+            .withColumn("__data_quality_check_ts",F.to_timestamp( F.current_timestamp(),"MM-dd-yyyy HH mm ss SSS"))
+            return result_df
         
         except Exception:
             common_utils.exit_with_last_exception(dbutils)

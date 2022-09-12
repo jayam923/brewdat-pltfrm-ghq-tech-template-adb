@@ -321,13 +321,15 @@ foreign_key='fk'
 # COMMAND ----------
 
 #Check Foriegn Key value
-print(data_quality_wider_check.DataQualityCheck.check_foreign_key_column_exits(
+df=data_quality_wider_check.DataQualityChecker.check_foreign_key_column_exits(
+    spark=spark,
     dim_df=dim_df,
     fact_df=fact_df,
     primary_key=primary_key,
     foreign_key=foreign_key,
     dbutils=dbutils)
-     )
+display(df)
+     
 
 
 # COMMAND ----------
