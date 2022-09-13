@@ -52,6 +52,19 @@ partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"{partition_columns = }")
 
+dbutils.widgets.text("dq_narrow_check", "true", "13 - dq_narrow_check")
+dq_narrow_check = dbutils.widgets.get("dq_narrow_check")
+print(f"dq_narrow_check: {dq_narrow_check}")
+
+dbutils.widgets.text("dq_chcek_mapping", "[]", "14 - dq_chcek_mapping")
+dq_chcek_mapping = dbutils.widgets.get("dq_chcek_mapping")
+dq_chcek_mapping = json.loads(dq_chcek_mapping)
+table_level_mapping = dq_chcek_mapping[0]['table_level_schema']
+column_level_mapping =  dq_chcek_mapping[0]['colum_level_schema']
+print(f"json_dq_wide_mapping: {dq_chcek_mapping}")
+print(f"table_level_mapping: {table_level_mapping}")
+print(f"column_level_mapping: {column_level_mapping}")
+
 # COMMAND ----------
 
 import sys
@@ -151,6 +164,16 @@ try:
 
 except Exception:
     common_utils.exit_with_last_exception()
+
+# COMMAND ----------
+
+#Testing all dq narrow checks using json schema
+if dq_narrow_check:
+    data_quality_utils.DataQualityChecker.data_quality_narrow_check(
+        column_level_mapping=column_level_mapping,
+        dq_checker=dq_checker
+    )
+    bronze_dq_df = dq_checker.build_df()
 
 # COMMAND ----------
 

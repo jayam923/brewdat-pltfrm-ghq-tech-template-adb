@@ -837,6 +837,62 @@ class DataQualityChecker:
 
         self.df = self.df.drop("__duplicate_count")
         return self
+    
+    @common_utils.with_exception_handling
+    def data_quality_narrow_check(column_level_mapping: object, dq_checker: object,):
+            """Helper class that provides data quality narrow checks for given DataFrame.
+
+            Parameters
+            ----------
+            column_level_mapping : Object
+                DataQuality column mapping object.
+            dq_checker : Object
+                DataQuality uitls object
+            """
+            mappings = [common_utils.DataQualityColumnMapping(**mapping) for mapping in column_level_mapping]
+            # Apply data quality checks based on given column mappings
+            for mapping in mappings:
+                if mapping.check_max_length is not None:
+                    dq_checker = dq_checker.check_column_max_length(
+                        mapping.source_column_name,
+                        maximum_length=mapping.check_max_length
+                    )
+                if mapping.check_min_length is not None:
+                    dq_checker = dq_checker.check_column_min_length(
+                        mapping.source_column_name,
+                        minimum_length=mapping.check_min_length
+                    )
+                if mapping.check_max_value is not None:
+                    dq_checker = dq_checker.check_column_max_value(
+                        mapping.source_column_name,
+                        maximum_value=mapping.check_max_value
+                    )
+                if mapping.check_min_value is not None:
+                    dq_checker = dq_checker.check_column_min_value(
+                        mapping.source_column_name,
+                        minimum_value=mapping.check_min_value
+                    )
+                if mapping.check_valid_values:
+                    dq_checker = dq_checker.check_column_value_is_in(
+                        mapping.source_column_name,
+                        valid_values=mapping.check_valid_values
+                    )
+                if mapping.check_invalid_values:
+                    dq_checker = dq_checker.check_column_value_is_not_in(
+                        mapping.source_column_name,
+                        invalid_values=mapping.check_invalid_values
+                    )
+                if mapping.check_matches_regex is not None:
+                    dq_checker = dq_checker.check_column_matches_regular_expression(
+                        mapping.source_column_name,
+                        regular_expression=mapping.check_matches_regex
+                    )
+                if mapping.check_not_matches_regex is not None:
+                    dq_checker = dq_checker.check_column_does_not_match_regular_expression(
+                        mapping.source_column_name,
+                        regular_expression=mapping.check_not_matches_regex
+                    )
+
 
     @classmethod
     @common_utils.with_exception_handling

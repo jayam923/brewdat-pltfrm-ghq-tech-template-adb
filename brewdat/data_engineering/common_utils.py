@@ -99,9 +99,6 @@ class ColumnMapping:
     target_column_name : Optional[str], default=None
         Column name in the target DataFrame.
         If None, use source_column_name as target_column_name.
-    nullable : bool, default=True
-        Whether the target column should allow null values.
-        Used for data quality checks.
     """
     def __init__(
         self,
@@ -109,7 +106,6 @@ class ColumnMapping:
         sql_expression: Optional[str] = None,
         target_data_type: str = "string",
         target_column_name: Optional[str] = None,
-        nullable: bool = True,
     ):
         if source_column_name and sql_expression:
             raise ValueError("Must provide either source_column_name or sql_expression, not both.")
@@ -118,12 +114,104 @@ class ColumnMapping:
         self.target_data_type = target_data_type
         self.sql_expression = sql_expression
         self.target_column_name = target_column_name or source_column_name
-        self.nullable = nullable
 
     def __str__(self):
         return str(vars(self))
 
 
+class DataQualityColumnMapping():
+    """Object the holds the source-to-target-mapping information
+    for a single column in a DataFrame.
+
+    Attributes
+    ----------
+    source_column_name : str, default=None
+        Column name in the source DataFrame.
+    target_data_type : str, default=None
+        The data type to which input column will be cast to.
+    nullable : bool, default=True
+        Whether the target column should allow null values.
+    check_min_length : int, default=None
+        To check target column minimum length.
+        Used for data quality checks.
+    check_max_length : int, default=None
+        To check target column maximum length.
+        Used for data quality checks.
+    check_min_value : int, default=None
+        To check target column minimum value.
+        Used for data quality checks.
+    check_max_value : int, default=None
+        To check target column maximum value.
+        Used for data quality checks.
+    check_valid_values : list, default=[]
+        To check target column contain these values.
+        Used for data quality checks.
+    check_invalid_values : list, default=[] 
+        To check target column not to contain these values.
+        Used for data quality checks.
+    check_matches_regex : str, default=None
+        To check target column to have matching value.
+        Used for data quality checks.
+    check_not_matches_regex : str, default=None
+        To check target column not to have matching value.
+        Used for data quality checks.
+    check_null_percentage_variation_from_previous_version : float, default=None
+        To check the null percentage of previous version
+        Used for data quality checks.
+    check_columns_null_variation : float, default=None
+        To check column null variation.
+        Used for data quality checks.
+    check_column_sum_values : int, default=[]
+        To check numeric column sum values.
+        Used for data quality checks.
+    check_column_uniqueness_variation : float, default=None
+        To check column uniqueness variation.
+        Used for data quality checks.
+    check_numeric_sum_varation_from_previous_version : int, default=[]
+        To check numeric column sum varation from previous version.
+        Used for data quality checks.
+        
+        
+    """
+    def __init__(
+        self,
+        source_column_name: str = None,
+        target_data_type: str = None,
+        nullable: str = None,
+        check_min_length: int = None,
+        check_max_length: int = None,
+        check_min_value: Any = None,
+        check_max_value: Any = None,
+        check_valid_values: List[Any] = [],
+        check_invalid_values: List[Any] = [],
+        check_matches_regex: str = None,
+        check_not_matches_regex: str = None,
+        check_null_percentage_variation_from_previous_version: float = None,
+        check_columns_null_variation: float = None,
+        check_column_sum_values: List[int] = [],
+        check_column_uniqueness_variation: float = None,
+        check_numeric_sum_varation_from_previous_version: List[int] = [],
+    ):
+        self.source_column_name = source_column_name
+        self.target_data_type = target_data_type
+        self.nullable = nullable
+        self.check_min_length = check_min_length
+        self.check_max_length = check_max_length
+        self.check_min_value = check_min_value
+        self.check_max_value = check_max_value
+        self.check_matches_regex = check_matches_regex
+        self.check_valid_values = check_valid_values
+        self.check_invalid_values = check_invalid_values
+        self.check_not_matches_regex = check_not_matches_regex
+        self.check_null_percentage_variation_from_previous_version = check_null_percentage_variation_from_previous_version
+        self.check_columns_null_variation = check_columns_null_variation
+        self.check_column_sum_values = check_column_sum_values
+        self.check_column_uniqueness_variation = check_column_uniqueness_variation
+        self.check_numeric_sum_varation_from_previous_version = check_numeric_sum_varation_from_previous_version
+
+    def __str__(self):
+        return str(vars(self))
+    
 def with_exception_handling(func: Callable) -> Callable:
     """Decorator to wrap public functions with generic exception handling.
 
