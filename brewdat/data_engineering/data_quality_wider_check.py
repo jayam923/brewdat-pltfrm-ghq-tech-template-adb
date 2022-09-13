@@ -171,11 +171,11 @@ class DataQualityChecker:
 
             if result['success']:
                 passed = True
-                comment = f"Expected row count to be between {min_value} and {max_value}. " \
+                comment = f"Check is 'success' due to expected row count to be between {min_value} and {max_value}. " \
                         f"Observed count was {result['result']['observed_value']}."
             else:
                 passed = False
-                comment = f"Expected row count to be between {min_value} and {max_value}. " \
+                comment = f"Check is 'failed' due to expected row count to be between {min_value} and {max_value}. " \
                         f"Observed count was {result['result']['observed_value']}."
                 
 
@@ -447,15 +447,15 @@ class DataQualityChecker:
             current_percentage = round(float(format(current_result['result']['unexpected_percent'],'f')),2)
             variation =  current_percentage - previous_percentage
 
-            if variation <= max_accepted_variation:
+            if round(float(format(variation,'f')),2) <= max_accepted_variation:
                 passed = True
-                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' variation is {variation}% " \
+                comment = f"Check is 'success' due to the percentage of null records for column '{col_name}' variation is {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
-                          f" lesser/equal than the max allowed of {max_accepted_variation}% , current version : {current_percentage}%."\
+                          f" equal/lesser than the max allowed of {max_accepted_variation}% , current version : {current_percentage}%."\
                           f" previous version : {previous_percentage}%"  
             else:
                 passed = False
-                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' variation is {variation}% " \
+                comment = f"Check is 'failed' due to the percentage of null records for column '{col_name}' variation is {round(float(format(variation,'f')),2)}% " \
                           f"(version {current_version}) when compared with previous version (version {previous_version}) of the table, which is" \
                           f" higher than the max allowed of {max_accepted_variation}% , current version : {current_percentage}%."\
                           f" previous version : {previous_percentage}%"            

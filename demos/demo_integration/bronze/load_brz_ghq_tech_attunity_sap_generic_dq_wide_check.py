@@ -183,8 +183,8 @@ print(vars(results))
 # COMMAND ----------
 
 dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=target_location)
-#print(dq_checker.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=0,current_version=3))\
-dq_checker.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
+dq_checker.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=0,current_version=3)
+#dq_checker.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
 wider_dq_df = dq_checker.build()
 display(wider_dq_df)
 
@@ -216,16 +216,16 @@ display(wider_dq_df)
 # COMMAND ----------
 
 #wider check 2
-data_quality_wider_modify=data_quality_wider_check2.DataQualityChecker(spark=spark,location=target_location)
+data_quality_wider_modify=data_quality_wider_check.DataQualityChecker(spark=spark,location=target_location)
 #
-#data_quality_wider_modify.check_row_count(min_value=100,max_value=200)
-#data_quality_wider_modify.check_column_nulls(col_name='SalesOrderID',mostly=0.3)
+data_quality_wider_modify.check_row_count(min_value=100,max_value=200)
+data_quality_wider_modify.check_column_nulls(col_name='SalesOrderID',mostly=0.3)
 #data_quality_wider_modify.check_column_sum(col_name='SalesOrderID',min_value=100,max_value=200)
-#data_quality_wider_modify.check_compound_column_uniqueness(col_list=['SalesOrderID'],mostly=0.5)
-#data_quality_wider_modify.check_column_uniqueness(col_name='SalesOrderID',mostly=0.3)
+data_quality_wider_modify.check_compound_column_uniqueness(col_list=['SalesOrderID'],mostly=0.5)
+data_quality_wider_modify.check_column_uniqueness(col_name='SalesOrderID',mostly=0.3)
 data_quality_wider_modify.check_bad_records_percentage(min_percentage=0.01,max_percentage=0.1,current_version=results.new_version_number)
 #data_quality_wider_modify.check_count_variation_from_previous_version(min_variation=0.01,max_variation=0.1,previous_version=results.old_version_number,current_version=results.new_version_number)
-#data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=results.old_version_number,current_version=results.new_version_number)
+data_quality_wider_modify.check_null_percentage_variation_from_previous_version(col_name='SalesOrderID',max_accepted_variation=0.5,previous_version=results.old_version_number,current_version=results.new_version_number)
 #data_quality_wider_modify.check_numeric_sum_varation_from_previous_version(col_name='SalesOrderID',min_value=20000,max_value=30000,previous_version=results.old_version_number,current_version=results.new_version_number)
 result=data_quality_wider_modify.build()
 display(result)
