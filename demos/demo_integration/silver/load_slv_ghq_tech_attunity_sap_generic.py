@@ -56,11 +56,7 @@ dbutils.widgets.text("dq_narrow_check", "true", "13 - dq_narrow_check")
 dq_narrow_check = dbutils.widgets.get("dq_narrow_check")
 print(f"dq_narrow_check: {dq_narrow_check}")
 
-dbutils.widgets.text("dq_wider_check", "true", "14 - dq_wider_check")
-dq_wider_check = dbutils.widgets.get("dq_wider_check")
-print(f"dq_wider_check: {dq_wider_check}")
-
-dbutils.widgets.text("dq_chcek_mapping", "[]", "15 - dq_chcek_mapping")
+dbutils.widgets.text("dq_chcek_mapping", "[]", "14 - dq_chcek_mapping")
 dq_chcek_mapping = dbutils.widgets.get("dq_chcek_mapping")
 dq_chcek_mapping = json.loads(dq_chcek_mapping)
 table_level_mapping = dq_chcek_mapping[0]['table_level_schema']
@@ -150,10 +146,6 @@ except Exception:
 
 # COMMAND ----------
 
-display(bronze_df)
-
-# COMMAND ----------
-
 try:
     # Apply data quality checks based on given column mappings
     dq_checker = data_quality_utils.DataQualityChecker(dbutils=dbutils, df=bronze_df)
@@ -177,7 +169,7 @@ except Exception:
 # COMMAND ----------
 
 if dq_narrow_check:
-    helper_utils.data_quality_narrow_check(
+    data_quality_utils.DataQualityChecker.data_quality_narrow_check(
         column_level_mapping=column_level_mapping,
         dq_checker=dq_checker,
         dbutils=dbutils
@@ -195,8 +187,6 @@ mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
 mappings.append(dq_results_column)
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(dbutils=dbutils, df=bronze_dq_df, mappings=mappings)
-
-#display(transformed_df)
 
 # COMMAND ----------
 
@@ -254,20 +244,6 @@ if unmapped_columns:
     results.error_details += unmapped_warning
 
 print(results)
-
-# COMMAND ----------
-
-if dq_wider_check:
-    dq_checker=data_quality_wider_check.DataQualityChecker(spark=spark,location=location,dbutils=dbutils)
-    helper_utils.data_quality_wider_check(
-        table_level_mapping=table_level_mapping,
-        column_level_mapping=column_level_mapping,
-        dq_checker=dq_checker,
-        previous_version=results.old_version_number,
-        current_version=results.new_version_number,
-        dbutils=dbutils)
-    wider_dq_df = dq_checker.build()
-    display(wider_dq_df)
 
 # COMMAND ----------
 
