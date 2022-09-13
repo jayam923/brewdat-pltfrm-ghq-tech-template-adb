@@ -170,8 +170,6 @@ class DataQualityColumnMapping():
     check_numeric_sum_varation_from_previous_version : int, default=[]
         To check numeric column sum varation from previous version.
         Used for data quality checks.
-        
-        
     """
     def __init__(
         self,
