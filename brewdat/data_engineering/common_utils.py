@@ -184,11 +184,7 @@ class DataQualityColumnMapping():
         check_invalid_values: List[Any] = [],
         check_matches_regex: str = None,
         check_not_matches_regex: str = None,
-        check_null_percentage_variation_from_previous_version: float = None,
-        check_columns_null_variation: float = None,
-        check_column_sum_values: List[int] = [],
-        check_column_uniqueness_variation: float = None,
-        check_numeric_sum_varation_from_previous_version: List[int] = [],
+
     ):
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
@@ -201,11 +197,6 @@ class DataQualityColumnMapping():
         self.check_valid_values = check_valid_values
         self.check_invalid_values = check_invalid_values
         self.check_not_matches_regex = check_not_matches_regex
-        self.check_null_percentage_variation_from_previous_version = check_null_percentage_variation_from_previous_version
-        self.check_columns_null_variation = check_columns_null_variation
-        self.check_column_sum_values = check_column_sum_values
-        self.check_column_uniqueness_variation = check_column_uniqueness_variation
-        self.check_numeric_sum_varation_from_previous_version = check_numeric_sum_varation_from_previous_version
 
     def __str__(self):
         return str(vars(self))
