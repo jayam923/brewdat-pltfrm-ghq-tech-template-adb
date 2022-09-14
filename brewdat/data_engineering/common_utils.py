@@ -155,21 +155,7 @@ class DataQualityColumnMapping():
     check_not_matches_regex : str, default=None
         To check target column not to have matching value.
         Used for data quality checks.
-    check_null_percentage_variation_from_previous_version : float, default=None
-        To check the null percentage of previous version
-        Used for data quality checks.
-    check_columns_null_variation : float, default=None
-        To check column null variation.
-        Used for data quality checks.
-    check_column_sum_values : int, default=[]
-        To check numeric column sum values.
-        Used for data quality checks.
-    check_column_uniqueness_variation : float, default=None
-        To check column uniqueness variation.
-        Used for data quality checks.
-    check_numeric_sum_varation_from_previous_version : int, default=[]
-        To check numeric column sum varation from previous version.
-        Used for data quality checks.
+
     """
     def __init__(
         self,
