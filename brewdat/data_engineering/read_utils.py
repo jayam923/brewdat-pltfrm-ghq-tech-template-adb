@@ -138,8 +138,9 @@ def read_raw_dataframe(
 @common_utils.with_exception_handling
 def read_raw_streaming_dataframe(
     file_format: RawFileFormat,
-    location: str,
     *,  # Force named parameters from this point on
+    location: str = None,
+    table_name: str = None,
     schema_location: Optional[str] = None,
     cast_all_to_string: bool = False,
     handle_rescued_data: bool = True,
@@ -155,9 +156,11 @@ def read_raw_streaming_dataframe(
     ----------
     file_format : RawFileFormat
         The raw file format use in this dataset (CSV, PARQUET, etc.).
-    location : str
+    location : str, default=None
         Absolute Data Lake path for the physical location of this dataset.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
+    table_name : str, default=None
+        Name of the delta table in the metastore. 
     schema_location : Optional[str], default=None
         Absolute Data Lake path to store the inferred schema and subsequent changes.
         If None, the following location is used by default: {location}/_schema.
@@ -187,7 +190,10 @@ def read_raw_streaming_dataframe(
         The PySpark streaming DataFrame read from the Raw Layer.
     """
     RESCUE_COLUMN = "__rescued_data"
-
+    
+    if location and table_name:
+        raise ValueError("Must provide either location or table_name, not both.")
+                 
     # Create streaming DataFrame
     spark = SparkSession.getActiveSession()
     if file_format in [RawFileFormat.EXCEL, RawFileFormat.XML]:
@@ -195,15 +201,27 @@ def read_raw_streaming_dataframe(
         raise NotImplementedError
     elif file_format == RawFileFormat.DELTA:
         # Read using Delta Streaming
-        df = (
+        df_reader = (
             spark.readStream
             .format("delta")
             .option("ignoreChanges", True)  # reprocess updates to old files
             .option("maxBytesPerTrigger", "10g")
             .option("maxFilesPerTrigger", 1000)
-            .options(**additional_options)
-            .load(location)
         )
+        
+        if table_name:
+            df = (
+                df_reader
+                .options(**additional_options)
+                .table(table_name)                         
+            )
+        else:
+            df = (
+                df_reader
+                .options(**additional_options)
+                .load(location)                         
+            )
+            
     else:
         # Disable inclusion of filename in the rescue data column
         spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", "false")

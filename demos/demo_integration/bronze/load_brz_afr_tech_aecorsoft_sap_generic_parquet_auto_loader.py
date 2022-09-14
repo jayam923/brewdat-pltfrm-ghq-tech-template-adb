@@ -11,19 +11,19 @@ dbutils.widgets.text("source_business_domain", "tech", "03 - source_business_dom
 source_business_domain = dbutils.widgets.get("source_business_domain")
 print(f"{source_business_domain = }")
 
-dbutils.widgets.text("source_system", "sap_africa", "04 - source_system")
+dbutils.widgets.text("source_system", "sap_ecc_bt1", "04 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
+dbutils.widgets.text("source_table", "AFIH", "05 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
 
-dbutils.widgets.text("target_hive_database", "brz_afr_tech_sap_africa", "06 - target_hive_database")
+dbutils.widgets.text("target_hive_database", "brz_afr_tech_sap_ecc_bt1", "06 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
 print(f"{target_hive_database = }")
 
-dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
+dbutils.widgets.text("target_hive_table", "afih", "07 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
 print(f"{target_hive_table = }")
 
@@ -63,8 +63,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = source_system_to_sap_sid.get(source_system)
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{source_system}/aecorsoft/{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
