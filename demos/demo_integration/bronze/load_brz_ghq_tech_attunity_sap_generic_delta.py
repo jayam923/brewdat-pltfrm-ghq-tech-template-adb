@@ -63,7 +63,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = source_system_to_sap_sid.get(source_system)
+sap_sid = source_system.split('_',2)[2]
 attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
 print(f"{attunity_sap_prelz_root = }")
 
