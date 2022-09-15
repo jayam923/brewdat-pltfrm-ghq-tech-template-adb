@@ -9,13 +9,13 @@ dbutils.widgets.text("source_system", "sap_ecc_bt1", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_hive_database", "brz_afr_tech_sap_ecc_bt1", "03 - source_hive_database")
-source_hive_database = dbutils.widgets.get("source_hive_database")
-print(f"{source_hive_database = }")
+dbutils.widgets.text("source_database", "brz_afr_tech_sap_ecc_bt1", "03 - source_database")
+source_database = dbutils.widgets.get("source_database")
+print(f"{source_database = }")
 
-dbutils.widgets.text("source_hive_table", "afih", "04 - source_hive_table")
-source_hive_table = dbutils.widgets.get("source_hive_table")
-print(f"{source_hive_table = }")
+dbutils.widgets.text("source_table", "afih", "04 - source_table")
+source_table = dbutils.widgets.get("source_table")
+print(f"{source_table = }")
 
 dbutils.widgets.text("target_zone", "afr", "05 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
@@ -25,18 +25,18 @@ dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_hive_database", "slv_afr_tech_sap_ecc_bt1", "07 - target_hive_database")
-target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"{target_hive_database = }")
+dbutils.widgets.text("target_database", "slv_afr_tech_sap_ecc_bt1", "07 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_hive_table", "afih", "08 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"{target_hive_table = }")
+dbutils.widgets.text("target_table", "afih", "08 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
-dbutils.widgets.text("silver_mapping", "[]", "09 - silver_mapping")
-silver_mapping = dbutils.widgets.get("silver_mapping")
-silver_mapping = json.loads(silver_mapping)
-print(f"{silver_mapping = }")
+dbutils.widgets.text("column_mapping", "[]", "09 - column_mapping")
+column_mapping = dbutils.widgets.get("column_mapping")
+column_mapping = json.loads(column_mapping)
+print(f"{column_mapping = }")
 
 dbutils.widgets.text("key_columns", '["MANDT", "AUFNR"]', "10 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
@@ -48,9 +48,13 @@ partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"{partition_columns = }")
 
-dbutils.widgets.text("reset_checkpoint", "false", "12 - reset_checkpoint")
-reset_checkpoint = dbutils.widgets.get("reset_checkpoint")
-print(f"{reset_checkpoint = }")
+dbutils.widgets.text("load_type", "UPSERT", "11 - load_type")
+load_type = dbutils.widgets.get("load_type")
+print(f"{load_type = }")
+
+dbutils.widgets.text("reset_stream_checkpoint", "false", "12 - reset_stream_checkpoint")
+reset_stream_checkpoint = dbutils.widgets.get("reset_stream_checkpoint")
+print(f"{reset_stream_checkpoint = }")
 
 # COMMAND ----------
 
@@ -88,7 +92,7 @@ from pyspark.sql import functions as F
 bronze_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
-        table_name=f"{source_hive_database}.{source_hive_table}",      
+        table_name=f"{source_database}.{source_table}",      
     )
 )
 
@@ -97,7 +101,7 @@ bronze_df = (
 try:
     # Apply data quality checks based on given column mappings
     dq_checker = data_quality_utils.DataQualityChecker(bronze_df)
-    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
+    mappings = [common_utils.ColumnMapping(**mapping) for mapping in column_mapping]
     for mapping in mappings:
         dq_checker = dq_checker.check_column_type_cast(
                 column_name=mapping.source_column_name,
@@ -138,7 +142,7 @@ target_location = lakehouse_utils.generate_silver_table_location(
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
-    table_name=target_hive_table,
+    table_name=target_table,
 )
 print(f"{target_location = }")
 
@@ -150,15 +154,15 @@ def deduplicate(df):
 results = write_utils.write_stream_delta_table(
     df=audit_df,
     location=target_location,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
-    load_type=write_utils.LoadType.UPSERT,
+    database_name=target_database,
+    table_name=target_table,
+    load_type=write_utils.LoadType[load_type],
     key_columns=key_columns,
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
     transform_microbatch=deduplicate,
-    reset_checkpoint=(reset_checkpoint.lower() == "true"),
+    reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )
 
 # Warn in case of relevant unmapped columns

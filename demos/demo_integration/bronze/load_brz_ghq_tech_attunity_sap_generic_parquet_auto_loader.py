@@ -64,7 +64,7 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 sap_sid = source_system_to_sap_sid.get(source_system)
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/file.{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
