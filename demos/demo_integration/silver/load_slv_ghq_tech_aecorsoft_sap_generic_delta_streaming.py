@@ -149,7 +149,7 @@ print(f"{target_location = }")
 # COMMAND ----------
 
 def deduplicate(df):
-    return  transform_utils.deduplicate_records(df=df, key_columns=key_columns, watermark_column="__process_date")
+    return  transform_utils.deduplicate_records(df=df, key_columns=key_columns, watermark_column="AEDATTM")
 
 results = write_utils.write_stream_delta_table(
     df=audit_df,
@@ -161,6 +161,7 @@ results = write_utils.write_stream_delta_table(
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
+    auto_broadcast_join_threshold=10485760,
     transform_microbatch=deduplicate,
     reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )
