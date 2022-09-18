@@ -25,7 +25,7 @@ from brewdat.data_engineering import common_utils
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(common_utils)
+# help(common_utils)
 
 # COMMAND ----------
 

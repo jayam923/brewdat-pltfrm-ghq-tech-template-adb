@@ -36,7 +36,7 @@ class DataQualityChecker:
             self.df
             .withColumn(
                 DQ_RESULTS_COLUMN,
-                F.filter(F.array(temp_dq_cols), lambda c: c.isNotNull())
+                F.filter(F.array(*temp_dq_cols), lambda c: c.isNotNull())
             )
             .withColumn(
                 DQ_RESULTS_COLUMN,

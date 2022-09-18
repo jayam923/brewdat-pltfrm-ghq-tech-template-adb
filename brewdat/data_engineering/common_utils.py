@@ -90,9 +90,11 @@ class ColumnMapping:
     ----------
     source_column_name : Optional[str], default=None
         Column name in the source DataFrame.
+        Must provide either source_column_name or sql_expression, but not both.
     sql_expression : Optional[str], default=None
         Spark SQL expression to create the target column.
         If None, simply cast and possibly rename the source column.
+        Must provide either source_column_name or sql_expression, but not both.
     target_data_type : str, default="string"
         The data type to which input column will be cast to.
         If None, use string type by default.
@@ -111,8 +113,8 @@ class ColumnMapping:
         target_column_name: Optional[str] = None,
         nullable: bool = True,
     ):
-        if source_column_name and sql_expression:
-            raise ValueError("Must provide either source_column_name or sql_expression, not both.")
+        if source_column_name and sql_expression or not source_column_name and not sql_expression:
+            raise ValueError("Must provide either source_column_name or sql_expression, but not both.")
 
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type

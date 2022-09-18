@@ -41,7 +41,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(read_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -63,7 +63,7 @@ raw_df = read_utils.read_raw_dataframe(
     location=f"{lakehouse_raw_root}/data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
 )
 
-#display(raw_df)
+# display(raw_df)
 
 # COMMAND ----------
 
@@ -81,7 +81,7 @@ transformed_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
