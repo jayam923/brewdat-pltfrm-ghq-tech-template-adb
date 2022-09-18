@@ -92,7 +92,7 @@ from pyspark.sql import functions as F
 bronze_df = (
     read_utils.read_raw_streaming_dataframe(
         file_format=read_utils.RawFileFormat.DELTA,
-        table_name=f"{source_database}.{source_table}",      
+        table_name=f"`{source_database}`.`{source_table}`",
     )
 )
 
@@ -104,9 +104,9 @@ try:
     mappings = [common_utils.ColumnMapping(**mapping) for mapping in column_mapping]
     for mapping in mappings:
         dq_checker = dq_checker.check_column_type_cast(
-                column_name=mapping.source_column_name,
-                data_type=mapping.target_data_type,
-            )   
+            column_name=mapping.source_column_name,
+            data_type=mapping.target_data_type,
+        )
         if not mapping.nullable:
             dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
 
@@ -148,15 +148,19 @@ print(f"{target_location = }")
 
 # COMMAND ----------
 
-def deduplicate(df):
-    return  transform_utils.deduplicate_records(df=df, key_columns=key_columns, watermark_column="AEDATTM")
+def deduplicate(df, _):
+    return transform_utils.deduplicate_records(
+        df=df,
+        key_columns=key_columns,
+        watermark_column="AEDATTM",
+    )
 
 results = write_utils.write_stream_delta_table(
     df=audit_df,
     location=target_location,
     database_name=target_database,
     table_name=target_table,
-    load_type=write_utils.LoadType[load_type],
+    load_type=load_type,
     key_columns=key_columns,
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
