@@ -359,6 +359,7 @@ def handle_rescued_data(df: DataFrame, rescue_column_name: str) -> DataFrame:
         PySpark DataFrame to modify.
     rescue_column_name : str
         Name of the column containing rescued data.
+        Do nothing if this column does not exist in the DataFrame.
 
     Returns
     -------
@@ -369,6 +370,9 @@ def handle_rescued_data(df: DataFrame, rescue_column_name: str) -> DataFrame:
     --------
     cast_all_columns_to_string : Cast all DataFrame columns to string.
     """
+    if rescue_column_name not in df.columns:
+        return df
+
     df = df.withColumn(rescue_column_name, F.from_json(rescue_column_name, df.schema))
     for col in df.columns:
         if col == rescue_column_name:
