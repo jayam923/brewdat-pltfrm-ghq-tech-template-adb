@@ -77,8 +77,8 @@ def write_delta_table(
     table_name: str,
     load_type: LoadType,
     *,  # Force named parameters from this point on
-    key_columns: List[str] = [],
-    partition_columns: List[str] = [],
+    key_columns: List[str] = None,
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
     delete_condition_for_upsert: str = "false",  # by default, never delete
@@ -104,10 +104,10 @@ def write_delta_table(
     load_type : BrewDatLibrary.LoadType
         Specifies the way in which the table should be loaded.
         See documentation for BrewDatLibrary.LoadType.
-    key_columns : List[str], default=[]
+    key_columns : List[str], default=None
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -139,6 +139,12 @@ def write_delta_table(
     ReturnObject
         Object containing the results of a write operation.
     """
+    if key_columns is None:
+        key_columns = []
+
+    if partition_columns is None:
+        partition_columns = []
+
     num_records_read = 0
     num_records_loaded = 0
     old_version_number = None
@@ -312,8 +318,8 @@ def write_stream_delta_table(
     table_name: str,
     load_type: LoadType,
     *,  # Force named parameters from this point on
-    key_columns: List[str] = [],
-    partition_columns: List[str] = [],
+    key_columns: List[str] = None,
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode: BadRecordHandlingMode = BadRecordHandlingMode.WARN,
     transform_microbatch: Callable[[DataFrame], DataFrame] = None,
@@ -342,10 +348,10 @@ def write_stream_delta_table(
     load_type : BrewDatLibrary.LoadType
         Specifies the way in which the table should be loaded.
         See documentation for BrewDatLibrary.LoadType.
-    key_columns : List[str], default=[]
+    key_columns : List[str], default=None
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -387,6 +393,12 @@ def write_stream_delta_table(
     ReturnObject
         Object containing the results of a write operation.
     """
+    if key_columns is None:
+        key_columns = []
+
+    if partition_columns is None:
+        partition_columns = []
+
     results = ReturnObject(
         status=RunStatus.SUCCEEDED,
         target_object=f"{database_name}.{table_name}",
@@ -668,7 +680,7 @@ def _create_df_writer_with_options(
     df: DataFrame,
     location: str,
     schema_evolution_mode: SchemaEvolutionMode,
-    partition_columns: List[str] = []
+    partition_columns: List[str] = None,
 ) -> DataFrameWriter:
     """Create DataFrameWriter for a DataFrame according to schema evolution mode.
 
@@ -681,7 +693,7 @@ def _create_df_writer_with_options(
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode
         Specifies the way in which schema mismatches should be handled.
         See documentation for BrewDatLibrary.SchemaEvolutionMode.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
 
     Returns
@@ -840,7 +852,7 @@ def _get_latest_output_row_count(location: str) -> int:
 def _write_table_using_overwrite_table(
     df: DataFrame,
     location: str,
-    partition_columns: List[str] = [],
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using OVERWRITE_TABLE.
@@ -851,7 +863,7 @@ def _write_table_using_overwrite_table(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -876,7 +888,7 @@ def _write_table_using_overwrite_table(
 def _write_table_using_overwrite_partition(
     df: DataFrame,
     location: str,
-    partition_columns: List[str] = [],
+    partition_columns: List[str],
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using OVERWRITE_PARTITION.
@@ -887,7 +899,7 @@ def _write_table_using_overwrite_partition(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str]
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -926,7 +938,7 @@ def _write_table_using_overwrite_partition(
 def _write_table_using_append_all(
     df: DataFrame,
     location: str,
-    partition_columns: List[str] = [],
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using APPEND_ALL.
@@ -937,7 +949,7 @@ def _write_table_using_append_all(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -962,8 +974,8 @@ def _write_table_using_append_all(
 def _write_table_using_append_new(
     df: DataFrame,
     location: str,
-    key_columns: List[str] = [],
-    partition_columns: List[str] = [],
+    key_columns: List[str],
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using APPEND_NEW.
@@ -974,10 +986,10 @@ def _write_table_using_append_new(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    key_columns : List[str], default=[]
+    key_columns : List[str]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -1026,8 +1038,8 @@ def _write_table_using_append_new(
 def _write_table_using_upsert(
     df: DataFrame,
     location: str,
-    key_columns: List[str] = [],
-    partition_columns: List[str] = [],
+    key_columns: List[str],
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
     delete_condition: str = "false",
     update_condition: str = "true",
@@ -1040,10 +1052,10 @@ def _write_table_using_upsert(
         PySpark DataFrame to modify.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    key_columns : List[str], default=[]
+    key_columns : List[str]
         The names of the columns used to uniquely identify each record in the table.
         Used for APPEND_NEW, UPSERT, and TYPE_2_SCD load types.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -1100,8 +1112,8 @@ def _write_table_using_upsert(
 def _write_table_using_type_2_scd(
     df: DataFrame,
     location: str,
-    key_columns: List[str] = [],
-    partition_columns: List[str] = [],
+    key_columns: List[str],
+    partition_columns: List[str] = None,
     schema_evolution_mode: SchemaEvolutionMode = SchemaEvolutionMode.ADD_NEW_COLUMNS,
 ) -> int:
     """Write the DataFrame using TYPE_2_SCD.
@@ -1112,9 +1124,9 @@ def _write_table_using_type_2_scd(
         PySpark DataFrame to write.
     location : str
         Absolute Delta Lake path for the physical location of this delta table.
-    key_columns : List[str], default=[]
+    key_columns : List[str]
         The names of the columns used to uniquely identify each record in the table.
-    partition_columns : List[str], default=[]
+    partition_columns : List[str], default=None
         The names of the columns used to partition the table.
     schema_evolution_mode : BrewDatLibrary.SchemaEvolutionMode, default=ADD_NEW_COLUMNS
         Specifies the way in which schema mismatches should be handled.
@@ -1210,7 +1222,7 @@ def _generate_type_2_scd_metadata_columns(df: DataFrame) -> DataFrame:
 def _merge_dataframe_for_type_2_scd(
     source_df: DataFrame,
     target_df: DataFrame,
-    key_columns: List[str] = [],
+    key_columns: List[str],
 ) -> DataFrame:
     """Create the merge DataFrame for TYPE_2_SCD load type.
 
@@ -1227,7 +1239,7 @@ def _merge_dataframe_for_type_2_scd(
         PySpark DataFrame with new records for updating the target table.
     target_df : DataFrame
         PySpark DataFrame containing target table records.
-    key_columns : List[str], default=[]
+    key_columns : List[str]
         The names of the columns used to uniquely identify each record in the table.
 
     Returns
@@ -1264,6 +1276,9 @@ def _merge_dataframe_for_type_2_scd(
     | a1b2c3d4   | True        |  2   | Bob   | 1           | 2022-01-02   | null       |
     +------------+-------------+------+-------+-------------+--------------+------------+
     """
+    if not key_columns:
+        raise ValueError("No key column was given")
+
     # Build join condition
     join_condition = [F.col(f"source.`{col}`") == F.col(f"target.`{col}`") for col in key_columns]
     join_condition += [F.col("source.__hash_key") != F.col("target.__hash_key")]

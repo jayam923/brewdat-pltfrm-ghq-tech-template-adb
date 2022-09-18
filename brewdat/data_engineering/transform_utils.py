@@ -24,7 +24,7 @@ class UnmappedColumnBehavior(str, Enum):
 
 
 @common_utils.with_exception_handling
-def clean_column_names(df: DataFrame, except_for: List[str] = []) -> DataFrame:
+def clean_column_names(df: DataFrame, except_for: List[str] = None) -> DataFrame:
     """Normalize the name of all the columns in a given DataFrame.
 
     Replaces non-alphanumeric characters with underscore and
@@ -34,7 +34,7 @@ def clean_column_names(df: DataFrame, except_for: List[str] = []) -> DataFrame:
     ----------
     df : DataFrame
         The PySpark DataFrame to modify.
-    except_for : List[str], default=[]
+    except_for : List[str], default=None
         A list of column names that should NOT be modified.
 
     Returns
@@ -42,6 +42,9 @@ def clean_column_names(df: DataFrame, except_for: List[str] = []) -> DataFrame:
     DataFrame
         The modified PySpark DataFrame with renamed columns.
     """
+    if except_for is None:
+        except_for = []
+
     for column in df.schema:
         if column.name in except_for:
             continue  # Skip
@@ -134,7 +137,7 @@ def create_or_replace_audit_columns(df: DataFrame) -> DataFrame:
 @common_utils.with_exception_handling
 def deduplicate_records(
     df: DataFrame,
-    key_columns: List[str] = [],
+    key_columns: List[str] = None,
     watermark_column: Optional[str] = None,
 ) -> DataFrame:
     """Deduplicate rows from a DataFrame using optional key and watermark columns.
@@ -147,7 +150,7 @@ def deduplicate_records(
     ----------
     df : DataFrame
         The PySpark DataFrame to modify.
-    key_columns : List[str], default=[]
+    key_columns : List[str], default=None
         The names of the columns used to uniquely identify each record the table.
     watermark_column : Optional[str], default=None
         The name of a datetime column used to select the newest records.
@@ -214,7 +217,7 @@ def cast_all_columns_to_string(df: DataFrame) -> DataFrame:
 @common_utils.with_exception_handling
 def flatten_dataframe(
     df: DataFrame,
-    except_for: List[str] = [],
+    except_for: List[str] = None,
     explode_arrays: bool = True,
     recursive: bool = True,
     column_name_separator: str = "__",
@@ -226,7 +229,7 @@ def flatten_dataframe(
     ----------
     df : DataFrame
         The PySpark DataFrame to flatten.
-    except_for : List[str], default=[]
+    except_for : List[str], default=None
         List of columns to be ignored by flattening process.
     explode_arrays : bool, default=True
         When true, all array columns will be exploded.
@@ -246,6 +249,9 @@ def flatten_dataframe(
     DataFrame
         The flattened PySpark DataFrame.
     """
+    if except_for is None:
+        except_for = []
+
     while True:
         # Process struct and map columns
         # And optionally array columns, too
