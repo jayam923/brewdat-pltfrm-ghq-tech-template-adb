@@ -19,6 +19,7 @@ def test_read_raw_dataframe_csv_simple(file_location = "./test/brewdat/data_engi
     df = read_raw_dataframe(
         file_format=RawFileFormat.CSV,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -42,6 +43,7 @@ def test_read_raw_dataframe_parquet_simple(file_location = "./test/brewdat/data_
     df = read_raw_dataframe(
         file_format=RawFileFormat.PARQUET,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -65,6 +67,7 @@ def test_read_raw_dataframe_orc_simple(file_location = "./test/brewdat/data_engi
     df = read_raw_dataframe(
         file_format=RawFileFormat.ORC,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -88,6 +91,7 @@ def test_read_raw_dataframe_delta_simple(file_location = "./test/brewdat/data_en
     df = read_raw_dataframe(
         file_format=RawFileFormat.DELTA,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -109,6 +113,7 @@ def test_read_raw_dataframe_parquet_with_array(file_location = "./test/brewdat/d
     df = read_raw_dataframe(
         file_format=RawFileFormat.PARQUET,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -133,6 +138,7 @@ def test_read_raw_dataframe_parquet_with_struct(file_location = "./test/brewdat/
     df = read_raw_dataframe(
         file_format=RawFileFormat.PARQUET,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -164,13 +170,13 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct(file_location = ".
     df = read_raw_dataframe(
         file_format=RawFileFormat.PARQUET,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
     df.show()
     assert 2 == df.count()
     assert expected_schema == df.schema
-
 
 
 def test_read_raw_dataframe_parquet_with_array_of_struct(file_location = "./test/brewdat/data_engineering/support_files/read_raw_dataframe/parquet_with_array_of_struct.parquet"):
@@ -189,6 +195,7 @@ def test_read_raw_dataframe_parquet_with_array_of_struct(file_location = "./test
     df = read_raw_dataframe(
         file_format=RawFileFormat.PARQUET,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -222,6 +229,7 @@ def test_read_raw_dataframe_parquet_with_deeply_nested_struct_inside_array(file_
     df = read_raw_dataframe(
         file_format=RawFileFormat.PARQUET,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -278,6 +286,7 @@ def test_read_raw_dataframe_xml_simple(file_location = "./test/brewdat/data_engi
     df = read_raw_dataframe(
         file_format=RawFileFormat.XML,
         location=file_location,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -300,7 +309,8 @@ def test_read_raw_dataframe_xml_simple_row_tag(file_location = "./test/brewdat/d
     df = read_raw_dataframe(
         file_format=RawFileFormat.XML,
         location=file_location,
-        xml_row_tag="client"
+        xml_row_tag="client",
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -323,7 +333,8 @@ def test_read_raw_dataframe_csv_delimiter(file_location = "./test/brewdat/data_e
     df = read_raw_dataframe(
         file_format=RawFileFormat.CSV,
         location=file_location,
-        csv_delimiter=';'
+        csv_delimiter=';',
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -347,7 +358,8 @@ def test_read_raw_dataframe_csv_has_headers(file_location = "./test/brewdat/data
         file_format=RawFileFormat.CSV,
         location=file_location,
         csv_delimiter=',',
-        csv_has_headers=False
+        csv_has_headers=False,
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -368,7 +380,8 @@ def test_read_raw_dataframe_excel_simple(file_location="./test/brewdat/data_engi
     df = read_raw_dataframe(
         file_format=RawFileFormat.EXCEL,
         location=file_location,
-        excel_sheet_name="records"
+        excel_sheet_name="records",
+        cast_all_to_string=True
     )
 
     # ASSERT
@@ -378,6 +391,7 @@ def test_read_raw_dataframe_excel_simple(file_location="./test/brewdat/data_engi
 
 def test_read_raw_dataframe_avro(file_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/avro_simple1"):
         # ARRANGE
+
         expected_schema = StructType(
             [
                 StructField('name', StringType(), True),
@@ -389,6 +403,7 @@ def test_read_raw_dataframe_avro(file_location="./test/brewdat/data_engineering/
         df = read_raw_dataframe(
             file_format=RawFileFormat.AVRO,
             location=file_location,
+            cast_all_to_string=True
         )
 
         # ASSERT

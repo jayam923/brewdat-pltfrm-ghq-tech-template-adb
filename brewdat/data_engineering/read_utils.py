@@ -32,9 +32,10 @@ class RawFileFormat(str, Enum):
 @common_utils.with_exception_handling
 def read_raw_dataframe(
     file_format: RawFileFormat,
-    location: str,
     *,  # Force named parameters from this point on
-    cast_all_to_string: bool = True,
+    location: str = None,
+    table_name: str = None,
+    cast_all_to_string: bool = False,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
     csv_escape_character: str = "\"",
@@ -50,10 +51,14 @@ def read_raw_dataframe(
     ----------
     file_format : RawFileFormat
         The raw file format use in this dataset (CSV, PARQUET, etc.).
-    location : str
+    location : str, default=None
         Absolute Data Lake path for the physical location of this dataset.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
-    cast_all_to_string : bool, default=True
+        Must provide either location or table_name, but not both.
+    table_name : str, default=None
+        Name of the delta table in the Hive metastore.
+        Must provide either location or table_name, but not both.
+    cast_all_to_string : bool, default=False
         Whether to cast all non-string values to string.
         Useful to maximize schema compatibility in the Bronze layer.
     csv_has_headers : bool, default=True
@@ -81,6 +86,9 @@ def read_raw_dataframe(
     DataFrame
         The PySpark DataFrame read from the Raw Layer.
     """
+    if location and table_name or not location and not table_name:
+        raise ValueError("Must provide either location or table_name, but not both.")
+
     # Read DataFrame
     spark = SparkSession.getActiveSession()
     if file_format == RawFileFormat.CSV:
@@ -138,11 +146,12 @@ def read_raw_dataframe(
 @common_utils.with_exception_handling
 def read_raw_streaming_dataframe(
     file_format: RawFileFormat,
-    location: str,
     *,  # Force named parameters from this point on
+    location: str = None,
+    table_name: str = None,
     schema_location: Optional[str] = None,
+    cast_all_to_string: bool = False,
     handle_rescued_data: bool = True,
-    cast_all_to_string: bool = True,
     csv_has_headers: bool = True,
     csv_delimiter: str = ",",
     csv_escape_character: str = "\"",
@@ -155,19 +164,23 @@ def read_raw_streaming_dataframe(
     ----------
     file_format : RawFileFormat
         The raw file format use in this dataset (CSV, PARQUET, etc.).
-    location : str
+    location : str, default=None
         Absolute Data Lake path for the physical location of this dataset.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/dataset/".
+        Must provide either location or table_name, but not both.
+    table_name : str, default=None
+        Name of the delta table in the Hive metastore.
+        Must provide either location or table_name, but not both.
     schema_location : Optional[str], default=None
         Absolute Data Lake path to store the inferred schema and subsequent changes.
         If None, the following location is used by default: {location}/_schema.
         Format: "abfss://container@storage_account.dfs.core.windows.net/path/to/folder".
+    cast_all_to_string : bool, default=False
+        Whether to cast all non-string values to string.
+        Useful to maximize schema compatibility in the Bronze layer.
     handle_rescued_data : bool, default=True
         Whether to bring back rescued data from columns that had schema mismatches during schema
         inference. This is only possible if the offending columns are first cast to string.
-    cast_all_to_string : bool, default=True
-        Whether to cast all non-string values to string.
-        Useful to maximize schema compatibility in the Bronze layer.
     csv_has_headers : bool, default=True
         Whether the CSV file has a header row.
     csv_delimiter : str, default=","
@@ -186,6 +199,9 @@ def read_raw_streaming_dataframe(
     DataFrame
         The PySpark streaming DataFrame read from the Raw Layer.
     """
+    if location and table_name or not location and not table_name:
+        raise ValueError("Must provide either location or table_name, but not both.")
+
     RESCUE_COLUMN = "__rescued_data"
 
     # Create streaming DataFrame
@@ -195,14 +211,20 @@ def read_raw_streaming_dataframe(
         raise NotImplementedError
     elif file_format == RawFileFormat.DELTA:
         # Read using Delta Streaming
-        df = (
+        df_reader = (
             spark.readStream
             .format("delta")
             .option("ignoreChanges", True)  # reprocess updates to old files
             .option("maxBytesPerTrigger", "10g")
             .option("maxFilesPerTrigger", 1000)
-            .load(location)
+            .options(**additional_options)
         )
+
+        if table_name:
+            df = df_reader.table(table_name)
+        else:
+            df = df_reader.load(location)
+
     else:
         # Disable inclusion of filename in the rescue data column
         spark.conf.set("spark.databricks.sql.rescuedDataColumn.filePath.enabled", "false")
@@ -221,7 +243,6 @@ def read_raw_streaming_dataframe(
             .option("cloudFiles.schemaLocation", schema_location or location)
             .option("rescuedDataColumn", RESCUE_COLUMN)
             .option("readerCaseSensitive", False)
-            .options(**additional_options)
         )
 
         if file_format == RawFileFormat.CSV:
@@ -234,7 +255,12 @@ def read_raw_streaming_dataframe(
         elif file_format == RawFileFormat.JSON:
             df_reader = df_reader.option("multiLine", json_is_multiline)
 
-        df = df_reader.load(location)
+        df_reader = df_reader.options(**additional_options)
+
+        if table_name:
+            df = df_reader.table(table_name)
+        else:
+            df = df_reader.load(location)
 
     # Apply Bronze transformations
     if cast_all_to_string:

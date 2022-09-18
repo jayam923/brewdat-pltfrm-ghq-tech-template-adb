@@ -3,15 +3,15 @@ dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_ecc_bt1", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
+dbutils.widgets.text("source_table", "AFIH", "03 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
 
-dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
+dbutils.widgets.text("target_zone", "afr", "04 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"{target_zone = }")
 
@@ -19,17 +19,17 @@ dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
-target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"{target_hive_database = }")
+dbutils.widgets.text("target_database", "brz_afr_tech_sap_ecc_bt1", "06 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"{target_hive_table = }")
+dbutils.widgets.text("target_table", "afih", "07 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
-dbutils.widgets.text("reset_checkpoint", "false", "08 - reset_checkpoint")
-reset_checkpoint = dbutils.widgets.get("reset_checkpoint")
-print(f"{reset_checkpoint = }")
+dbutils.widgets.text("reset_stream_checkpoint", "false", "08 - reset_stream_checkpoint")
+reset_stream_checkpoint = dbutils.widgets.get("reset_stream_checkpoint")
+print(f"{reset_stream_checkpoint = }")
 
 # COMMAND ----------
 
@@ -42,7 +42,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-# help(common_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -63,47 +63,28 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = source_system_to_sap_sid.get(source_system)
-attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
-print(f"{attunity_sap_prelz_root = }")
+raw_location = f"{lakehouse_raw_root}/data/{target_zone}/{target_business_domain}/{source_system}/aecorsoft/{source_table}"
+print(f"{raw_location = }")
 
 # COMMAND ----------
 
-base_df = (
+raw_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
+        file_format=read_utils.RawFileFormat.PARQUET,
+        location=f"{raw_location}/*.parquet",
+        schema_location=raw_location,
+        cast_all_to_string=True,
+        handle_rescued_data=True,
+        additional_options={
+            "cloudFiles.useIncrementalListing": "false",
+        },
     )
     .withColumn("__src_file", F.input_file_name())
     .transform(transform_utils.clean_column_names)
-    .transform(transform_utils.cast_all_columns_to_string)
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-# display(base_df)
-
-# COMMAND ----------
-
-ct_df = (
-    read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
-    )
-    # Ignore "Before Image" records from update operations
-    .filter("header__change_oper != 'B'")
-    .withColumn("__src_file", F.input_file_name())
-    .transform(transform_utils.clean_column_names)
-    .transform(transform_utils.cast_all_columns_to_string)
-    .transform(transform_utils.create_or_replace_audit_columns)
-)
-
-# display(ct_df)
-
-# COMMAND ----------
-
-union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
-
-# display(union_df)
+# display(raw_df)
 
 # COMMAND ----------
 
@@ -112,23 +93,23 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
-    table_name=target_hive_table,
+    table_name=target_table,
 )
 print(f"{target_location = }")
 
 # COMMAND ----------
 
 results = write_utils.write_stream_delta_table(
-    df=union_df,
+    df=raw_df,
     location=target_location,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
+    database_name=target_database,
+    table_name=target_table,
     load_type=write_utils.LoadType.APPEND_ALL,
-    partition_columns=["TARGET_APPLY_DT"],
+    partition_columns=["__process_date"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
-    reset_checkpoint=(reset_checkpoint.lower() == "true"),
+    reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )
 print(results)
 

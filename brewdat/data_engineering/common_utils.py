@@ -22,7 +22,7 @@ class RunStatus(str, Enum):
     """Represents a failed run status."""
 
 
-class ReturnObject():
+class ReturnObject:
     """Object that holds metadata from a data write operation.
 
     Attributes
@@ -80,7 +80,7 @@ class ReturnObject():
         return str(vars(self))
 
 
-class ColumnMapping():
+class ColumnMapping:
     """Object the holds the source-to-target-mapping information
     for a single column in a DataFrame.
 
@@ -90,9 +90,11 @@ class ColumnMapping():
     ----------
     source_column_name : Optional[str], default=None
         Column name in the source DataFrame.
+        Must provide either source_column_name or sql_expression, but not both.
     sql_expression : Optional[str], default=None
         Spark SQL expression to create the target column.
         If None, simply cast and possibly rename the source column.
+        Must provide either source_column_name or sql_expression, but not both.
     target_data_type : str, default="string"
         The data type to which input column will be cast to.
         If None, use string type by default.
@@ -111,8 +113,8 @@ class ColumnMapping():
         target_column_name: Optional[str] = None,
         nullable: bool = True,
     ):
-        if source_column_name and sql_expression:
-            raise ValueError("Must provide either source_column_name or sql_expression, not both.")
+        if source_column_name and sql_expression or not source_column_name and not sql_expression:
+            raise ValueError("Must provide either source_column_name or sql_expression, but not both.")
 
         self.source_column_name = source_column_name
         self.target_data_type = target_data_type
@@ -187,6 +189,7 @@ def configure_spn_access_for_adls(
             "Either use common_utils.set_global_dbutils(dbutils) or " +
             "provide it as a parameter."
         )
+    spn_secret = dbutils.secrets.get(key_vault_name, spn_secret_name)
 
     spark = SparkSession.getActiveSession()
     for storage_account_name in storage_account_names:
@@ -206,7 +209,7 @@ def configure_spn_access_for_adls(
             )
             spark._jsc.hadoopConfiguration().set(
                 f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                dbutils.secrets.get(key_vault_name, spn_secret_name)
+                spn_secret
             )
             spark._jsc.hadoopConfiguration().set(
                 f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",
@@ -231,7 +234,7 @@ def configure_spn_access_for_adls(
             )
             spark.conf.set(
                 f"fs.azure.account.oauth2.client.secret.{storage_account_suffix}",
-                dbutils.secrets.get(key_vault_name, spn_secret_name)
+                spn_secret
             )
             spark.conf.set(
                 f"fs.azure.account.oauth2.client.endpoint.{storage_account_suffix}",

@@ -1,9 +1,10 @@
 import pytest
+import json
 
 from test.spark_test import spark
-from datetime import datetime
 from pyspark.sql.types import BooleanType, IntegerType, MapType, StructType, StructField, StringType, ArrayType
 from brewdat.data_engineering.transform_utils import *
+from brewdat.data_engineering import read_utils, write_utils
 
 
 def test_clean_column_names():
@@ -1175,3 +1176,42 @@ def test_deduplicate_records_without_key_columns():
     result_df = deduplicate_records(df, watermark_column="date")
     # ASSERT
     assert 2 == result_df.count()
+
+
+def test_deduplicate_records_stream(tmpdir, source_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/delta_simple1"):
+    location = f"file://{tmpdir}/test_deduplicate_records_stream"
+    df = read_utils.read_raw_streaming_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=source_location,
+        schema_location=location
+    )
+
+    with pytest.raises(Exception) as e_info:
+        deduplicate_records(df)
+
+    assert json.loads(str(e_info.value))['error_message'] == "ValueError: Stream deduplication is a stateful operation. Instead, use " \
+                                                             "transform_microbatch parameter from write_stream_delta_table()."
+
+
+def test_deduplicate_records_stream_microbatch(tmpdir, source_location="./test/brewdat/data_engineering/support_files/read_raw_dataframe/delta_simple1"):
+    location = f"file://{tmpdir}/test_deduplicate_records_stream_microbatch"
+    df = read_utils.read_raw_streaming_dataframe(
+        file_format=read_utils.RawFileFormat.DELTA,
+        location=source_location,
+        schema_location=location
+    )
+
+    def transform(df):
+        return deduplicate_records(df)
+
+    result = write_utils.write_stream_delta_table(
+        df=df,
+        location=location,
+        database_name="test_schema",
+        table_name="test_deduplicate_records_stream_microbatch",
+        load_type=write_utils.LoadType.APPEND_ALL,
+        transform_microbatch=transform
+    )
+    print(result)
+
+    assert "SUCCEEDED" == result.status

@@ -3,54 +3,54 @@ import json
 
 dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
+print(f"{source_system = }")
 
 dbutils.widgets.text("source_hive_database", "brz_ghq_tech_sap_europe", "03 - source_hive_database")
 source_hive_database = dbutils.widgets.get("source_hive_database")
-print(f"source_hive_database: {source_hive_database}")
+print(f"{source_hive_database = }")
 
 dbutils.widgets.text("source_hive_table", "kna1", "04 - source_hive_table")
 source_hive_table = dbutils.widgets.get("source_hive_table")
-print(f"source_hive_table: {source_hive_table}")
+print(f"{source_hive_table = }")
 
 dbutils.widgets.text("target_zone", "ghq", "05 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
-print(f"target_zone: {target_zone}")
+print(f"{target_zone = }")
 
 dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"target_business_domain: {target_business_domain}")
+print(f"{target_business_domain = }")
 
 dbutils.widgets.text("target_hive_database", "slv_ghq_tech_sap_europe", "07 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"target_hive_database: {target_hive_database}")
+print(f"{target_hive_database = }")
 
 dbutils.widgets.text("target_hive_table", "kna1", "08 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"target_hive_table: {target_hive_table}")
+print(f"{target_hive_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-08-02 00:00:00.0000000", "09 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
+print(f"{data_interval_start = }")
 
 dbutils.widgets.text("silver_mapping", "[]", "10 - silver_mapping")
 silver_mapping = dbutils.widgets.get("silver_mapping")
 silver_mapping = json.loads(silver_mapping)
-print(f"silver_mapping: {silver_mapping}")
+print(f"{silver_mapping = }")
 
 dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "11 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
-print(f"key_columns: {key_columns}")
+print(f"{key_columns = }")
 
 dbutils.widgets.text("partition_columns", "[]", "12 - partition_columns")
 partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
-print(f"partition_columns: {partition_columns}")
+print(f"{partition_columns = }")
 
 # COMMAND ----------
 
@@ -62,7 +62,7 @@ from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -92,7 +92,7 @@ try:
         .agg(F.max("TARGET_APPLY_DT"))
         .collect()[0][0]
     )
-    print(f"latest_partition: {latest_partition}")
+    print(f"{latest_partition = }")
 
     max_watermark_value = (
         spark.read
@@ -101,10 +101,10 @@ try:
         .agg(F.max("TARGET_APPLY_TS"))
         .collect()[0][0]
     )
-    print(f"max_watermark_value: {max_watermark_value}")
+    print(f"{max_watermark_value = }")
 
     effective_data_interval_end = max_watermark_value
-    print(f"effective_data_interval_end: {effective_data_interval_end}")
+    print(f"{effective_data_interval_end = }")
 
 except Exception:
     common_utils.exit_with_last_exception()
@@ -128,7 +128,7 @@ try:
 except Exception:
     common_utils.exit_with_last_exception()
 
-#display(bronze_df)
+# display(bronze_df)
 
 # COMMAND ----------
 
@@ -147,7 +147,7 @@ try:
 
     bronze_dq_df = dq_checker.build_df()
 
-    #display(bronze_dq_df)
+    # display(bronze_dq_df)
 
 except Exception:
     common_utils.exit_with_last_exception()
@@ -164,7 +164,7 @@ mappings.append(dq_results_column)
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bronze_dq_df, mappings=mappings)
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
@@ -187,7 +187,7 @@ target_location = lakehouse_utils.generate_silver_table_location(
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"target_location: {target_location}")
+print(f"{target_location = }")
 
 # COMMAND ----------
 
@@ -201,6 +201,7 @@ results = write_utils.write_delta_table(
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
+    update_condition_for_upsert="source.SOURCE_COMMIT_TS >= target.SOURCE_COMMIT_TS",
 )
 
 results.effective_data_interval_start = data_interval_start

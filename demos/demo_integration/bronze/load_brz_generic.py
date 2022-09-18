@@ -1,35 +1,35 @@
 # Databricks notebook source
 dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_system", "adventureworks", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
+print(f"{source_system = }")
 
 dbutils.widgets.text("target_zone", "ghq", "03 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
-print(f"target_zone: {target_zone}")
+print(f"{target_zone = }")
 
 dbutils.widgets.text("target_business_domain", "tech", "04 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"target_business_domain: {target_business_domain}")
+print(f"{target_business_domain = }")
 
 dbutils.widgets.text("target_hive_database", "brz_ghq_tech_adventureworks", "05 - target_hive_database")
 target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"target_hive_database: {target_hive_database}")
+print(f"{target_hive_database = }")
 
 dbutils.widgets.text("target_hive_table", "sales_order_header", "06 - target_hive_table")
 target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"target_hive_table: {target_hive_table}")
+print(f"{target_hive_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "07 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
+print(f"{data_interval_start = }")
 
 dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "08 - data_interval_end")
 data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
+print(f"{data_interval_end = }")
 
 dbutils.widgets.text("partition_column", "__ref_dt", "09 - partition_column")
 partition_column = dbutils.widgets.get("partition_column")
@@ -73,7 +73,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(read_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -96,7 +96,7 @@ raw_df = read_utils.read_raw_dataframe(
     cast_all_to_string=False,
 )
 
-#display(raw_df)
+# display(raw_df)
 
 # COMMAND ----------
 
@@ -114,7 +114,7 @@ transformed_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
@@ -125,7 +125,7 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     source_system=source_system,
     table_name=target_hive_table,
 )
-print(f"target_location: {target_location}")
+print(f"{target_location = }")
 
 # COMMAND ----------
 

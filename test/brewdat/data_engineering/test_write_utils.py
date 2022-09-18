@@ -927,6 +927,80 @@ def test_write_delta_table_upsert(tmpdir):
     result_df = spark.table(result.target_object)
     assert 1 == result_df.count()
 
+
+def test_write_delta_table_upsert_delete(tmpdir):
+    # ARRANGE
+    df = spark.createDataFrame([
+        {
+            "id": "1",
+            "name": "name 1",
+            "op": "insert"
+        }, ])
+
+    df2 = spark.createDataFrame([
+        {
+            "id": "1",
+            "name": "name 1",
+            "op": "insert"
+        },
+        {
+            "id": "2",
+            "name": "name 2",
+            "op": "insert"
+        }, ])
+
+    df3 = spark.createDataFrame([
+        {
+            "id": "1",
+            "name": "name 1",
+            "op": "delete"
+        },
+        {
+            "id": "3",
+            "name": "name 3",
+            "op": "insert"
+        }, ])
+    location = f"file://{tmpdir}/test_write_delta_table_upsert_delete"
+    database_name = "test_schema"
+    table_name = "test_write_delta_table_upsert_delete"
+    # ACT
+
+    result = write_delta_table(
+        df=df,
+        location=location,
+        database_name=database_name,
+        table_name=table_name,
+        load_type=LoadType.UPSERT,
+        key_columns=['id'],
+        delete_condition_for_upsert="source.op = 'delete'"
+    )
+    result = write_delta_table(
+        df=df2,
+        location=location,
+        database_name=database_name,
+        table_name=table_name,
+        load_type=LoadType.UPSERT,
+        key_columns=['id'],
+        delete_condition_for_upsert="source.op = 'delete'"
+    )
+    result = write_delta_table(
+        df=df3,
+        location=location,
+        database_name=database_name,
+        table_name=table_name,
+        load_type=LoadType.UPSERT,
+        key_columns=['id'],
+        delete_condition_for_upsert="source.op = 'delete'"
+    )
+    print(vars(result))
+
+    # ASSERT
+    assert result.status == RunStatus.SUCCEEDED
+    result_df = spark.table(result.target_object)
+    assert 2 == result_df.count()
+    assert 0 == result_df.filter("id = '1'").count()
+
+
 def test_append_upsert_load_count(tmpdir):
     df1 = spark.createDataFrame([
         {"id": "111", "phone_number": "00000000000", },
