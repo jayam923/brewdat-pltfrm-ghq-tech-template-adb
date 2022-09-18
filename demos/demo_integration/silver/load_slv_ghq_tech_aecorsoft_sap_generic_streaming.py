@@ -66,7 +66,7 @@ from brewdat.data_engineering import read_utils, common_utils, data_quality_util
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -86,8 +86,6 @@ common_utils.configure_spn_access_for_adls(
 )
 
 # COMMAND ----------
-
-from pyspark.sql import functions as F
 
 bronze_df = (
     read_utils.read_raw_streaming_dataframe(
@@ -112,7 +110,7 @@ try:
 
     bronze_dq_df = dq_checker.build_df()
 
-    #display(bronze_dq_df)
+    # display(bronze_dq_df)
 
 except Exception:
     common_utils.exit_with_last_exception()
@@ -129,7 +127,7 @@ mappings.append(dq_results_column)
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bronze_dq_df, mappings=mappings)
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
@@ -148,12 +146,14 @@ print(f"{target_location = }")
 
 # COMMAND ----------
 
+
 def deduplicate(df, _):
     return transform_utils.deduplicate_records(
         df=df,
         key_columns=key_columns,
         watermark_column="AEDATTM",
     )
+
 
 results = write_utils.write_stream_delta_table(
     df=audit_df,

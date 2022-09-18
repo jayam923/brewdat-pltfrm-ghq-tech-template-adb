@@ -41,7 +41,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, transform_ut
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -62,7 +62,7 @@ try:
     key_columns = ["SalesOrderID"]
 
     df = spark.sql("""
-            SELECT 
+            SELECT
                 SalesOrderID,
                 StatusDescription,
                 OnlineOrderFlag,
@@ -70,9 +70,9 @@ try:
                 order_header.CustomerID,
                 PurchaseOrderNumber,
                 order_header.__update_gmt_ts
-            FROM 
-                slv_ghq_tech_adventureworks.sales_order_header AS order_header 
-                LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer      
+            FROM
+                slv_ghq_tech_adventureworks.sales_order_header AS order_header
+                LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer
                     ON order_header.CustomerID = customer.CustomerID
             WHERE
                 order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
@@ -83,7 +83,7 @@ try:
 except Exception:
     common_utils.exit_with_last_exception()
 
-#display(df)
+# display(df)
 
 # COMMAND ----------
 
@@ -93,13 +93,13 @@ dedup_df = transform_utils.deduplicate_records(
     watermark_column="__update_gmt_ts",
 )
 
-#display(dedup_df)
+# display(dedup_df)
 
 # COMMAND ----------
 
 audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
-#display(audit_df)
+# display(audit_df)
 
 # COMMAND ----------
 

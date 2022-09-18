@@ -41,7 +41,7 @@ from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -75,7 +75,7 @@ try:
 except Exception:
     common_utils.exit_with_last_exception()
 
-#display(bronze_df)
+# display(bronze_df)
 
 # COMMAND ----------
 
@@ -103,13 +103,13 @@ bronze_dq_df = (
     .check_column_max_length(column_name="PurchaseOrderNumber", maximum_length=30)
     .check_column_max_length(column_name="ShipMethod", maximum_length=100)
     .check_column_max_length(column_name="AccountNumber", maximum_length=15)
-    .check_column_matches_regular_expression(column_name="AccountNumber", regular_expression="^\d{2}-\d{4}-\d{6}$")
+    .check_column_matches_regular_expression(column_name="AccountNumber", regular_expression=r"^\d{2}-\d{4}-\d{6}$")
     .build_df()
 )
 
 bronze_dq_df.createOrReplaceTempView("v_bronze_dq_df")
 
-#display(bronze_dq_df)
+# display(bronze_dq_df)
 
 # COMMAND ----------
 
@@ -149,7 +149,7 @@ transformed_df = spark.sql("""
         v_bronze_dq_df
 """)
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
@@ -159,13 +159,13 @@ dedup_df = transform_utils.deduplicate_records(
     watermark_column="ModifiedDate",
 )
 
-#display(dedup_df)
+# display(dedup_df)
 
 # COMMAND ----------
 
 audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
-#display(audit_df)
+# display(audit_df)
 
 # COMMAND ----------
 
@@ -180,7 +180,7 @@ silver_dq_df = (
     .build_df()
 )
 
-#display(silver_dq_df)
+# display(silver_dq_df)
 
 # COMMAND ----------
 

@@ -62,7 +62,7 @@ from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -128,7 +128,7 @@ try:
 except Exception:
     common_utils.exit_with_last_exception()
 
-#display(bronze_df)
+# display(bronze_df)
 
 # COMMAND ----------
 
@@ -147,7 +147,7 @@ try:
 
     bronze_dq_df = dq_checker.build_df()
 
-    #display(bronze_dq_df)
+    # display(bronze_dq_df)
 
 except Exception:
     common_utils.exit_with_last_exception()
@@ -164,7 +164,7 @@ mappings.append(dq_results_column)
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bronze_dq_df, mappings=mappings)
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 

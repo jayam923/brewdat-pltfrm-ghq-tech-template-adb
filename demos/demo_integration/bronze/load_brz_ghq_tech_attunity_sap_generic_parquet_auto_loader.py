@@ -42,7 +42,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(read_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -85,7 +85,7 @@ base_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(base_df)
+# display(base_df)
 
 # COMMAND ----------
 
@@ -104,13 +104,13 @@ ct_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(ct_df)
+# display(ct_df)
 
 # COMMAND ----------
 
 union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
 
-#display(union_df)
+# display(union_df)
 
 # COMMAND ----------
 

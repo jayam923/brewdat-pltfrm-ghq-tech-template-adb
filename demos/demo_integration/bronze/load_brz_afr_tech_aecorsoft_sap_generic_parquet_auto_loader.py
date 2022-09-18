@@ -42,7 +42,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(read_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -84,7 +84,7 @@ raw_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(raw_df)
+# display(raw_df)
 
 # COMMAND ----------
 

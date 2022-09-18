@@ -42,7 +42,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(read_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -77,7 +77,7 @@ base_df = (
     .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
 )
 
-#display(base_df)
+# display(base_df)
 
 # COMMAND ----------
 
@@ -89,7 +89,7 @@ ct_df = (
     .filter(F.col("TARGET_APPLY_DT") >= F.to_date(F.lit(data_interval_start)))
 )
 
-#display(ct_df)
+# display(ct_df)
 
 # COMMAND ----------
 
@@ -116,7 +116,7 @@ transformed_base_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(transformed_base_df)
+# display(transformed_base_df)
 
 # COMMAND ----------
 
@@ -134,13 +134,13 @@ transformed_ct_df = (
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-#display(transformed_ct_df)
+# display(transformed_ct_df)
 
 # COMMAND ----------
 
 union_df = transformed_base_df.unionByName(transformed_ct_df, allowMissingColumns=True)
 
-#display(union_df)
+# display(union_df)
 
 # COMMAND ----------
 

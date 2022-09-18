@@ -41,7 +41,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, transform_ut
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -96,13 +96,13 @@ try:
 except Exception:
     common_utils.exit_with_last_exception()
 
-#display(df)
+# display(df)
 
 # COMMAND ----------
 
 audit_df = transform_utils.create_or_replace_audit_columns(df)
 
-#display(audit_df)
+# display(audit_df)
 
 # COMMAND ----------
 
