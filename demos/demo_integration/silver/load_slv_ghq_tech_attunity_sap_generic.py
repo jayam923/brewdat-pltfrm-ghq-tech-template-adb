@@ -88,7 +88,7 @@ from pyspark.sql import functions as F
 try:
     latest_partition = (
         spark.read
-        .table(f"{target_database}.{target_table}")
+        .table(f"{source_database}.{source_table}")
         .agg(F.max("TARGET_APPLY_DT"))
         .collect()[0][0]
     )
@@ -96,7 +96,7 @@ try:
 
     max_watermark_value = (
         spark.read
-        .table(f"{target_database}.{target_table}")
+        .table(f"{source_database}.{source_table}")
         .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition))
         .agg(F.max("TARGET_APPLY_TS"))
         .collect()[0][0]
@@ -114,7 +114,7 @@ except Exception:
 try:
     bronze_df = (
         spark.read
-        .table(f"{target_database}.{target_table}")
+        .table(f"{source_database}.{source_table}")
         .filter(F.col("TARGET_APPLY_DT").between(
             F.to_date(F.lit(data_interval_start)),
             F.to_date(F.lit(effective_data_interval_end)),
