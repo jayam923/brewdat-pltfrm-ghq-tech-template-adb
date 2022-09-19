@@ -1,7 +1,7 @@
 # Databricks notebook source
 import json
 
-dbutils.widgets.text("brewdat_library_version", "v0.4.0", "01 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 

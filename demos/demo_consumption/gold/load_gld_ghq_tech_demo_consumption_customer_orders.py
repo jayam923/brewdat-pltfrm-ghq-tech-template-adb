@@ -1,19 +1,19 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.5.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("data_product", "demo_consumption", "2 - data_product")
-data_product = dbutils.widgets.get("data_product")
-print(f"{data_product = }")
-
-dbutils.widgets.text("target_zone", "ghq", "3 - target_zone")
+dbutils.widgets.text("target_zone", "ghq", "2 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"{target_zone = }")
 
-dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "3 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
+
+dbutils.widgets.text("target_data_product", "demo_consumption", "4 - target_data_product")
+target_data_product = dbutils.widgets.get("target_data_product")
+print(f"{target_data_product = }")
 
 dbutils.widgets.text("target_database", "gld_ghq_tech_demo_consumption", "5 - target_database")
 target_database = dbutils.widgets.get("target_database")
@@ -62,24 +62,24 @@ try:
     key_columns = ["SalesOrderID"]
 
     df = spark.sql("""
-            SELECT
-                SalesOrderID,
-                StatusDescription,
-                OnlineOrderFlag,
-                SalesOrderNumber,
-                order_header.CustomerID,
-                PurchaseOrderNumber,
-                order_header.__update_gmt_ts
-            FROM
-                slv_ghq_tech_adventureworks.sales_order_header AS order_header
-                LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer
-                    ON order_header.CustomerID = customer.CustomerID
-            WHERE
-                order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
-        """.format(
-            data_interval_start=data_interval_start,
-            data_interval_end=data_interval_end,
-        ))
+        SELECT
+            SalesOrderID,
+            StatusDescription,
+            OnlineOrderFlag,
+            SalesOrderNumber,
+            order_header.CustomerID,
+            PurchaseOrderNumber,
+            order_header.__update_gmt_ts
+        FROM
+            slv_ghq_tech_adventureworks.sales_order_header AS order_header
+            LEFT JOIN slv_ghq_tech_adventureworks.customer AS customer
+                ON order_header.CustomerID = customer.CustomerID
+        WHERE
+            order_header.__update_gmt_ts BETWEEN '{data_interval_start}' AND '{data_interval_end}'
+    """.format(
+        data_interval_start=data_interval_start,
+        data_interval_end=data_interval_end,
+    ))
 except Exception:
     common_utils.exit_with_last_exception()
 
@@ -107,7 +107,7 @@ target_location = lakehouse_utils.generate_gold_table_location(
     lakehouse_gold_root=lakehouse_gold_root,
     target_zone=target_zone,
     target_business_domain=target_business_domain,
-    data_product=data_product,
+    target_data_product=target_data_product,
     database_name=target_database,
     table_name=target_table,
 )

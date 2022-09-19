@@ -3,70 +3,66 @@ import json
 
 dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
-print(f"brewdat_library_version: {brewdat_library_version}")
+print(f"{brewdat_library_version = }")
 
 dbutils.widgets.text("source_system", "adventureworks", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
-print(f"source_system: {source_system}")
+print(f"{source_system = }")
 
-dbutils.widgets.text("target_zone", "ghq", "03 - target_zone")
-target_zone = dbutils.widgets.get("target_zone")
-print(f"target_zone: {target_zone}")
+dbutils.widgets.text("source_database", "slv_ghq_tech_adventureworks", "03 - source_database")
+source_database = dbutils.widgets.get("source_database")
+print(f"{source_database = }")
 
-dbutils.widgets.text("target_business_domain", "tech", "04 - target_business_domain")
-target_business_domain = dbutils.widgets.get("target_business_domain")
-print(f"target_business_domain: {target_business_domain}")
+dbutils.widgets.text("source_table", "sales_order_header", "04 - source_table")
+source_table = dbutils.widgets.get("source_table")
+print(f"{source_table = }")
 
-dbutils.widgets.text("target_database", "slv_ghq_tech_adventureworks", "05 - target_database")
-target_database = dbutils.widgets.get("target_database")
-print(f"target_database: {target_database}")
+dbutils.widgets.text("column_mapping", "[]", "05 - column_mapping")
+column_mapping = dbutils.widgets.get("column_mapping")
+column_mapping = json.loads(column_mapping)
+print(f"{column_mapping = }")
 
-dbutils.widgets.text("target_table", "sales_order_header", "06 - target_table")
-target_table = dbutils.widgets.get("target_table")
-print(f"target_table: {target_table}")
+dbutils.widgets.text("key_columns", "[]", "06 - key_columns")
+key_columns = dbutils.widgets.get("key_columns")
+key_columns = json.loads(key_columns)
+print(f"{key_columns = }")
 
-dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "07 - data_interval_start")
-data_interval_start = dbutils.widgets.get("data_interval_start")
-print(f"data_interval_start: {data_interval_start}")
-
-dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "08 - data_interval_end")
-data_interval_end = dbutils.widgets.get("data_interval_end")
-print(f"data_interval_end: {data_interval_end}")
-
-dbutils.widgets.text("partition_column", "__ref_dt", "09 - partition_column")
-partition_column = dbutils.widgets.get("partition_column")
-partition_column = json.loads(partition_column)
-print(f"partition_column: {partition_column}")
-
-dbutils.widgets.text("raw_path", "data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/", "10 - raw_path")
-raw_path = dbutils.widgets.get("raw_path")
-print(f"raw_path: {raw_path}")
-
-dbutils.widgets.text("watermark_column", "__ref_dt", "11 - watermark_column")
+dbutils.widgets.text("watermark_column", "__ref_dt", "07 - watermark_column")
 watermark_column = dbutils.widgets.get("watermark_column")
-print(f"watermark_column: {watermark_column}")
+print(f"{watermark_column = }")
 
-dbutils.widgets.text("target_database", "null", "12 - target_database")
+dbutils.widgets.text("partition_columns", "[]", "08 - partition_columns")
+partition_columns = dbutils.widgets.get("partition_columns")
+partition_columns = json.loads(partition_columns)
+print(f"{partition_columns = }")
+
+dbutils.widgets.text("load_type", "UPSERT", "09 - load_type")
+load_type = dbutils.widgets.get("load_type")
+print(f"{load_type = }")
+
+dbutils.widgets.text("target_zone", "ghq", "10 - target_zone")
+target_zone = dbutils.widgets.get("target_zone")
+print(f"{target_zone = }")
+
+dbutils.widgets.text("target_business_domain", "tech", "11 - target_business_domain")
+target_business_domain = dbutils.widgets.get("target_business_domain")
+print(f"{target_business_domain = }")
+
+dbutils.widgets.text("target_database", "slv_ghq_tech_adventureworks", "12 - target_database")
 target_database = dbutils.widgets.get("target_database")
-print(f"target_database: {target_database}")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_table", "null", "13 - target_table")
+dbutils.widgets.text("target_table", "sales_order_header", "13 - target_table")
 target_table = dbutils.widgets.get("target_table")
-print(f"target_table: {target_table}")
+print(f"{target_table = }")
 
-dbutils.widgets.text("key_column", "null", "14 - key_column")
-key_column = dbutils.widgets.get("key_column")
-key_column = json.loads(key_column)
-print(f"key_column: {key_column}")
+dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "14 - data_interval_start")
+data_interval_start = dbutils.widgets.get("data_interval_start")
+print(f"{data_interval_start = }")
 
-dbutils.widgets.text("silver_column_mapping", "[]", "15 - silver_column_mapping")
-silver_column_mapping = dbutils.widgets.get("silver_column_mapping")
-silver_column_mapping = json.loads(silver_column_mapping)
-print(f"silver_column_mapping: {silver_column_mapping}")
-
-dbutils.widgets.text("spark_sql_query", "null", "16 - spark_sql_query")
-spark_sql_query = dbutils.widgets.get("spark_sql_query")
-print(f"spark_sql_query: {spark_sql_query}")
+dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "15 - data_interval_end")
+data_interval_end = dbutils.widgets.get("data_interval_end")
+print(f"{data_interval_end = }")
 
 # COMMAND ----------
 
@@ -78,7 +74,7 @@ from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-#help(transform_utils)
+# help(transform_utils)
 
 # COMMAND ----------
 
@@ -98,10 +94,9 @@ common_utils.configure_spn_access_for_adls(
 from pyspark.sql import functions as F
 
 try:
-
     bronze_df = (
         spark.read
-        .table(f"{target_database}.{target_table}")
+        .table(f"`{source_database}`.`{source_table}`")
         .filter(F.col(watermark_column).between(
             F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
             F.date_format(F.lit(data_interval_end), "yyyyMMdd")
@@ -111,30 +106,28 @@ try:
 except Exception:
     common_utils.exit_with_last_exception()
 
-#display(bronze_df)
+# display(bronze_df)
 
 # COMMAND ----------
 
 # Apply data quality checks based on given column mappings
 try:
     dq_checker = data_quality_utils.DataQualityChecker(bronze_df)
-    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_column_mapping]
+    mappings = [common_utils.ColumnMapping(**mapping) for mapping in column_mapping]
     for mapping in mappings:
-        if mapping.target_data_type != "string":
-            dq_checker = dq_checker.check_column_type_cast(
-                column_name=mapping.source_column_name,
-                data_type=mapping.target_data_type,
-            )
+        dq_checker = dq_checker.check_column_type_cast(
+            column_name=mapping.source_column_name,
+            data_type=mapping.target_data_type,
+        )
         if not mapping.nullable:
             dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
 
     bronze_dq_df = dq_checker.build_df()
 
-    #display(bronze_dq_df)
+    # display(bronze_dq_df)
 
 except Exception:
     common_utils.exit_with_last_exception()
-#display(bronze_dq_df)
 
 # COMMAND ----------
 
@@ -148,33 +141,23 @@ mappings.append(dq_results_column)
 # Apply column mappings and retrieve list of unmapped columns
 transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bronze_dq_df, mappings=mappings)
 
-#display(transformed_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
 dedup_df = transform_utils.deduplicate_records(
     df=transformed_df,
-    key_columns=key_column,
+    key_columns=key_columns,
     watermark_column=watermark_column,
 )
 
-#display(dedup_df)
+# display(dedup_df)
 
 # COMMAND ----------
 
 audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
-#display(audit_df)
-
-# COMMAND ----------
-
-silver_dq_df = (
-    data_quality_utils.DataQualityChecker(audit_df)
-    .check_composite_column_value_is_unique(column_names=key_column)
-    .build_df()
-)
-
-#display(silver_dq_df)
+# display(audit_df)
 
 # COMMAND ----------
 
@@ -185,19 +168,33 @@ target_location = lakehouse_utils.generate_silver_table_location(
     source_system=source_system,
     table_name=target_table,
 )
-print(f"target_location: {target_location}")
+print(f"{target_location = }")
 
 # COMMAND ----------
 
 results = write_utils.write_delta_table(
-    df=silver_dq_df,
+    df=audit_df,
     location=target_location,
     database_name=target_database,
     table_name=target_table,
-    load_type=write_utils.LoadType.UPSERT,
-    key_columns=key_column,
+    load_type=load_type,
+    key_columns=key_columns,
+    partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
+
+# Warn in case of relevant unmapped columns
+unmapped_columns = list(filter(lambda c: not c.startswith("__"), unmapped_columns))
+if unmapped_columns:
+    formatted_columns = ", ".join(f"`{col}`" for col in unmapped_columns)
+    unmapped_warning = "WARNING: the following columns are not mapped: " + formatted_columns
+    if results.error_message:
+        results.error_message += "; "
+    results.error_message += unmapped_warning
+    if results.error_details:
+        results.error_details += "; "
+    results.error_details += unmapped_warning
+
 print(results)
 
 # COMMAND ----------
