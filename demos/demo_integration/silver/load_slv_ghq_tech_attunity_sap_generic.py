@@ -9,13 +9,13 @@ dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_hive_database", "brz_ghq_tech_sap_europe", "03 - source_hive_database")
-source_hive_database = dbutils.widgets.get("source_hive_database")
-print(f"{source_hive_database = }")
+dbutils.widgets.text("target_database", "brz_ghq_tech_sap_europe", "03 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("source_hive_table", "kna1", "04 - source_hive_table")
-source_hive_table = dbutils.widgets.get("source_hive_table")
-print(f"{source_hive_table = }")
+dbutils.widgets.text("target_table", "kna1", "04 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
 dbutils.widgets.text("target_zone", "ghq", "05 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
@@ -25,13 +25,13 @@ dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_hive_database", "slv_ghq_tech_sap_europe", "07 - target_hive_database")
-target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"{target_hive_database = }")
+dbutils.widgets.text("target_database", "slv_ghq_tech_sap_europe", "07 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_hive_table", "kna1", "08 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"{target_hive_table = }")
+dbutils.widgets.text("target_table", "kna1", "08 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-08-02 00:00:00.0000000", "09 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
@@ -88,7 +88,7 @@ from pyspark.sql import functions as F
 try:
     latest_partition = (
         spark.read
-        .table(f"{source_hive_database}.{source_hive_table}")
+        .table(f"{target_database}.{target_table}")
         .agg(F.max("TARGET_APPLY_DT"))
         .collect()[0][0]
     )
@@ -96,7 +96,7 @@ try:
 
     max_watermark_value = (
         spark.read
-        .table(f"{source_hive_database}.{source_hive_table}")
+        .table(f"{target_database}.{target_table}")
         .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition))
         .agg(F.max("TARGET_APPLY_TS"))
         .collect()[0][0]
@@ -114,7 +114,7 @@ except Exception:
 try:
     bronze_df = (
         spark.read
-        .table(f"{source_hive_database}.{source_hive_table}")
+        .table(f"{target_database}.{target_table}")
         .filter(F.col("TARGET_APPLY_DT").between(
             F.to_date(F.lit(data_interval_start)),
             F.to_date(F.lit(effective_data_interval_end)),
@@ -185,7 +185,7 @@ target_location = lakehouse_utils.generate_silver_table_location(
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
-    table_name=target_hive_table,
+    table_name=target_table,
 )
 print(f"{target_location = }")
 
@@ -194,8 +194,8 @@ print(f"{target_location = }")
 results = write_utils.write_delta_table(
     df=audit_df,
     location=target_location,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
+    database_name=target_database,
+    table_name=target_table,
     load_type=write_utils.LoadType.UPSERT,
     key_columns=key_columns,
     partition_columns=partition_columns,

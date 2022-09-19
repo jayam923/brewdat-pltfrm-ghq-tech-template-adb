@@ -19,17 +19,17 @@ dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
 
-dbutils.widgets.text("target_hive_database", "brz_ghq_tech_sap_europe", "06 - target_hive_database")
-target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"{target_hive_database = }")
+dbutils.widgets.text("target_database", "brz_ghq_tech_sap_europe", "06 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_hive_table", "kna1", "07 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"{target_hive_table = }")
+dbutils.widgets.text("target_table", "kna1", "07 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
-dbutils.widgets.text("reset_checkpoint", "false", "08 - reset_checkpoint")
-reset_checkpoint = dbutils.widgets.get("reset_checkpoint")
-print(f"{reset_checkpoint = }")
+dbutils.widgets.text("reset_stream_checkpoint", "false", "08 - reset_stream_checkpoint")
+reset_stream_checkpoint = dbutils.widgets.get("reset_stream_checkpoint")
+print(f"{reset_stream_checkpoint = }")
 
 # COMMAND ----------
 
@@ -119,7 +119,7 @@ target_location = lakehouse_utils.generate_bronze_table_location(
     target_zone=source_zone,
     target_business_domain=source_business_domain,
     source_system=source_system,
-    table_name=target_hive_table,
+    table_name=target_table,
 )
 print(f"{target_location = }")
 
@@ -128,14 +128,14 @@ print(f"{target_location = }")
 results = write_utils.write_stream_delta_table(
     df=union_df,
     location=target_location,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
+    database_name=target_database,
+    table_name=target_table,
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["TARGET_APPLY_DT"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
-    reset_checkpoint=(reset_checkpoint.lower() == "true"),
+    reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )
 print(results)
 

@@ -15,13 +15,13 @@ dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_doma
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_hive_database", "gld_ghq_tech_demo_consumption", "5 - target_hive_database")
-target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"{target_hive_database = }")
+dbutils.widgets.text("target_database", "gld_ghq_tech_demo_consumption", "5 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_hive_table", "customer_orders", "6 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"{target_hive_table = }")
+dbutils.widgets.text("target_table", "customer_orders", "6 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "7 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
@@ -108,8 +108,8 @@ target_location = lakehouse_utils.generate_gold_table_location(
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     data_product=data_product,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
+    database_name=target_database,
+    table_name=target_table,
 )
 print(f"{target_location = }")
 
@@ -119,8 +119,8 @@ results = write_utils.write_delta_table(
     df=audit_df,
     key_columns=key_columns,
     location=target_location,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
+    database_name=target_database,
+    table_name=target_table,
     load_type=write_utils.LoadType.UPSERT,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
