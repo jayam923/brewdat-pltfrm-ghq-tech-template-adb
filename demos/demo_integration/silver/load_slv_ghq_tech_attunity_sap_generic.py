@@ -37,10 +37,10 @@ dbutils.widgets.text("data_interval_start", "2022-08-02 00:00:00.0000000", "09 -
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"{data_interval_start = }")
 
-dbutils.widgets.text("silver_mapping", "[]", "10 - silver_mapping")
-silver_mapping = dbutils.widgets.get("silver_mapping")
-silver_mapping = json.loads(silver_mapping)
-print(f"{silver_mapping = }")
+dbutils.widgets.text("column_mapping", "[]", "10 - column_mapping")
+column_mapping = dbutils.widgets.get("column_mapping")
+column_mapping = json.loads(column_mapping)
+print(f"{column_mapping = }")
 
 dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "11 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
@@ -135,7 +135,7 @@ except Exception:
 try:
     # Apply data quality checks based on given column mappings
     dq_checker = data_quality_utils.DataQualityChecker(bronze_df)
-    mappings = [common_utils.ColumnMapping(**mapping) for mapping in silver_mapping]
+    mappings = [common_utils.ColumnMapping(**mapping) for mapping in column_mapping]
     for mapping in mappings:
         if mapping.target_data_type != "string":
             dq_checker = dq_checker.check_column_type_cast(
