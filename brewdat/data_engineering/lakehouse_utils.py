@@ -100,7 +100,7 @@ def generate_gold_table_location(
     lakehouse_gold_root: str,
     target_zone: str,
     target_business_domain: str,
-    data_product: str,
+    target_data_product: str,
     database_name: str,
     table_name: str,
 ) -> str:
@@ -116,7 +116,7 @@ def generate_gold_table_location(
         Zone of the target dataset.
     target_business_domain : str
         Business domain of the target dataset.
-    data_product : str
+    target_data_product : str
         Data product of the target dataset.
     database_name : str
         Name of the target database for the table in the metastore.
@@ -130,19 +130,19 @@ def generate_gold_table_location(
     """
     # Check that no parameter is None or empty string
     params_list = [lakehouse_gold_root, target_zone, target_business_domain,
-                   data_product, database_name, table_name]
+                   target_data_product, database_name, table_name]
     if any(x is None or len(x) == 0 for x in params_list):
         raise ValueError("Location would contain null or empty values.")
 
     # Check that all parameters are valid
     assert_valid_zone(target_zone)
     assert_valid_business_domain(target_business_domain)
-    assert_valid_folder_name(data_product)
+    assert_valid_folder_name(target_data_product)
     assert_valid_folder_name(database_name)
     assert_valid_folder_name(table_name)
 
     return (f"{lakehouse_gold_root}/data/{target_zone}/{target_business_domain}" +
-            f"/{data_product}/{database_name}/{table_name}").lower()
+            f"/{target_data_product}/{database_name}/{table_name}").lower()
 
 
 def assert_valid_zone(zone):
