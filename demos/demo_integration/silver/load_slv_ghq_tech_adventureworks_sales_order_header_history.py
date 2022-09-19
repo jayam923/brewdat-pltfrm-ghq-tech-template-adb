@@ -171,7 +171,6 @@ audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 silver_dq_df = (
     data_quality_utils.DataQualityChecker(audit_df)
-    .check_composite_column_value_is_unique(column_names=key_columns)
     .check_column_value_is_not_in(column_name="StatusDescription", invalid_values=["--MAPPING ERROR--"])
     .check_narrow_condition(
         expected_condition="TotalDue - SubTotal - TaxAmt - Freight < 0.01",
