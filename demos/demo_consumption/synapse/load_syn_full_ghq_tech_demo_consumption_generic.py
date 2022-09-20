@@ -17,7 +17,13 @@ dbutils.widgets.text("target_table", "dbo.monthly_sales_order", "4 - target_tabl
 target_table = dbutils.widgets.get("target_table")
 print(f"{target_table = }")
 
-dbutils.widgets.text("additional_parameters", "{}", "5 - additional_parameters")
+dbutils.widgets.text(
+    "additional_parameters",
+    """{
+        "staging_table": "dbo.monthly_sales_order_stg"
+    }""",
+    "5 - additional_parameters",
+)
 additional_parameters = dbutils.widgets.get("additional_parameters")
 additional_parameters = json.loads(additional_parameters)
 print(f"{additional_parameters = }")
@@ -60,6 +66,8 @@ spark.conf.set("spark.databricks.sqldw.jdbc.service.principal.client.secret", db
 # COMMAND ----------
 
 try:
+    assert staging_table
+
     df = spark.read.table(f"`{source_database}`.`{source_table}`")
 
     row_count = df.count()

@@ -21,7 +21,14 @@ dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "5 - data_in
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"{data_interval_start = }")
 
-dbutils.widgets.text("additional_parameters", "{}", "6 - additional_parameters")
+dbutils.widgets.text(
+    "additional_parameters",
+    """{
+        "staging_table": "dbo.monthly_sales_order_stg",
+        "ingestion_procedure": "dbo.sp_ingest_monthly_sales_order_stg"
+    }""",
+    "6 - additional_parameters",
+)
 additional_parameters = dbutils.widgets.get("additional_parameters")
 additional_parameters = json.loads(additional_parameters)
 print(f"{additional_parameters = }")
@@ -69,6 +76,9 @@ spark.conf.set("spark.databricks.sqldw.jdbc.service.principal.client.secret", db
 from pyspark.sql import functions as F
 
 try:
+    assert staging_table
+    assert ingestion_procedure
+
     effective_data_interval_end = (
         spark.read
         .table(f"`{source_database}`.`{source_table}`")
