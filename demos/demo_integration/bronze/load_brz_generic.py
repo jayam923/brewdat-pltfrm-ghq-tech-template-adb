@@ -1,4 +1,6 @@
 # Databricks notebook source
+import json
+
 dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
@@ -17,6 +19,7 @@ print(f"{source_location = }")
 
 dbutils.widgets.text("partition_columns", '["__ref_dt"]', "04 - partition_columns")
 partition_columns = dbutils.widgets.get("partition_columns")
+partition_columns = json.loads(partition_columns)
 print(f"{partition_columns = }")
 
 dbutils.widgets.text("target_zone", "ghq", "05 - target_zone")
