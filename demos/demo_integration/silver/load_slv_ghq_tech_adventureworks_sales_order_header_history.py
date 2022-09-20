@@ -1,5 +1,5 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
+dbutils.widgets.text("brewdat_library_version", "v0.5.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
@@ -15,13 +15,13 @@ dbutils.widgets.text("target_business_domain", "tech", "4 - target_business_doma
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_hive_database", "slv_ghq_tech_adventureworks", "5 - target_hive_database")
-target_hive_database = dbutils.widgets.get("target_hive_database")
-print(f"{target_hive_database = }")
+dbutils.widgets.text("target_database", "slv_ghq_tech_adventureworks", "5 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("target_hive_table", "sales_order_header_history", "6 - target_hive_table")
-target_hive_table = dbutils.widgets.get("target_hive_table")
-print(f"{target_hive_table = }")
+dbutils.widgets.text("target_table", "sales_order_header_history", "6 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
 dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "7 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
@@ -171,7 +171,6 @@ audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 silver_dq_df = (
     data_quality_utils.DataQualityChecker(audit_df)
-    .check_composite_column_value_is_unique(column_names=key_columns)
     .check_column_value_is_not_in(column_name="StatusDescription", invalid_values=["--MAPPING ERROR--"])
     .check_narrow_condition(
         expected_condition="TotalDue - SubTotal - TaxAmt - Freight < 0.01",
@@ -189,7 +188,7 @@ target_location = lakehouse_utils.generate_silver_table_location(
     target_zone=target_zone,
     target_business_domain=target_business_domain,
     source_system=source_system,
-    table_name=target_hive_table,
+    table_name=target_table,
 )
 print(f"{target_location = }")
 
@@ -198,8 +197,8 @@ print(f"{target_location = }")
 results = write_utils.write_delta_table(
     df=silver_dq_df,
     location=target_location,
-    database_name=target_hive_database,
-    table_name=target_hive_table,
+    database_name=target_database,
+    table_name=target_table,
     load_type=write_utils.LoadType.TYPE_2_SCD,
     key_columns=key_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,

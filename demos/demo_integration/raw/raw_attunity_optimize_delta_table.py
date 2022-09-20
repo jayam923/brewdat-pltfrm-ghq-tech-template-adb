@@ -1,18 +1,18 @@
 # Databricks notebook source
 # DBTITLE 1,Define widgets
-dbutils.widgets.text("source_hive_database", "brz_ghq_tech_sap_europe", "1 - source_hive_database")
-source_hive_database = dbutils.widgets.get("source_hive_database")
-print(f"{source_hive_database = }")
+dbutils.widgets.text("target_database", "brz_ghq_tech_sap_europe", "1 - target_database")
+target_database = dbutils.widgets.get("target_database")
+print(f"{target_database = }")
 
-dbutils.widgets.text("source_hive_table", "kna1", "2 - source_hive_table")
-source_hive_table = dbutils.widgets.get("source_hive_table")
-print(f"{source_hive_table = }")
+dbutils.widgets.text("target_table", "kna1", "2 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
 dbutils.widgets.text("partition_column", "TARGET_APPLY_DT", "3 - partition_column")
 partition_column = dbutils.widgets.get("partition_column")
 print(f"{partition_column = }")
 
-full_table_name = f"`{source_hive_database}`.`{source_hive_table}`"
+full_table_name = f"`{target_database}`.`{target_table}`"
 print(f"{full_table_name = }")
 
 # COMMAND ----------

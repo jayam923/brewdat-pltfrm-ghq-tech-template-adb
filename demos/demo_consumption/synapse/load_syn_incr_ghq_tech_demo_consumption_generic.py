@@ -1,27 +1,43 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.4.0", "1 - brewdat_library_version")
+import json
+
+dbutils.widgets.text("brewdat_library_version", "v0.5.0", "1 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_object", "gld_ghq_tech_demo_consumption.monthly_sales_order", "2 - source_object")
-source_object = dbutils.widgets.get("source_object")
-print(f"{source_object = }")
+dbutils.widgets.text("source_database", "gld_ghq_tech_demo_consumption", "2 - source_database")
+source_database = dbutils.widgets.get("source_database")
+print(f"{source_database = }")
 
-dbutils.widgets.text("staging_object", "dbo.monthly_sales_order_stg", "3 - staging_object")
-staging_object = dbutils.widgets.get("staging_object")
-print(f"{staging_object = }")
+dbutils.widgets.text("source_table", "monthly_sales_order", "3 - source_table")
+source_table = dbutils.widgets.get("source_table")
+print(f"{source_table = }")
 
-dbutils.widgets.text("target_object", "dbo.monthly_sales_order", "4 - target_object")
-target_object = dbutils.widgets.get("target_object")
-print(f"{target_object = }")
+dbutils.widgets.text("target_table", "dbo.monthly_sales_order", "4 - target_table")
+target_table = dbutils.widgets.get("target_table")
+print(f"{target_table = }")
 
-dbutils.widgets.text("ingestion_procedure", "dbo.sp_ingest_monthly_sales_order_stg", "5 - ingestion_procedure")
-ingestion_procedure = dbutils.widgets.get("ingestion_procedure")
-print(f"{ingestion_procedure = }")
-
-dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "6 - data_interval_start")
+dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "5 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"{data_interval_start = }")
+
+dbutils.widgets.text(
+    "additional_parameters",
+    """{
+        "staging_table": "dbo.monthly_sales_order_stg",
+        "ingestion_procedure": "dbo.sp_ingest_monthly_sales_order_stg"
+    }""",
+    "6 - additional_parameters",
+)
+additional_parameters = dbutils.widgets.get("additional_parameters")
+additional_parameters = json.loads(additional_parameters)
+print(f"{additional_parameters = }")
+
+staging_table = additional_parameters.get("staging_table")
+print(f"{staging_table = }")
+
+ingestion_procedure = additional_parameters.get("ingestion_procedure")
+print(f"{ingestion_procedure = }")
 
 # COMMAND ----------
 
@@ -60,9 +76,12 @@ spark.conf.set("spark.databricks.sqldw.jdbc.service.principal.client.secret", db
 from pyspark.sql import functions as F
 
 try:
+    assert staging_table
+    assert ingestion_procedure
+
     effective_data_interval_end = (
         spark.read
-        .table(source_object)
+        .table(f"`{source_database}`.`{source_table}`")
         .agg(F.max("__update_gmt_ts").cast("string"))
         .collect()[0][0]
     )
@@ -70,7 +89,7 @@ try:
 
     df = (
         spark.read
-        .table(source_object)
+        .table(f"`{source_database}`.`{source_table}`")
         .filter(F.col("__update_gmt_ts").between(data_interval_start, effective_data_interval_end))
     )
 
@@ -78,11 +97,11 @@ try:
 
     # Check that both staging and target tables exist and truncate staging table
     pre_actions = f"""
-        IF OBJECT_ID('{staging_object}', 'U') IS NULL
-            THROW 50000, 'Could not locate staging table: {staging_object}', 1;
-        IF OBJECT_ID('{target_object}', 'U') IS NULL
-            THROW 50000, 'Could not locate target table: {target_object}', 1;
-        TRUNCATE TABLE {staging_object};
+        IF OBJECT_ID('{staging_table}', 'U') IS NULL
+            THROW 50000, 'Could not locate staging table: {staging_table}', 1;
+        IF OBJECT_ID('{target_table}', 'U') IS NULL
+            THROW 50000, 'Could not locate target table: {target_table}', 1;
+        TRUNCATE TABLE {staging_table};
     """
 
     # Invoke procedure to upsert target table with staging data
@@ -100,8 +119,8 @@ try:
         .option("url", synapse_connection_string)
         .option("enableServicePrincipalAuth", True)
         .option("useAzureMSI", True)
-        .option("dbTable", staging_object)
-        .option("tempDir", f"{synapse_blob_temp_root}/{staging_object}")
+        .option("dbTable", staging_table)
+        .option("tempDir", f"{synapse_blob_temp_root}/{staging_table}")
         .option("preActions", pre_actions)
         .option("postActions", post_actions)
         .save()
@@ -114,7 +133,7 @@ except Exception:
 
 results = common_utils.ReturnObject(
     status=common_utils.RunStatus.SUCCEEDED,
-    target_object=f"synapse/{target_object}",
+    target_object=f"synapse/{staging_table}",
     num_records_read=row_count,
     num_records_loaded=row_count,
     effective_data_interval_start=data_interval_start,

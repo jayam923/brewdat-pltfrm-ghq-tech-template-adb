@@ -1,33 +1,57 @@
 # Databricks notebook source
-dbutils.widgets.text("brewdat_library_version", "v0.5.0", "1 - brewdat_library_version")
+import json
+
+dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("target_zone", "ghq", "2 - target_zone")
+dbutils.widgets.text("sql_query", "null", "02 - sql_query")
+sql_query = dbutils.widgets.get("sql_query")
+print(f"{sql_query = }")
+
+dbutils.widgets.text("key_columns", "[]", "03 - key_columns")
+key_columns = dbutils.widgets.get("key_columns")
+key_columns = json.loads(key_columns)
+print(f"{key_columns = }")
+
+dbutils.widgets.text("watermark_column", "__ref_dt", "04 - watermark_column")
+watermark_column = dbutils.widgets.get("watermark_column")
+print(f"{watermark_column = }")
+
+dbutils.widgets.text("partition_columns", "__ref_dt", "05 - partition_columns")
+partition_columns = dbutils.widgets.get("partition_columns")
+partition_columns = json.loads(partition_columns)
+print(f"{partition_columns = }")
+
+dbutils.widgets.text("load_type", "OVERWRITE_TABLE", "06 - load_type")
+load_type = dbutils.widgets.get("load_type")
+print(f"{load_type = }")
+
+dbutils.widgets.text("target_zone", "ghq", "07 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"{target_zone = }")
 
-dbutils.widgets.text("target_business_domain", "tech", "3 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "08 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_data_product", "demo_consumption", "4 - target_data_product")
+dbutils.widgets.text("target_data_product", "demo_consumption", "09 - target_data_product")
 target_data_product = dbutils.widgets.get("target_data_product")
 print(f"{target_data_product = }")
 
-dbutils.widgets.text("target_database", "gld_ghq_tech_demo_consumption", "5 - target_database")
+dbutils.widgets.text("target_database", "gld_ghq_tech_demo_consumption", "10 - target_database")
 target_database = dbutils.widgets.get("target_database")
 print(f"{target_database = }")
 
-dbutils.widgets.text("target_table", "monthly_sales_order", "6 - target_table")
+dbutils.widgets.text("target_table", "customer_orders", "11 - target_table")
 target_table = dbutils.widgets.get("target_table")
 print(f"{target_table = }")
 
-dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "7 - data_interval_start")
+dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "12 - data_interval_start")
 data_interval_start = dbutils.widgets.get("data_interval_start")
 print(f"{data_interval_start = }")
 
-dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "8 - data_interval_end")
+dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "13 - data_interval_end")
 data_interval_end = dbutils.widgets.get("data_interval_end")
 print(f"{data_interval_end = }")
 
@@ -59,37 +83,12 @@ common_utils.configure_spn_access_for_adls(
 # COMMAND ----------
 
 try:
-    df = spark.sql("""
-        SELECT
-            DATE_FORMAT(order_header.OrderDate, 'yyyy-MM') AS OrderYearMonth,
-            order_header.OnlineOrderFlag,
-            customer.Gender AS CustomerGender,
-            ship_to_address.CountryRegion AS ShipToCountryRegion,
-            ship_to_address.StateProvince AS ShipToStateProvince,
-            ship_to_address.City AS ShipToCity,
-            COUNT(order_header.SalesOrderID) AS TotalOrders,
-            SUM(order_header.SubTotal) AS SumSubTotal
-        FROM
-            slv_ghq_tech_adventureworks.sales_order_header AS order_header
-            INNER JOIN slv_ghq_tech_adventureworks.customer
-                ON customer.CustomerID = order_header.CustomerID
-            INNER JOIN slv_ghq_tech_adventureworks.address AS ship_to_address
-                ON ship_to_address.AddressID = order_header.ShipToAddressID
-        WHERE
-            order_header.Status NOT IN (
-                1, -- In Process
-                4, -- Rejected
-                6 -- Canceled
-            )
-        GROUP BY
-            OrderYearMonth,
-            OnlineOrderFlag,
-            CustomerGender,
-            ShipToCountryRegion,
-            ShipToStateProvince,
-            ShipToCity
-        WITH ROLLUP
-    """)
+    df = spark.sql(sql_query.format(
+        watermark_column=watermark_column,
+        data_interval_start=data_interval_start,
+        data_interval_end=data_interval_end,
+    ))
+
 except Exception:
     common_utils.exit_with_last_exception()
 
@@ -97,7 +96,17 @@ except Exception:
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(df)
+dedup_df = transform_utils.deduplicate_records(
+    df=df,
+    key_columns=key_columns,
+    watermark_column=watermark_column,
+)
+
+# display(dedup_df)
+
+# COMMAND ----------
+
+audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 # display(audit_df)
 
@@ -120,8 +129,10 @@ results = write_utils.write_delta_table(
     location=target_location,
     database_name=target_database,
     table_name=target_table,
-    load_type=write_utils.LoadType.OVERWRITE_TABLE,
-    schema_evolution_mode=write_utils.SchemaEvolutionMode.OVERWRITE_SCHEMA,
+    load_type=load_type,
+    key_columns=key_columns,
+    partition_columns=partition_columns,
+    schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
 )
 print(results)
 
