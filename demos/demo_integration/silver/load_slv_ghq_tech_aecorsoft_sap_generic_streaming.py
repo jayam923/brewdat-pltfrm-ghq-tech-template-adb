@@ -147,7 +147,7 @@ print(f"{target_location = }")
 # COMMAND ----------
 
 
-def deduplicate(df, _):
+def deduplicate(df):
     return transform_utils.deduplicate_records(
         df=df,
         key_columns=key_columns,
