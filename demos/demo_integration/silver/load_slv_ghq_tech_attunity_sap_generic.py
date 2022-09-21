@@ -123,6 +123,8 @@ try:
             F.to_timestamp(F.lit(data_interval_start)),
             F.to_timestamp(F.lit(effective_data_interval_end)),
         ))
+        # Ignore "Before Image" records from update operations
+        .filter("header__change_oper != 'B'")
     )
 
 except Exception:

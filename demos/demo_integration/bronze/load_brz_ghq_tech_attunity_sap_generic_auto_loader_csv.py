@@ -3,17 +3,17 @@ dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_zone", "ghq", "02 - source_zone")
+dbutils.widgets.text("source_system", "sap_ecc_ero", "02 - source_system")
+source_system = dbutils.widgets.get("source_system")
+print(f"{source_system = }")
+
+dbutils.widgets.text("source_zone", "ghq", "03 - source_zone")
 source_zone = dbutils.widgets.get("source_zone")
 print(f"{source_zone = }")
 
-dbutils.widgets.text("source_business_domain", "tech", "03 - source_business_domain")
+dbutils.widgets.text("source_business_domain", "tech", "04 - source_business_domain")
 source_business_domain = dbutils.widgets.get("source_business_domain")
 print(f"{source_business_domain = }")
-
-dbutils.widgets.text("source_system", "sap_europe", "04 - source_system")
-source_system = dbutils.widgets.get("source_system")
-print(f"{source_system = }")
 
 dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
 source_table = dbutils.widgets.get("source_table")
@@ -63,19 +63,17 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = source_system_to_sap_sid.get(source_system)
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/sap_{sap_sid}/file.{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{source_system}/file.{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
 
 base_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.PARQUET,
-        location=f"{raw_location}/*.parquet",
+        file_format=read_utils.RawFileFormat.CSV,
+        location=f"{raw_location}/*.csv*",
         schema_location=raw_location,
-        cast_all_to_string=True,
-        handle_rescued_data=True,
+        csv_delimiter="|~|",
         additional_options={
             "cloudFiles.useIncrementalListing": "false",
         },
@@ -91,14 +89,11 @@ base_df = (
 
 ct_df = (
     read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.PARQUET,
-        location=f"{raw_location}__ct/*.parquet",
-        schema_location=f"{raw_location}__ct",
-        cast_all_to_string=True,
-        handle_rescued_data=True,
+        file_format=read_utils.RawFileFormat.CSV,
+        location=f"{raw_location}__ct/*.csv*",
+        schema_location=raw_location,
+        csv_delimiter="|~|",
     )
-    # Ignore "Before Image" records from update operations
-    .filter("header__change_oper != 'B'")
     .withColumn("__src_file", F.input_file_name())
     .transform(transform_utils.clean_column_names)
     .transform(transform_utils.create_or_replace_audit_columns)
