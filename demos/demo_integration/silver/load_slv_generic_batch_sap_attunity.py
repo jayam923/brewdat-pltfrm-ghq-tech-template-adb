@@ -5,15 +5,15 @@ dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_system", "sap_ecc_ero", "02 - source_system")
+dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_database", "brz_afr_tech_sap_ecc_ero", "03 - source_database")
+dbutils.widgets.text("source_database", "brz_ghq_tech_sap_europe", "03 - source_database")
 source_database = dbutils.widgets.get("source_database")
 print(f"{source_database = }")
 
-dbutils.widgets.text("source_table", "afih", "04 - source_table")
+dbutils.widgets.text("source_table", "kna1", "04 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
 
@@ -22,43 +22,35 @@ column_mapping = dbutils.widgets.get("column_mapping")
 column_mapping = json.loads(column_mapping)
 print(f"{column_mapping = }")
 
-dbutils.widgets.text("key_columns", '["MANDT", "AUFNR"]', "06 - key_columns")
+dbutils.widgets.text("key_columns", '["MANDT", "KUNNR"]', "06 - key_columns")
 key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
 print(f"{key_columns = }")
 
-dbutils.widgets.text("watermark_column", "SOURCE_COMMIT_TS", "07 - watermark_column")
-watermark_column = dbutils.widgets.get("watermark_column")
-print(f"{watermark_column = }")
-
-dbutils.widgets.text("partition_columns", "[]", "08 - partition_columns")
+dbutils.widgets.text("partition_columns", "[]", "07 - partition_columns")
 partition_columns = dbutils.widgets.get("partition_columns")
 partition_columns = json.loads(partition_columns)
 print(f"{partition_columns = }")
 
-dbutils.widgets.text("load_type", "UPSERT", "09 - load_type")
-load_type = dbutils.widgets.get("load_type")
-print(f"{load_type = }")
-
-dbutils.widgets.text("target_zone", "afr", "10 - target_zone")
+dbutils.widgets.text("target_zone", "ghq", "08 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"{target_zone = }")
 
-dbutils.widgets.text("target_business_domain", "tech", "11 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "09 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_database", "slv_afr_tech_sap_ecc_ero", "12 - target_database")
+dbutils.widgets.text("target_database", "slv_ghq_tech_sap_europe", "10 - target_database")
 target_database = dbutils.widgets.get("target_database")
 print(f"{target_database = }")
 
-dbutils.widgets.text("target_table", "afih", "13 - target_table")
+dbutils.widgets.text("target_table", "kna1", "11 - target_table")
 target_table = dbutils.widgets.get("target_table")
 print(f"{target_table = }")
 
-dbutils.widgets.text("reset_stream_checkpoint", "false", "14 - reset_stream_checkpoint")
-reset_stream_checkpoint = dbutils.widgets.get("reset_stream_checkpoint")
-print(f"{reset_stream_checkpoint = }")
+dbutils.widgets.text("data_interval_start", "2022-08-02 00:00:00.0000000", "12 - data_interval_start")
+data_interval_start = dbutils.widgets.get("data_interval_start")
+print(f"{data_interval_start = }")
 
 # COMMAND ----------
 
@@ -66,7 +58,7 @@ import sys
 
 # Import BrewDat Library modules and share dbutils globally
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
-from brewdat.data_engineering import read_utils, common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils
+from brewdat.data_engineering import common_utils, data_quality_utils, lakehouse_utils, transform_utils, write_utils
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
@@ -91,12 +83,54 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-bronze_df = (
-    read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        table_name=f"`{source_database}`.`{source_table}`",
+from pyspark.sql import functions as F
+
+try:
+    latest_partition = (
+        spark.read
+        .table(f"{source_database}.{source_table}")
+        .agg(F.max("TARGET_APPLY_DT"))
+        .collect()[0][0]
     )
-)
+    print(f"{latest_partition = }")
+
+    max_watermark_value = (
+        spark.read
+        .table(f"{source_database}.{source_table}")
+        .filter(F.col("TARGET_APPLY_DT") == F.lit(latest_partition))
+        .agg(F.max("TARGET_APPLY_TS"))
+        .collect()[0][0]
+    )
+    print(f"{max_watermark_value = }")
+
+    effective_data_interval_end = max_watermark_value
+    print(f"{effective_data_interval_end = }")
+
+except Exception:
+    common_utils.exit_with_last_exception()
+
+# COMMAND ----------
+
+try:
+    bronze_df = (
+        spark.read
+        .table(f"{source_database}.{source_table}")
+        .filter(F.col("TARGET_APPLY_DT").between(
+            F.to_date(F.lit(data_interval_start)),
+            F.to_date(F.lit(effective_data_interval_end)),
+        ))
+        .filter(F.col("TARGET_APPLY_TS").between(
+            F.to_timestamp(F.lit(data_interval_start)),
+            F.to_timestamp(F.lit(effective_data_interval_end)),
+        ))
+        # Ignore "Before Image" records from update operations
+        .filter("header__change_oper != 'B'")
+    )
+
+except Exception:
+    common_utils.exit_with_last_exception()
+
+# display(bronze_df)
 
 # COMMAND ----------
 
@@ -105,10 +139,11 @@ try:
     dq_checker = data_quality_utils.DataQualityChecker(bronze_df)
     mappings = [common_utils.ColumnMapping(**mapping) for mapping in column_mapping]
     for mapping in mappings:
-        dq_checker = dq_checker.check_column_type_cast(
-            column_name=mapping.source_column_name,
-            data_type=mapping.target_data_type,
-        )
+        if mapping.target_data_type != "string":
+            dq_checker = dq_checker.check_column_type_cast(
+                column_name=mapping.source_column_name,
+                data_type=mapping.target_data_type,
+            )
         if not mapping.nullable:
             dq_checker = dq_checker.check_column_is_not_null(mapping.source_column_name)
 
@@ -135,7 +170,15 @@ transformed_df, unmapped_columns = transform_utils.apply_column_mappings(df=bron
 
 # COMMAND ----------
 
-audit_df = transform_utils.create_or_replace_audit_columns(transformed_df)
+dedup_df = transform_utils.deduplicate_records(
+    df=transformed_df,
+    key_columns=key_columns,
+    watermark_column="SOURCE_COMMIT_TS",
+)
+
+# COMMAND ----------
+
+audit_df = transform_utils.create_or_replace_audit_columns(dedup_df)
 
 # COMMAND ----------
 
@@ -150,31 +193,24 @@ print(f"{target_location = }")
 
 # COMMAND ----------
 
-
-def deduplicate(df):
-    return transform_utils.deduplicate_records(
-        df=df,
-        key_columns=key_columns,
-        watermark_column=watermark_column,
-    )
-
-
-results = write_utils.write_stream_delta_table(
+results = write_utils.write_delta_table(
     df=audit_df,
     location=target_location,
     database_name=target_database,
     table_name=target_table,
-    load_type=load_type,
+    load_type=write_utils.LoadType.UPSERT,
     key_columns=key_columns,
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
-    transform_microbatch=deduplicate,
-    reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
+    update_condition_for_upsert="source.SOURCE_COMMIT_TS >= target.SOURCE_COMMIT_TS",
 )
 
+results.effective_data_interval_start = data_interval_start
+results.effective_data_interval_end = effective_data_interval_end or data_interval_start
+
 # Warn in case of relevant unmapped columns
-unmapped_columns = list(filter(lambda c: not c.startswith("__"), unmapped_columns))
+unmapped_columns = list(filter(lambda c: not c.startswith("header__"), unmapped_columns))
 if unmapped_columns:
     formatted_columns = ", ".join(f"`{col}`" for col in unmapped_columns)
     unmapped_warning = "WARNING: the following columns are not mapped: " + formatted_columns

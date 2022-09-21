@@ -27,7 +27,7 @@ key_columns = dbutils.widgets.get("key_columns")
 key_columns = json.loads(key_columns)
 print(f"{key_columns = }")
 
-dbutils.widgets.text("watermark_column", "SOURCE_COMMIT_TS", "07 - watermark_column")
+dbutils.widgets.text("watermark_column", "AEDATTM", "07 - watermark_column")
 watermark_column = dbutils.widgets.get("watermark_column")
 print(f"{watermark_column = }")
 
@@ -169,12 +169,13 @@ results = write_utils.write_stream_delta_table(
     partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
     bad_record_handling_mode=write_utils.BadRecordHandlingMode.REJECT,
+    update_condition_for_upsert=f"source.`{watermark_column}` >= target.`{watermark_column}`",
     transform_microbatch=deduplicate,
     reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )
 
 # Warn in case of relevant unmapped columns
-unmapped_columns = list(filter(lambda c: not c.startswith("__"), unmapped_columns))
+unmapped_columns = list(filter(lambda c: not c.startswith("header__"), unmapped_columns))
 if unmapped_columns:
     formatted_columns = ", ".join(f"`{col}`" for col in unmapped_columns)
     unmapped_warning = "WARNING: the following columns are not mapped: " + formatted_columns
