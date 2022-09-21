@@ -17,9 +17,9 @@ if environment == "dev":
     adls_raw_bronze_storage_account_name = "brewdatpltfrmrawbrzd"
     adls_silver_gold_storage_account_name = "brewdatpltfrmslvgldd"
     adls_brewdat_ghq_storage_account_name = "brewdatadlsgbdev"
-    adls_raw_bronze_storage_account_name_maz = "brewdatmazrawbrzd"
+    adls_raw_bronze_storage_account_name_maz = "brewdatmazstestd"
     key_vault_name = "brewdatpltfrmghqtechakvd"
-    key_vault_name_maz = "brewdatmaghqakvd"
+    key_vault_name_maz = "brewdatmzstestakvd"
     spn_client_id = "1d3aebfe-929c-4cc1-a988-31c040d2b798"
     spn_secret_name = "brewdat-spn-pltfrm-ghq-tech-template-rw-d"
     spn_client_id_maz = "709e8c38-d74b-4471-94e5-f2e14323498a"
@@ -97,3 +97,6 @@ print(f"lakehouse_raw_root_maz: {lakehouse_raw_root_maz}")
 
 lakehouse_bronze_root_maz = f"abfss://bronze@{adls_raw_bronze_storage_account_name_maz}.dfs.core.windows.net"
 print(f"lakehouse_bronze_root_maz: {lakehouse_bronze_root_maz}")
+
+lakehouse_silver_root_maz = f"abfss://silver@{adls_raw_bronze_storage_account_name_maz}.dfs.core.windows.net"
+print(f"lakehouse_silver_root_maz: {lakehouse_silver_root_maz}")
