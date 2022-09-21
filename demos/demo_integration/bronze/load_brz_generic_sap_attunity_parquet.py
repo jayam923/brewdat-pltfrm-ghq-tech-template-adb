@@ -7,17 +7,17 @@ dbutils.widgets.text("source_system", "sap_ecc_ero", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_zone", "ghq", "03 - source_zone")
-source_zone = dbutils.widgets.get("source_zone")
-print(f"{source_zone = }")
-
-dbutils.widgets.text("source_business_domain", "tech", "04 - source_business_domain")
-source_business_domain = dbutils.widgets.get("source_business_domain")
-print(f"{source_business_domain = }")
-
-dbutils.widgets.text("source_table", "KNA1", "05 - source_table")
+dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
+
+dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
+target_zone = dbutils.widgets.get("target_zone")
+print(f"{target_zone = }")
+
+dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_domain")
+target_business_domain = dbutils.widgets.get("target_business_domain")
+print(f"{target_business_domain = }")
 
 dbutils.widgets.text("target_database", "brz_ghq_tech_sap_europe", "06 - target_database")
 target_database = dbutils.widgets.get("target_database")
@@ -63,7 +63,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{source_system}/file.{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{target_zone}/{target_business_domain}/{source_system}/file.{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
@@ -113,8 +113,8 @@ union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
 
 target_location = lakehouse_utils.generate_bronze_table_location(
     lakehouse_bronze_root=lakehouse_bronze_root,
-    target_zone=source_zone,
-    target_business_domain=source_business_domain,
+    target_zone=target_zone,
+    target_business_domain=target_business_domain,
     source_system=source_system,
     table_name=target_table,
 )
@@ -130,7 +130,6 @@ results = write_utils.write_stream_delta_table(
     load_type=write_utils.LoadType.APPEND_ALL,
     partition_columns=["TARGET_APPLY_DT"],
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
-    bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
     reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )

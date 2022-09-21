@@ -1,40 +1,54 @@
 # Databricks notebook source
+import json
+
 dbutils.widgets.text("brewdat_library_version", "v0.5.0", "01 - brewdat_library_version")
 brewdat_library_version = dbutils.widgets.get("brewdat_library_version")
 print(f"{brewdat_library_version = }")
 
-dbutils.widgets.text("source_system", "sap_europe", "02 - source_system")
+dbutils.widgets.text("source_system", "adventureworks", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
-source_table = dbutils.widgets.get("source_table")
-print(f"{source_table = }")
+dbutils.widgets.text(
+    "source_location",
+    "data/ghq/tech/adventureworks/adventureworkslt/saleslt/salesorderheader/",
+    "03 - source_location",
+)
+source_location = dbutils.widgets.get("source_location")
+print(f"{source_location = }")
 
-dbutils.widgets.text("target_zone", "ghq", "04 - target_zone")
+dbutils.widgets.text("partition_columns", '["__ref_dt"]', "04 - partition_columns")
+partition_columns = dbutils.widgets.get("partition_columns")
+partition_columns = json.loads(partition_columns)
+print(f"{partition_columns = }")
+
+dbutils.widgets.text("target_zone", "ghq", "05 - target_zone")
 target_zone = dbutils.widgets.get("target_zone")
 print(f"{target_zone = }")
 
-dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_domain")
+dbutils.widgets.text("target_business_domain", "tech", "06 - target_business_domain")
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_database", "brz_ghq_tech_sap_europe", "06 - target_database")
+dbutils.widgets.text("target_database", "brz_ghq_tech_adventureworks", "07 - target_database")
 target_database = dbutils.widgets.get("target_database")
 print(f"{target_database = }")
 
-dbutils.widgets.text("target_table", "kna1", "07 - target_table")
+dbutils.widgets.text("target_table", "sales_order_header", "08 - target_table")
 target_table = dbutils.widgets.get("target_table")
 print(f"{target_table = }")
 
-dbutils.widgets.text("reset_stream_checkpoint", "false", "08 - reset_stream_checkpoint")
-reset_stream_checkpoint = dbutils.widgets.get("reset_stream_checkpoint")
-print(f"{reset_stream_checkpoint = }")
+dbutils.widgets.text("data_interval_start", "2022-05-21T00:00:00Z", "09 - data_interval_start")
+data_interval_start = dbutils.widgets.get("data_interval_start")
+print(f"{data_interval_start = }")
+
+dbutils.widgets.text("data_interval_end", "2022-05-22T00:00:00Z", "10 - data_interval_end")
+data_interval_end = dbutils.widgets.get("data_interval_end")
+print(f"{data_interval_end = }")
 
 # COMMAND ----------
 
 import sys
-from pyspark.sql import functions as F
 
 # Import BrewDat Library modules and share dbutils globally
 sys.path.append(f"/Workspace/Repos/brewdat_library/{brewdat_library_version}")
@@ -42,7 +56,7 @@ from brewdat.data_engineering import common_utils, lakehouse_utils, read_utils, 
 common_utils.set_global_dbutils(dbutils)
 
 # Print a module's help
-# help(common_utils)
+# help(read_utils)
 
 # COMMAND ----------
 
@@ -52,10 +66,7 @@ common_utils.set_global_dbutils(dbutils)
 
 # Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
-    storage_account_names=[
-        adls_raw_bronze_storage_account_name,
-        adls_brewdat_ghq_storage_account_name,
-    ],
+    storage_account_names=[adls_raw_bronze_storage_account_name],
     key_vault_name=key_vault_name,
     spn_client_id=spn_client_id,
     spn_secret_name=spn_secret_name,
@@ -63,47 +74,30 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-sap_sid = source_system_to_sap_sid.get(source_system)
-attunity_sap_prelz_root = f"/attunity_sap/attunity_sap_{sap_sid}_prelz/prelz_sap_{sap_sid}"
-print(f"{attunity_sap_prelz_root = }")
+raw_df = read_utils.read_raw_dataframe(
+    file_format=read_utils.RawFileFormat.ORC,
+    location=f"{lakehouse_raw_root}/{source_location}",
+)
+
+# display(raw_df)
 
 # COMMAND ----------
 
-base_df = (
-    read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}",
-    )
+from pyspark.sql import functions as F
+
+transformed_df = (
+    raw_df
+    .filter(F.col("__ref_dt").between(
+        F.date_format(F.lit(data_interval_start), "yyyyMMdd"),
+        F.date_format(F.lit(data_interval_end), "yyyyMMdd"),
+    ))
     .withColumn("__src_file", F.input_file_name())
     .transform(transform_utils.clean_column_names)
     .transform(transform_utils.cast_all_columns_to_string)
     .transform(transform_utils.create_or_replace_audit_columns)
 )
 
-# display(base_df)
-
-# COMMAND ----------
-
-ct_df = (
-    read_utils.read_raw_streaming_dataframe(
-        file_format=read_utils.RawFileFormat.DELTA,
-        location=f"{brewdat_ghq_root}/{attunity_sap_prelz_root}_{source_table}__ct",
-    )
-    # Ignore "Before Image" records from update operations
-    .filter("header__change_oper != 'B'")
-    .withColumn("__src_file", F.input_file_name())
-    .transform(transform_utils.clean_column_names)
-    .transform(transform_utils.cast_all_columns_to_string)
-    .transform(transform_utils.create_or_replace_audit_columns)
-)
-
-# display(ct_df)
-
-# COMMAND ----------
-
-union_df = base_df.unionByName(ct_df, allowMissingColumns=True)
-
-# display(union_df)
+# display(transformed_df)
 
 # COMMAND ----------
 
@@ -118,17 +112,15 @@ print(f"{target_location = }")
 
 # COMMAND ----------
 
-results = write_utils.write_stream_delta_table(
-    df=union_df,
+results = write_utils.write_delta_table(
+    df=transformed_df,
     location=target_location,
     database_name=target_database,
     table_name=target_table,
     load_type=write_utils.LoadType.APPEND_ALL,
-    partition_columns=["TARGET_APPLY_DT"],
+    partition_columns=partition_columns,
     schema_evolution_mode=write_utils.SchemaEvolutionMode.ADD_NEW_COLUMNS,
-    bad_record_handling_mode=write_utils.BadRecordHandlingMode.WARN,
     enable_caching=False,
-    reset_checkpoint=(reset_stream_checkpoint.lower() == "true"),
 )
 print(results)
 

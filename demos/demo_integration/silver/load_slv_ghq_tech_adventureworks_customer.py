@@ -49,6 +49,7 @@ common_utils.set_global_dbutils(dbutils)
 
 # COMMAND ----------
 
+# Configure SPN for all ADLS access using AKV-backed secret scope
 common_utils.configure_spn_access_for_adls(
     storage_account_names=[adls_raw_bronze_storage_account_name, adls_silver_gold_storage_account_name],
     key_vault_name=key_vault_name,
