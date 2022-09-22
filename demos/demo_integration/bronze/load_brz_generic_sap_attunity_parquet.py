@@ -63,7 +63,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{source_system}/attunity/file.{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{target_zone}/{target_business_domain}/{source_system}/attunity/file.{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
