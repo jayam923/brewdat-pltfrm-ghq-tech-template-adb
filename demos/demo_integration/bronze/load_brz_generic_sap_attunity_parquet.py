@@ -7,7 +7,7 @@ dbutils.widgets.text("source_system", "sap_ecc_ero", "02 - source_system")
 source_system = dbutils.widgets.get("source_system")
 print(f"{source_system = }")
 
-dbutils.widgets.text("source_table", "KNA1", "03 - source_table")
+dbutils.widgets.text("source_table", "kna1", "03 - source_table")
 source_table = dbutils.widgets.get("source_table")
 print(f"{source_table = }")
 
@@ -19,7 +19,7 @@ dbutils.widgets.text("target_business_domain", "tech", "05 - target_business_dom
 target_business_domain = dbutils.widgets.get("target_business_domain")
 print(f"{target_business_domain = }")
 
-dbutils.widgets.text("target_database", "brz_ghq_tech_sap_europe", "06 - target_database")
+dbutils.widgets.text("target_database", "brz_ghq_tech_sap_ecc_ero", "06 - target_database")
 target_database = dbutils.widgets.get("target_database")
 print(f"{target_database = }")
 
@@ -63,7 +63,7 @@ common_utils.configure_spn_access_for_adls(
 
 # COMMAND ----------
 
-raw_location = f"{lakehouse_raw_root}/data/{target_zone}/{target_business_domain}/{source_system}/file.{source_table}"
+raw_location = f"{lakehouse_raw_root}/data/{source_zone}/{source_business_domain}/{source_system}/attunity/file.{source_table}"
 print(f"{raw_location = }")
 
 # COMMAND ----------
